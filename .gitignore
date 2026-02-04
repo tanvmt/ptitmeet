@@ -32,3 +32,13 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
+
+# --- IntelliJ / VS Code ---
+.idea/
+.vscode/
+*.iml
+*.iws
