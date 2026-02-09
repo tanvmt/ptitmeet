@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Demo LiveKit Localhost (Fixed)</title>
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        #video-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+        video { width: 400px; height: 300px; background: #000; border-radius: 8px; object-fit: cover; }
+        .participant-wrapper { position: relative; }
+        .participant-name { position: absolute; bottom: 5px; left: 5px; color: white; background: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h2>LiveKit Demo - Localhost Connection</h2>
+    <div>
+        <input type="text" id="token" placeholder="Dán Token vào đây" style="width: 400px; padding: 5px;">
+        <button onclick="connectToRoom()" style="padding: 5px 10px; cursor: pointer;">Kết nối</button>
+    </div>
+    <div id="video-container"></div>
+
+    <script>
+        async function connectToRoom() {
+            const url = "ws://127.0.0.1:7880";
+            const token = document.getElementById('token').value;
+    
+            if (!token) return alert("Vui lòng dán Token!");
+    
+            // --- SỬA LỖI 1: Tên biến đúng là LivekitClient (chữ k thường) ---
+            const LK = window.LivekitClient;
+            
+            if (!LK) {
+                return alert("Không tải được LiveKit SDK. Kiểm tra lại kết nối mạng!");
+            }
+
+            try {
+                // Khởi tạo Room
+                const room = new LK.Room({
+                    adaptiveStream: true,
+                    dynacast: true,
+                });
+    
+                // 1. Xử lý khi có người khác (Remote Participant) tham gia và bật camera
+                room.on(LK.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                    if (track.kind === 'video') {
+                        attachVideo(track, participant.identity);
+                    }
+                });
+
+                // Xử lý khi track bị tắt (người dùng tắt cam hoặc rời phòng)
+                room.on(LK.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+                    track.detach().forEach(element => element.remove());
+                    // Xóa wrapper nếu cần (đơn giản hóa ở đây chỉ xóa element video)
+                    const existingEl = document.getElementById(`video-${participant.identity}`);
+                    if(existingEl) existingEl.remove();
+                });
+    
+                // Kết nối
+                console.log("Đang kết nối...");
+                await room.connect(url, token);
+                console.log("Kết nối thành công tới phòng:", room.name);
+    
+                // --- SỬA LỖI 2: Dùng hàm của SDK v2 để bật Cam/Mic ---
+                await room.localParticipant.setCameraEnabled(true);
+                await room.localParticipant.setMicrophoneEnabled(true);
+                
+                // Hiển thị camera của chính mình (Local)
+                const localVideoTrack = room.localParticipant.getTrackPublication(LK.Track.Source.Camera).videoTrack;
+                if (localVideoTrack) {
+                    attachVideo(localVideoTrack, "Tôi (Local)");
+                }
+    
+            } catch (error) {
+                console.error("Lỗi kết nối:", error);
+                alert("Lỗi: " + error.message);
+            }
+        }
+
+        // Hàm phụ trợ để gắn video vào DOM
+        function attachVideo(track, identity) {
+            // Kiểm tra xem đã có video của người này chưa để tránh duplicate
+            const existingId = `video-${identity}`;
+            if (document.getElementById(existingId)) return;
+
+            const videoElement = track.attach();
+            videoElement.id = existingId; // Gán ID để dễ quản lý
+
+            // Tạo wrapper để hiển thị tên
+            const wrapper = document.createElement('div');
+            wrapper.className = 'participant-wrapper';
+            
+            const nameLabel = document.createElement('div');
+            nameLabel.className = 'participant-name';
+            nameLabel.innerText = identity;
+
+            wrapper.appendChild(videoElement);
+            wrapper.appendChild(nameLabel);
+            
+            document.getElementById('video-container').appendChild(wrapper);
+        }
+    </script>
+</body>
+</html>
