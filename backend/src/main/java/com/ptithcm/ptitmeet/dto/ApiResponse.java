@@ -9,9 +9,23 @@ import lombok.*;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL) 
 public class ApiResponse<T> {
-    @Builder.Default
-    private int code = 1000; 
-    
-    private String message;
-    private T result;
+
+    private int status;      
+    private String message;  
+    private T data;         
+
+    public static <T> ApiResponse<T> success(T data, String message) {
+        return ApiResponse.<T>builder()
+                .status(200)
+                .message(message)
+                .data(data)
+                .build();
+    }
+
+    public static <T> ApiResponse<T> error(int status, String message) {
+        return ApiResponse.<T>builder()
+                .status(status)
+                .message(message)
+                .build();
+    }
 }
