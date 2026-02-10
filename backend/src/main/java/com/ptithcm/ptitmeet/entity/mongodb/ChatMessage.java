@@ -1,13 +1,15 @@
-package com.ptit.meet.entity.mongodb;
+package com.ptithcm.ptitmeet.entity.mongodb;
+
+import java.time.LocalDateTime;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
-import lombok.Builder;
-import lombok.Data;
+
 import com.ptithcm.ptitmeet.entity.enums.MessageType;
 
-import java.time.LocalDateTime;
+import lombok.Builder;
+import lombok.Data;
 
 @Data
 @Builder
