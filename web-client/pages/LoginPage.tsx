@@ -1,4 +1,5 @@
 
+import axios from 'axios';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -10,17 +11,30 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
-  const handleLogin = (e: React.FormEvent) => {
+  const [password, setPassword] = useState('');
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Mock API Login Call
-    setTimeout(() => {
-      console.log("Logged in with:", email);
+    try {
+      
+      const loginRes = await axios.post("http://localhost:8080/api/auth/login",{email, password})
+      if (loginRes.data.status === 200){
+        console.log("Logged in with:", email);
+        setIsLoading(false);
+        onLoginSuccess();
+        navigate('/');
+      } else{
+        setIsLoading(false);
+
+      }
+      
+    } catch (error) {
       setIsLoading(false);
-      onLoginSuccess();
-      navigate('/');
-    }, 1500);
+    }
+
+    
+
   };
 
   return (
@@ -54,6 +68,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <input 
               type="password" 
               required
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full h-12 px-4 rounded-xl bg-surface border border-white/10 focus:ring-2 focus:ring-primary focus:outline-none transition-all" 
               placeholder="••••••••" 
             />

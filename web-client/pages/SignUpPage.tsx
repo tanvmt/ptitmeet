@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 const SignUpPage: React.FC = () => {
   const navigate = useNavigate();
   const handleSignUp = () => {
-    //Logic đăng ký tài khoản ở đây (gọi API, xác thực, v.v.)
+    
     navigate('/waiting-room');
   };
 
