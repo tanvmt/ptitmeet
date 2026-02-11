@@ -22,6 +22,22 @@ public class UserController {
 
     private final UserService userService;
 
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(Authentication authentication) {
+
+        UUID userId = UUID.fromString(authentication.getName());
+
+        UserResponse user = userService.getProfile(userId);
+
+        ApiResponse<UserResponse> response = ApiResponse.<UserResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Lấy thông tin người dùng hiện tại thành công")
+                .data(user)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/profile")
     public ResponseEntity<ApiResponse<UserResponse>> getProfile(Authentication authentication) {
 

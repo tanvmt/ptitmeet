@@ -20,10 +20,12 @@ import com.ptithcm.ptitmeet.dto.auth.AuthResponse;
 import com.ptithcm.ptitmeet.dto.auth.ForgotPasswordRequest;
 import com.ptithcm.ptitmeet.dto.auth.GoogleLoginRequest;
 import com.ptithcm.ptitmeet.dto.auth.LoginRequest;
-import com.ptithcm.ptitmeet.dto.auth.RefreshTokenRequest;
 import com.ptithcm.ptitmeet.dto.auth.RegisterRequest;
 import com.ptithcm.ptitmeet.dto.auth.ResetPasswordRequest;
 import com.ptithcm.ptitmeet.dto.auth.UserResponse;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import com.ptithcm.ptitmeet.entity.enums.AuthProvider;
 import com.ptithcm.ptitmeet.entity.mysql.User;
 import com.ptithcm.ptitmeet.exception.AppException;
@@ -42,7 +44,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final EmailService emailService;
 
-    @Value("${google.client-id:}")
+    @Value("${google.client-id}")
     private String googleClientId;
 
     private final Map<String, String> resetTokenStore = new HashMap<>();
@@ -66,32 +68,23 @@ public class AuthService {
     }
 
     @Transactional(readOnly = true)
-    public AuthResponse login(LoginRequest request) {
+    public AuthResponse login(LoginRequest request, HttpServletResponse response) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng"));
-
-        if (user.getAuthProvider() != AuthProvider.LOCAL) {
-            throw new AppException(HttpStatus.BAD_REQUEST,
-                    "Tài khoản này đã đăng ký bằng " + user.getAuthProvider()
-                            + ". Vui lòng sử dụng phương thức đăng nhập tương ứng.");
-        }
+                .orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, "Email hoặc mật khẩu không đúng"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new AppException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng");
+            throw new AppException(HttpStatus.BAD_REQUEST, "Email hoặc mật khẩu không đúng");
         }
 
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getEmail());
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUserId());
+        generateTokensAndSetCookies(user, response);
 
         return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
                 .user(mapToUserResponse(user))
                 .build();
     }
 
     @Transactional
-    public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
+    public AuthResponse loginWithGoogle(GoogleLoginRequest request, HttpServletResponse response) {
         try {
             GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
                     new NetHttpTransport(),
@@ -112,42 +105,46 @@ public class AuthService {
 
             User user = userRepository.findByProviderId(providerId)
                     .orElseGet(() -> {
-                        if (userRepository.existsByEmail(email)) {
-                            throw new AppException(HttpStatus.BAD_REQUEST,
-                                    "Email này đã được đăng ký bằng phương thức khác");
-                        }
-
-                        User newUser = User.builder()
-                                .email(email)
-                                .fullName(name)
-                                .avatarUrl(pictureUrl)
-                                .authProvider(AuthProvider.GOOGLE)
-                                .providerId(providerId)
-                                .build();
-
-                        return userRepository.save(newUser);
+                        return userRepository.findByEmail(email)
+                                .map(existingUser -> {
+                                    existingUser.setAuthProvider(AuthProvider.GOOGLE);
+                                    existingUser.setProviderId(providerId);
+                                    if (existingUser.getAvatarUrl() == null) {
+                                        existingUser.setAvatarUrl(pictureUrl);
+                                    }
+                                    return userRepository.save(existingUser);
+                                })
+                                .orElseGet(() -> {
+                                    User newUser = User.builder()
+                                            .email(email)
+                                            .fullName(name)
+                                            .avatarUrl(pictureUrl)
+                                            .authProvider(AuthProvider.GOOGLE)
+                                            .providerId(providerId)
+                                            .build();
+                                    return userRepository.save(newUser);
+                                });
                     });
 
-            String accessToken = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getEmail());
-            String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUserId());
+            generateTokensAndSetCookies(user, response);
 
             return AuthResponse.builder()
-                    .accessToken(accessToken)
-                    .refreshToken(refreshToken)
                     .user(mapToUserResponse(user))
                     .build();
         } catch (Exception e) {
+            if (e instanceof AppException) {
+                throw (AppException) e;
+            }
             throw new AppException(HttpStatus.UNAUTHORIZED, "Không thể xác thực Google token");
         }
     }
 
     @Transactional(readOnly = true)
-    public AuthResponse refreshToken(RefreshTokenRequest request) {
-        log.info("Làm mới access token");
+    public AuthResponse refreshToken(HttpServletRequest request, HttpServletResponse response) {
 
-        String refreshToken = request.getRefreshToken();
+        String refreshToken = getCookieValue(request, "refresh_token");
 
-        if (!jwtTokenProvider.validateToken(refreshToken)) {
+        if (refreshToken == null || !jwtTokenProvider.validateToken(refreshToken)) {
             throw new AppException(HttpStatus.UNAUTHORIZED, "Refresh token không hợp lệ hoặc đã hết hạn");
         }
 
@@ -159,20 +156,55 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "User không tồn tại"));
 
+        // Tạo access token mới, refresh token giữ nguyên
         String newAccessToken = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getEmail());
 
+        // Cập nhật lại cookie access token
+        addCookie(response, "access_token", newAccessToken, jwtTokenProvider.getAccessTokenExpiration() / 1000);
+
         return AuthResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(refreshToken) // Giữ nguyên refresh token
                 .user(mapToUserResponse(user))
                 .build();
+    }
+
+    public void logout(HttpServletResponse response) {
+        addCookie(response, "access_token", "", 0);
+        addCookie(response, "refresh_token", "", 0);
+    }
+
+    private void generateTokensAndSetCookies(User user, HttpServletResponse response) {
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getEmail());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUserId());
+
+        addCookie(response, "access_token", accessToken, jwtTokenProvider.getAccessTokenExpiration() / 1000);
+        addCookie(response, "refresh_token", refreshToken, jwtTokenProvider.getRefreshTokenExpiration() / 1000);
+    }
+
+    private void addCookie(HttpServletResponse response, String name, String value, long maxAge) {
+        Cookie cookie = new Cookie(name, value);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true); // Chỉ gửi qua HTTPS
+        cookie.setPath("/");
+        cookie.setMaxAge((int) maxAge);
+        cookie.setAttribute("SameSite", "Strict"); // Chống CSRF
+        response.addCookie(cookie);
+    }
+
+    private String getCookieValue(HttpServletRequest request, String name) {
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if (name.equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
     }
 
     @Transactional(readOnly = true)
     public void forgotPassword(ForgotPasswordRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Email không tồn tại trong hệ thống"));
-
 
         String resetToken = UUID.randomUUID().toString();
         resetTokenStore.put(resetToken, user.getEmail());

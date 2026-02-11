@@ -1,30 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 
-// 1. Định nghĩa kiểu dữ liệu cho Mock Data
-interface RecentActivity {
-  id: string;
-  title: string;
-  meetingId: string;
-  date: string;
-  time: string;
-  status: 'Completed' | 'Ended';
-  icon: string;
-  iconColor: string;
-}
-
-interface UpcomingMeeting {
-  title: string;
-  team: string;
-  time: string;
-  meetingId: string;
-  startsIn: string;
-  participants: string[];
-  totalParticipants: number;
-}
-
 // 2. Dữ liệu Mock
-const RECENT_ACTIVITIES: RecentActivity[] = [
+const RECENT_ACTIVITIES = [
   {
     id: '1',
     title: 'Q3 Marketing Strategy',
@@ -57,7 +35,7 @@ const RECENT_ACTIVITIES: RecentActivity[] = [
   },
 ];
 
-const UPCOMING_MEETING: UpcomingMeeting = {
+const UPCOMING_MEETING = {
   title: 'Weekly Sync',
   team: 'Engineering & Design Teams',
   time: '11:00 AM - 12:00 PM',
@@ -71,7 +49,7 @@ const UPCOMING_MEETING: UpcomingMeeting = {
   totalParticipants: 8,
 };
 
-const DashboardPage: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
+const DashboardPage = ({ onLogout }) => {
   const navigate = useNavigate();
   const [time, setTime] = useState('10:42 AM');
 

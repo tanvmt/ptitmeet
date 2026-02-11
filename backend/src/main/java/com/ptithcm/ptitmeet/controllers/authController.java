@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -24,58 +26,70 @@ public class authController {
 
     UserResponse user = authService.register(request);
 
-    
     ApiResponse<UserResponse> response = ApiResponse.<UserResponse>builder()
-    .status(HttpStatus.CREATED.value())
-    .message("Đăng ký tài khoản thành công")
-    .data(user)
-    .build();
-    
+        .status(HttpStatus.CREATED.value())
+        .message("Đăng ký tài khoản thành công")
+        .data(user)
+        .build();
+
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
   @PostMapping("/login")
   public ResponseEntity<ApiResponse<AuthResponse>> login(
-      @Valid @RequestBody LoginRequest request) {
+      @Valid @RequestBody LoginRequest request, HttpServletResponse response) {
 
-    AuthResponse authResponse = authService.login(request);
-    ApiResponse<AuthResponse> response = ApiResponse.<AuthResponse>builder()
+    AuthResponse authResponse = authService.login(request, response);
+    ApiResponse<AuthResponse> apiResponse = ApiResponse.<AuthResponse>builder()
         .status(HttpStatus.OK.value())
         .message("Đăng nhập thành công")
         .data(authResponse)
         .build();
 
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(apiResponse);
   }
 
   @PostMapping("/google")
   public ResponseEntity<ApiResponse<AuthResponse>> loginWithGoogle(
-      @Valid @RequestBody GoogleLoginRequest request) {
+      @Valid @RequestBody GoogleLoginRequest request, HttpServletResponse response) {
 
-    AuthResponse authResponse = authService.loginWithGoogle(request);
+    AuthResponse authResponse = authService.loginWithGoogle(request, response);
 
-    ApiResponse<AuthResponse> response = ApiResponse.<AuthResponse>builder()
+    ApiResponse<AuthResponse> apiResponse = ApiResponse.<AuthResponse>builder()
         .status(HttpStatus.OK.value())
         .message("Đăng nhập Google thành công")
         .data(authResponse)
         .build();
 
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(apiResponse);
   }
 
   @PostMapping("/refresh-token")
   public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
-      @Valid @RequestBody RefreshTokenRequest request) {
+      HttpServletRequest request, HttpServletResponse response) {
 
-    AuthResponse authResponse = authService.refreshToken(request);
+    AuthResponse authResponse = authService.refreshToken(request, response);
 
-    ApiResponse<AuthResponse> response = ApiResponse.<AuthResponse>builder()
+    ApiResponse<AuthResponse> apiResponse = ApiResponse.<AuthResponse>builder()
         .status(HttpStatus.OK.value())
         .message("Làm mới token thành công")
         .data(authResponse)
         .build();
 
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(apiResponse);
+  }
+
+  @PostMapping("/logout")
+  public ResponseEntity<ApiResponse<Void>> logout(HttpServletResponse response) {
+
+    authService.logout(response);
+
+    ApiResponse<Void> apiResponse = ApiResponse.<Void>builder()
+        .status(HttpStatus.OK.value())
+        .message("Đăng xuất thành công")
+        .build();
+
+    return ResponseEntity.ok(apiResponse);
   }
 
   @PostMapping("/forgot-password")

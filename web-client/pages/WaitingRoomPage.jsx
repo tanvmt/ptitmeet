@@ -2,11 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-interface WaitingRoomPageProps {
-  userName: string;
-}
-
-const WaitingRoomPage: React.FC<WaitingRoomPageProps> = ({ userName }) => {
+const WaitingRoomPage = ({ userName }) => {
   const navigate = useNavigate();
   const [micOn, setMicOn] = useState(true);
   const [videoOn, setVideoOn] = useState(true);
@@ -44,11 +40,11 @@ const WaitingRoomPage: React.FC<WaitingRoomPageProps> = ({ userName }) => {
                   <p className="text-sm font-bold text-gray-300">Checking camera & mic...</p>
                 </div>
               ) : (
-              <img 
-                src="https://picsum.photos/1280/720?random=2" 
-                alt="Camera Preview" 
-                className={`w-full h-full object-cover transition-opacity duration-500 ${videoOn ? 'opacity-100' : 'opacity-0'}`}
-              />)}
+                <img
+                  src="https://picsum.photos/1280/720?random=2"
+                  alt="Camera Preview"
+                  className={`w-full h-full object-cover transition-opacity duration-500 ${videoOn ? 'opacity-100' : 'opacity-0'}`}
+                />)}
 
               {!videoOn && (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -62,13 +58,13 @@ const WaitingRoomPage: React.FC<WaitingRoomPageProps> = ({ userName }) => {
                 <span className="text-[10px] font-bold uppercase tracking-wider">HD Live</span>
               </div>
               <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-4 z-10">
-                <button 
+                <button
                   onClick={() => setMicOn(!micOn)}
                   className={`size-12 rounded-full flex items-center justify-center transition-all ${micOn ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-red-500 text-white'}`}
                 >
                   <span className="material-symbols-outlined">{micOn ? 'mic' : 'mic_off'}</span>
                 </button>
-                <button 
+                <button
                   onClick={() => setVideoOn(!videoOn)}
                   className={`size-12 rounded-full flex items-center justify-center transition-all ${videoOn ? 'bg-primary hover:bg-blue-600 text-white' : 'bg-red-500 text-white'}`}
                 >
@@ -90,8 +86,8 @@ const WaitingRoomPage: React.FC<WaitingRoomPageProps> = ({ userName }) => {
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-500 block">Your Display Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={userName}
                   readOnly
                   className="w-full h-14 px-5 rounded-2xl bg-surface border border-white/10 text-lg font-bold"
@@ -99,13 +95,13 @@ const WaitingRoomPage: React.FC<WaitingRoomPageProps> = ({ userName }) => {
               </div>
 
               <div className="space-y-4">
-                <button 
+                <button
                   onClick={() => navigate('/meeting')}
                   className="w-full h-16 bg-primary hover:bg-blue-600 text-white text-xl font-black rounded-2xl shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
                 >
                   Join Meeting
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/')}
                   className="w-full h-16 bg-transparent hover:bg-white/5 text-gray-400 font-bold rounded-2xl transition-all"
                 >
@@ -115,10 +111,10 @@ const WaitingRoomPage: React.FC<WaitingRoomPageProps> = ({ userName }) => {
             </div>
 
             <div className="flex flex-col gap-3 p-4 bg-white/5 rounded-2xl border border-white/5 text-sm text-gray-500">
-               <div className="flex items-center gap-3">
-                 <span className="material-symbols-outlined text-primary">headphones</span>
-                 <span>Mic: {isCheckingDevices ? 'Detecting...' : 'MacBook Pro Microphone (System)'}</span>
-               </div>
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-primary">headphones</span>
+                <span>Mic: {isCheckingDevices ? 'Detecting...' : 'MacBook Pro Microphone (System)'}</span>
+              </div>
             </div>
           </div>
         </div>

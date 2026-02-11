@@ -22,7 +22,14 @@ public class JwtTokenProvider {
     @Value("${jwt.refresh-token-expiration:604800000}") // 7 ngay
     private long refreshTokenExpiration;
 
-    
+    public long getAccessTokenExpiration() {
+        return accessTokenExpiration;
+    }
+
+    public long getRefreshTokenExpiration() {
+        return refreshTokenExpiration;
+    }
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
@@ -76,7 +83,6 @@ public class JwtTokenProvider {
         }
     }
 
-    
     public String getTokenType(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(getSigningKey())

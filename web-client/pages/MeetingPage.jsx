@@ -1,9 +1,7 @@
 // UI-PtitMeet/pages/MeetingPage.tsx
 import React, { useState, useEffect, useRef } from 'react'; // Thêm useRef
-import { Participant } from '../types';
 import { useNavigate } from 'react-router-dom';
-
-const INITIAL_PARTICIPANTS: Participant[] = [
+const INITIAL_PARTICIPANTS = [
   { id: '1', name: 'Sarah Jenkins', avatar: 'https://picsum.photos/200?random=11', isSpeaking: true, isHost: true },
   { id: '2', name: 'em Tai sieu cap co bap (You)', avatar: 'https://picsum.photos/200?random=12', isMe: true },
   { id: '3', name: 'Van Minh Tan', avatar: 'https://picsum.photos/200?random=13', isMuted: true },
@@ -12,13 +10,13 @@ const INITIAL_PARTICIPANTS: Participant[] = [
   { id: '6', name: 'Development Room', avatar: 'https://picsum.photos/200?random=16' },
 ];
 
-const MeetingPage: React.FC = () => {
+const MeetingPage = () => {
   const navigate = useNavigate();
-  const chatEndRef = useRef<HTMLDivElement>(null); // Để tự động cuộn chat
+  const chatEndRef = useRef(null); // Để tự động cuộn chat
 
   // States
-  const [participants] = useState<Participant[]>(INITIAL_PARTICIPANTS);
-  const [activeTab, setActiveTab] = useState<'chat' | 'people'>('chat'); // State chuyển tab
+  const [participants] = useState(INITIAL_PARTICIPANTS);
+  const [activeTab, setActiveTab] = useState('chat'); // State chuyển tab
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
@@ -40,7 +38,7 @@ const MeetingPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const sendMessage = (e: React.FormEvent) => {
+  const sendMessage = (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
     setChatMessages([...chatMessages, {
@@ -53,7 +51,7 @@ const MeetingPage: React.FC = () => {
     setNewMessage('');
   };
 
-  const formatTime = (seconds: number) => {
+  const formatTime = (seconds) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
@@ -92,7 +90,7 @@ const MeetingPage: React.FC = () => {
         <main className={`flex-grow p-4 transition-all duration-300 ${sidebarOpen ? 'lg:mr-80' : ''}`}>
           <div className="h-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 content-center max-w-7xl mx-auto">
             {participants.map((p) => (
-              <div 
+              <div
                 key={p.id}
                 className={`group relative aspect-video bg-surface rounded-2xl overflow-hidden border-2 transition-all ${p.isSpeaking ? 'border-primary shadow-lg shadow-primary/20' : 'border-transparent'}`}
               >
@@ -128,13 +126,13 @@ const MeetingPage: React.FC = () => {
           <div className="flex flex-col h-full">
             {/* Tabs Navigation */}
             <div className="flex p-2 gap-1 border-b border-white/5 bg-background/20">
-              <button 
+              <button
                 onClick={() => setActiveTab('chat')}
                 className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'chat' ? 'bg-primary text-white shadow-lg' : 'text-gray-500 hover:bg-white/5'}`}
               >
                 In-call Messages
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab('people')}
                 className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'people' ? 'bg-primary text-white shadow-lg' : 'text-gray-500 hover:bg-white/5'}`}
               >
@@ -162,7 +160,7 @@ const MeetingPage: React.FC = () => {
                 </div>
                 <form onSubmit={sendMessage} className="p-4 border-t border-white/5 bg-background/40">
                   <div className="relative">
-                    <input 
+                    <input
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       placeholder="Send a message..."
@@ -219,13 +217,13 @@ const MeetingPage: React.FC = () => {
       {/* Control Bar - Tinh chỉnh hiệu ứng shadow và nút Sidebar */}
       <footer className="h-24 flex items-center justify-center px-6 relative z-40 bg-background shrink-0 border-t border-white/5">
         <div className="flex items-center gap-3 bg-surface/90 backdrop-blur-xl p-2 rounded-full border border-white/10 shadow-2xl">
-          <button 
+          <button
             onClick={() => setIsMuted(!isMuted)}
             className={`size-12 rounded-full flex items-center justify-center transition-all ${!isMuted ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-red-500 text-white shadow-lg shadow-red-500/20'}`}
           >
             <span className="material-symbols-outlined">{!isMuted ? 'mic' : 'mic_off'}</span>
           </button>
-          <button 
+          <button
             onClick={() => setIsVideoOff(!isVideoOff)}
             className={`size-12 rounded-full flex items-center justify-center transition-all ${!isVideoOff ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-red-500 text-white shadow-lg shadow-red-500/20'}`}
           >
@@ -238,7 +236,7 @@ const MeetingPage: React.FC = () => {
           <button className="size-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all">
             <span className="material-symbols-outlined text-[22px]">sentiment_satisfied</span>
           </button>
-          <button 
+          <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className={`size-12 rounded-full flex items-center justify-center transition-all ${sidebarOpen ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white/10 hover:bg-white/20 text-white'}`}
           >
@@ -248,7 +246,7 @@ const MeetingPage: React.FC = () => {
             <span className="material-symbols-outlined text-[22px]">more_vert</span>
           </button>
           <div className="w-px h-8 bg-white/10 mx-1"></div>
-          <button 
+          <button
             onClick={() => navigate('/summary')}
             className="px-8 py-3 rounded-full bg-red-500 hover:bg-red-600 text-white font-black text-sm shadow-xl shadow-red-500/20 transition-all active:scale-95"
           >
