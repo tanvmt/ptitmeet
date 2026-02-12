@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 // 2. Dữ liệu Mock
 const RECENT_ACTIVITIES = [
@@ -51,6 +52,8 @@ const UPCOMING_MEETING = {
 
 const DashboardPage = ({ onLogout }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  
   const [time, setTime] = useState('10:42 AM');
 
   // Cập nhật thời gian thực (tùy chọn)
@@ -107,15 +110,15 @@ const DashboardPage = ({ onLogout }) => {
           <div className="p-4 border-t border-slate-200 dark:border-slate-800/50">
             <button className="flex w-full items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
               <div className="relative">
-                <div className="size-10 rounded-full bg-slate-700 bg-cover border-2 border-slate-700" style={{ backgroundImage: "url('https://picsum.photos/100?random=4')" }}></div>
+                <div className="size-10 rounded-full bg-slate-700 bg-cover border-2 border-slate-700" style={{ backgroundImage: `url(${user.avatarUrl})` }}></div>
                 <span className="absolute bottom-0 right-0 size-3 bg-green-500 border-2 border-white dark:border-[#111418] rounded-full"></span>
               </div>
               <div className="flex-1 overflow-hidden text-left">
-                <p className="text-sm font-semibold truncate">em Tai sieu cap co bap</p>
-                <p className="text-xs text-slate-500 truncate">Pro Member</p>
+                <p className="text-sm font-semibold truncate">{user.fullName}</p>
+                <p className="text-xs text-slate-500 truncate">{user.email}</p>
               </div>
               <span className="material-symbols-outlined text-slate-400 text-[20px]">expand_more</span>
-            </button>
+            </button> 
           </div>
         </div>
       </aside>
@@ -144,7 +147,7 @@ const DashboardPage = ({ onLogout }) => {
           <div className="max-w-7xl mx-auto flex flex-col gap-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
-                <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Welcome back, Tai</h2>
+                <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Welcome back, {user.fullName}</h2>
                 <p className="text-slate-500 dark:text-slate-400 mt-1">Here's what's happening with your meetings today.</p>
               </div>
               <div className="text-right hidden md:block">

@@ -1,7 +1,8 @@
 package com.ptithcm.ptitmeet.exception;
 
-import lombok.Getter;
 import org.springframework.http.HttpStatus;
+
+import lombok.Getter;
 
 @Getter
 public enum ErrorCode {
@@ -16,6 +17,10 @@ public enum ErrorCode {
     USER_EXISTED(2002, "Người dùng đã tồn tại", HttpStatus.BAD_REQUEST),
     EMAIL_ALREADY_USED(2003, "Email này đã được sử dụng", HttpStatus.BAD_REQUEST),
     WRONG_PASSWORD(2004, "Mật khẩu không chính xác", HttpStatus.BAD_REQUEST),
+    INVALID_LOGIN(2005, "Email hoặc mật khẩu không đúng", HttpStatus.BAD_REQUEST),
+    INVALID_GOOGLE_TOKEN_ID(2006, "Google ID Token không hợp lệ", HttpStatus.BAD_REQUEST),
+    INVALID_REFRESH_TOKEN(2007, "Refresh token không hợp lệ hoặc hết hạn.", HttpStatus.UNAUTHORIZED),
+    INVALID_TOKEN(2008, "Token không hợp lệ hoặc hết hạn.", HttpStatus.UNAUTHORIZED),
 
     // --- Lỗi Meeting (3xxx) ---
     MEETING_NOT_FOUND(3001, "Không tìm thấy phòng họp", HttpStatus.NOT_FOUND),

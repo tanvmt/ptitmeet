@@ -1,16 +1,27 @@
 package com.ptithcm.ptitmeet.controllers;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.ptithcm.ptitmeet.dto.ApiResponse;
-import com.ptithcm.ptitmeet.dto.auth.*;
+import com.ptithcm.ptitmeet.dto.auth.AuthResponse;
+import com.ptithcm.ptitmeet.dto.auth.ForgotPasswordRequest;
+import com.ptithcm.ptitmeet.dto.auth.GoogleLoginRequest;
+import com.ptithcm.ptitmeet.dto.auth.LoginRequest;
+import com.ptithcm.ptitmeet.dto.auth.RegisterRequest;
+import com.ptithcm.ptitmeet.dto.auth.ResetPasswordRequest;
+import com.ptithcm.ptitmeet.dto.auth.UserResponse;
 import com.ptithcm.ptitmeet.services.AuthService;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -26,13 +37,8 @@ public class authController {
 
     UserResponse user = authService.register(request);
 
-    ApiResponse<UserResponse> response = ApiResponse.<UserResponse>builder()
-        .status(HttpStatus.CREATED.value())
-        .message("Đăng ký tài khoản thành công")
-        .data(user)
-        .build();
-
-    return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    return ResponseEntity.status(HttpStatus.CREATED).body(
+        ApiResponse.success(user, "Đăng ký tài khoản thành công"));
   }
 
   @PostMapping("/login")
@@ -40,13 +46,9 @@ public class authController {
       @Valid @RequestBody LoginRequest request, HttpServletResponse response) {
 
     AuthResponse authResponse = authService.login(request, response);
-    ApiResponse<AuthResponse> apiResponse = ApiResponse.<AuthResponse>builder()
-        .status(HttpStatus.OK.value())
-        .message("Đăng nhập thành công")
-        .data(authResponse)
-        .build();
 
-    return ResponseEntity.ok(apiResponse);
+    return ResponseEntity.ok(
+        ApiResponse.success(authResponse, "Đăng nhập thành công"));
   }
 
   @PostMapping("/google")
@@ -55,13 +57,8 @@ public class authController {
 
     AuthResponse authResponse = authService.loginWithGoogle(request, response);
 
-    ApiResponse<AuthResponse> apiResponse = ApiResponse.<AuthResponse>builder()
-        .status(HttpStatus.OK.value())
-        .message("Đăng nhập Google thành công")
-        .data(authResponse)
-        .build();
-
-    return ResponseEntity.ok(apiResponse);
+    return ResponseEntity.ok(
+        ApiResponse.success(authResponse, "Đăng nhập Google thành công"));
   }
 
   @PostMapping("/refresh-token")
@@ -70,13 +67,8 @@ public class authController {
 
     AuthResponse authResponse = authService.refreshToken(request, response);
 
-    ApiResponse<AuthResponse> apiResponse = ApiResponse.<AuthResponse>builder()
-        .status(HttpStatus.OK.value())
-        .message("Làm mới token thành công")
-        .data(authResponse)
-        .build();
-
-    return ResponseEntity.ok(apiResponse);
+    return ResponseEntity.ok(
+        ApiResponse.success(authResponse, "Làm mới token thành công"));
   }
 
   @PostMapping("/logout")
@@ -84,12 +76,8 @@ public class authController {
 
     authService.logout(response);
 
-    ApiResponse<Void> apiResponse = ApiResponse.<Void>builder()
-        .status(HttpStatus.OK.value())
-        .message("Đăng xuất thành công")
-        .build();
-
-    return ResponseEntity.ok(apiResponse);
+    return ResponseEntity.ok(
+        ApiResponse.success(null, "Đăng xuất thành công"));
   }
 
   @PostMapping("/forgot-password")
@@ -98,12 +86,8 @@ public class authController {
 
     authService.forgotPassword(request);
 
-    ApiResponse<Void> response = ApiResponse.<Void>builder()
-        .status(HttpStatus.OK.value())
-        .message("Email khôi phục đã được gửi")
-        .build();
-
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(
+        ApiResponse.success(null, "Email khôi phục đã được gửi"));
   }
 
   @PostMapping("/reset-password")
@@ -112,11 +96,7 @@ public class authController {
 
     authService.resetPassword(request);
 
-    ApiResponse<Void> response = ApiResponse.<Void>builder()
-        .status(HttpStatus.OK.value())
-        .message("Mật khẩu đã được cập nhật")
-        .build();
-
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(
+        ApiResponse.success(null, "Mật khẩu đã được cập nhật"));
   }
 }

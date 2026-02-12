@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import UserProfile from '../components/UserProfile';
 
 const SettingsPage = () => {
   const navigate = useNavigate();
@@ -9,6 +10,7 @@ const SettingsPage = () => {
   const [noiseCancellation, setNoiseCancellation] = useState(true);
   const [echoReduction, setEchoReduction] = useState(false);
   const [autoVolume, setAutoVolume] = useState(true);
+ 
 
   const navItems = [
     { id: 'audio', label: 'Audio', icon: 'mic' },
@@ -186,6 +188,8 @@ const SettingsPage = () => {
                 </div>
               </>
             )}
+            {activeTab === 'profile' && <UserProfile/>
+            }
 
             {activeTab !== 'audio' && (
               <div className="flex flex-col items-center justify-center h-full opacity-30 py-20">
