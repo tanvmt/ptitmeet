@@ -23,7 +23,9 @@ public enum ErrorCode {
     MEETING_NOT_STARTED(3003, "Cuộc họp chưa bắt đầu", HttpStatus.BAD_REQUEST),
     INVALID_MEETING_PASSWORD(3004, "Mật khẩu tham gia không đúng", HttpStatus.FORBIDDEN),
     HOST_ONLY_ACTION(3005, "Chỉ chủ phòng mới có quyền thực hiện hành động này", HttpStatus.FORBIDDEN),
-    PARTICIPANT_KICKED(3006, "Bạn đã bị mời ra khỏi phòng", HttpStatus.FORBIDDEN);
+    PARTICIPANT_KICKED(3006, "Bạn đã bị mời ra khỏi phòng", HttpStatus.FORBIDDEN),
+    INVALID_TIME_RANGE(3007, "Thời gian kết thúc phải sau thời gian bắt đầu", HttpStatus.BAD_REQUEST),
+    CANNOT_GENERATE_CODE(3008, "Hệ thống đang bận, không thể tạo mã phòng. Vui lòng thử lại.", HttpStatus.SERVICE_UNAVAILABLE);
 
     private final int code; 
     private final String message;
