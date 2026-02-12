@@ -29,13 +29,8 @@ public class UserController {
 
         UserResponse user = userService.getProfile(userId);
 
-        ApiResponse<UserResponse> response = ApiResponse.<UserResponse>builder()
-                .status(HttpStatus.OK.value())
-                .message("Lấy thông tin người dùng hiện tại thành công")
-                .data(user)
-                .build();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(
+                ApiResponse.success(user, "Lấy thông tin người dùng hiện tại thành công"));
     }
 
     @GetMapping("/profile")
@@ -45,13 +40,8 @@ public class UserController {
 
         UserResponse user = userService.getProfile(userId);
 
-        ApiResponse<UserResponse> response = ApiResponse.<UserResponse>builder()
-                .status(HttpStatus.OK.value())
-                .message("Lấy thông tin thành công")
-                .data(user)
-                .build();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(
+                ApiResponse.success(user, "Lấy thông tin thành công"));
     }
 
     @PutMapping("/profile")
@@ -63,12 +53,7 @@ public class UserController {
 
         UserResponse user = userService.updateProfile(userId, request);
 
-        ApiResponse<UserResponse> response = ApiResponse.<UserResponse>builder()
-                .status(HttpStatus.OK.value())
-                .message("Cập nhật thông tin thành công")
-                .data(user)
-                .build();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(
+                ApiResponse.success(user, "Cập nhật thông tin thành công"));
     }
 }

@@ -6,7 +6,7 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    
+
     axios.defaults.withCredentials = true;
 
     useEffect(() => {
@@ -49,11 +49,11 @@ export const AuthProvider = ({ children }) => {
         const checkAuth = async () => {
             try {
                 const res = await axios.get('http://localhost:8080/api/users/me');
-                if (res.data.status === 200) {
+                if (res.data.code === 1000) {
                     setUser(res.data.data);
                 }
             } catch (error) {
-              
+
                 setUser(null);
             } finally {
                 setLoading(false);
@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }) => {
     const login = async (email, password) => {
         try {
             const res = await axios.post("http://localhost:8080/api/auth/login", { email, password });
-            if (res.data.status === 200) {
+            if (res.data.code === 1000) {
                 // Server phải trả về user info trong body, và set cookie HttpOnly ở header Response
                 setUser(res.data.data.user);
                 return { success: true };
@@ -91,7 +91,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user,setUser, login, logout, isAuthenticated: !!user }}>
+        <AuthContext.Provider value={{ user, setUser, login, logout, isAuthenticated: !!user }}>
             {!loading && children}
         </AuthContext.Provider>
     );

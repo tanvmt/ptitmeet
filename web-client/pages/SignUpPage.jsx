@@ -20,19 +20,17 @@ const SignUpPage = () => {
     }
     try {
       const response = await axios.post('http://localhost:8080/api/auth/register', formData);
-      if (response.data.status === 201) {
+      if (response.data.code === 1000) {
         navigate('/login');
       }
     } catch (error) {
       console.error(error);
       if (error.response && error.response.data) {
-        const { status, message, data } = error.response.data;
+        const { code, message, data } = error.response.data;
 
-        if (status === 400) {
+        if (error.response.status === 400 && data) {
           setServerError(message);
-          if (data) {
-            setErrors(data);
-          }
+          setErrors(data);
         } else {
           setServerError(message || "Đã có lỗi xảy ra. Vui lòng thử lại.");
         }
@@ -47,7 +45,7 @@ const SignUpPage = () => {
       const { credential } = credentialResponse;
       const response = await axios.post('http://localhost:8080/api/auth/google', { idToken: credential });
       console.log(response);
-      if (response.data.status === 200) {
+      if (response.data.code === 1000) {
         navigate('/dashboard');
       }
     } catch (error) {
@@ -162,7 +160,7 @@ const SignUpPage = () => {
           <div className="flex-grow border-t border-white/5"></div>
         </div> */}
 
-        
+
 
         <p className="mt-8 text-center text-gray-400 text-sm">
           Already have an account? <button onClick={() => navigate('/login')} className="font-bold text-primary hover:underline">Sign In</button>

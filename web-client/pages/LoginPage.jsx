@@ -16,14 +16,14 @@ const LoginPage = ({ setUser }) => {
       const { credential } = credentialResponse;
       const response = await axios.post('http://localhost:8080/api/auth/google', { idToken: credential });
 
-      if (response.data.status === 200) {
+      if (response.data.code === 1000) {
         setUser(response.data.data.user);
         navigate('/');
       }
     } catch (error) {
       console.error("Google Login Error", error);
     }
-  };  
+  };
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -32,7 +32,7 @@ const LoginPage = ({ setUser }) => {
     try {
       const loginRes = await axios.post("http://localhost:8080/api/auth/login", { email, password });
 
-      if (loginRes.data.status === 200) {
+      if (loginRes.data.code === 1000) {
         setUser(loginRes.data.data.user);
         navigate('/');
       } else {

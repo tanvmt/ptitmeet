@@ -6,7 +6,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,14 +22,15 @@ import com.ptithcm.ptitmeet.dto.auth.LoginRequest;
 import com.ptithcm.ptitmeet.dto.auth.RegisterRequest;
 import com.ptithcm.ptitmeet.dto.auth.ResetPasswordRequest;
 import com.ptithcm.ptitmeet.dto.auth.UserResponse;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import com.ptithcm.ptitmeet.entity.enums.AuthProvider;
 import com.ptithcm.ptitmeet.entity.mysql.User;
 import com.ptithcm.ptitmeet.exception.AppException;
+import com.ptithcm.ptitmeet.exception.ErrorCode;
 import com.ptithcm.ptitmeet.repositories.UserRepository;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -53,7 +53,7 @@ public class AuthService {
     public UserResponse register(RegisterRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Email đã được sử dụng");
+            throw new AppException(ErrorCode.EMAIL_ALREADY_USED);
         }
         User user = User.builder()
                 .email(request.getEmail())
@@ -70,10 +70,10 @@ public class AuthService {
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request, HttpServletResponse response) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, "Email hoặc mật khẩu không đúng"));
+                .orElseThrow(() -> new AppException(ErrorCode.INVALID_LOGIN));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Email hoặc mật khẩu không đúng");
+            throw new AppException(ErrorCode.INVALID_LOGIN);
         }
 
         generateTokensAndSetCookies(user, response);
@@ -94,7 +94,7 @@ public class AuthService {
 
             GoogleIdToken idToken = verifier.verify(request.getIdToken());
             if (idToken == null) {
-                throw new AppException(HttpStatus.UNAUTHORIZED, "Google ID Token không hợp lệ");
+                throw new AppException(ErrorCode.INVALID_GOOGLE_TOKEN_ID);
             }
 
             GoogleIdToken.Payload payload = idToken.getPayload();
@@ -135,7 +135,7 @@ public class AuthService {
             if (e instanceof AppException) {
                 throw (AppException) e;
             }
-            throw new AppException(HttpStatus.UNAUTHORIZED, "Không thể xác thực Google token");
+            throw new AppException(ErrorCode.INVALID_GOOGLE_TOKEN_ID);
         }
     }
 
@@ -145,16 +145,16 @@ public class AuthService {
         String refreshToken = getCookieValue(request, "refresh_token");
 
         if (refreshToken == null || !jwtTokenProvider.validateToken(refreshToken)) {
-            throw new AppException(HttpStatus.UNAUTHORIZED, "Refresh token không hợp lệ hoặc đã hết hạn");
+            throw new AppException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
         if (!"refresh".equals(jwtTokenProvider.getTokenType(refreshToken))) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Token không phải là refresh token");
+            throw new AppException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
         UUID userId = jwtTokenProvider.getUserIdFromToken(refreshToken);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "User không tồn tại"));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         // Tạo access token mới, refresh token giữ nguyên
         String newAccessToken = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getEmail());
@@ -204,7 +204,7 @@ public class AuthService {
     @Transactional(readOnly = true)
     public void forgotPassword(ForgotPasswordRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Email không tồn tại trong hệ thống"));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         String resetToken = UUID.randomUUID().toString();
         resetTokenStore.put(resetToken, user.getEmail());
@@ -218,11 +218,11 @@ public class AuthService {
 
         String email = resetTokenStore.get(request.getToken());
         if (email == null) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Token không hợp lệ hoặc đã hết hạn");
+            throw new AppException(ErrorCode.INVALID_TOKEN);
         }
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "User không tồn tại"));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
