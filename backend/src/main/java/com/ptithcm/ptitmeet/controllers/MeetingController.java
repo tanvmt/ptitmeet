@@ -3,6 +3,8 @@ package com.ptithcm.ptitmeet.controllers;
 import com.ptithcm.ptitmeet.dto.ApiResponse;
 import com.ptithcm.ptitmeet.dto.meeting.CreateMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.MeetingInfoResponse;
+import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingRequest;
+import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingResponse;
 import com.ptithcm.ptitmeet.entity.mysql.Meeting;
 import com.ptithcm.ptitmeet.services.MeetingService;
 import jakarta.validation.Valid;
@@ -61,5 +63,21 @@ public class MeetingController {
     public ResponseEntity<ApiResponse<Void>> cancel(@PathVariable String code) {
         meetingService.cancelMeeting(getCurrentUserId(), code);
         return ResponseEntity.ok(ApiResponse.success(null, "Đã hủy cuộc họp"));
+    }
+
+    @PostMapping("/{code}/join")
+    public ApiResponse<JoinMeetingResponse> joinMeeting(
+            @PathVariable String code,
+            @RequestBody(required = false) JoinMeetingRequest request
+    ) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        
+        if (request == null) {
+            request = new JoinMeetingRequest();
+        }
+
+        JoinMeetingResponse response = meetingService.joinMeeting(code, request, email);
+        return ApiResponse.success(response, "Tham gia phòng họp thành công");
     }
 }
