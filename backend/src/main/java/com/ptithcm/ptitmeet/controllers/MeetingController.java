@@ -1,10 +1,12 @@
 package com.ptithcm.ptitmeet.controllers;
 
 import com.ptithcm.ptitmeet.dto.ApiResponse;
+import com.ptithcm.ptitmeet.dto.meeting.ApprovalRequest;
 import com.ptithcm.ptitmeet.dto.meeting.CreateMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.MeetingInfoResponse;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingResponse;
+import com.ptithcm.ptitmeet.dto.meeting.ParticipantResponse;
 import com.ptithcm.ptitmeet.entity.mysql.Meeting;
 import com.ptithcm.ptitmeet.services.MeetingService;
 import jakarta.validation.Valid;
@@ -79,5 +81,30 @@ public class MeetingController {
 
         JoinMeetingResponse response = meetingService.joinMeeting(code, request, email);
         return ApiResponse.success(response, "Tham gia phòng họp thành công");
+    }
+
+    @GetMapping("/{code}/waiting-room")
+    public ResponseEntity<ApiResponse<List<ParticipantResponse>>> getWaitingRoom(
+            @PathVariable String code
+    ) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+        List<ParticipantResponse> list = meetingService.getWaitingParticipants(code, email);
+        return ResponseEntity.ok(ApiResponse.success(list, "Lấy danh sách chờ thành công"));
+    }
+
+    @PostMapping("/{code}/approval")
+    public ResponseEntity<ApiResponse<Void>> approveParticipant(
+            @PathVariable String code,
+            @RequestBody ApprovalRequest request
+    ) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+        meetingService.processParticipantApproval(code, email, request);
+        
+        String msg = "APPROVED".equalsIgnoreCase(request.getAction()) ? "Đã duyệt thành viên" : "Đã từ chối thành viên";
+        return ResponseEntity.ok(ApiResponse.success(null, msg));
     }
 }

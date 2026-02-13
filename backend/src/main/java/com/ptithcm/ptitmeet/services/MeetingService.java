@@ -1,9 +1,11 @@
 package com.ptithcm.ptitmeet.services;
 
+import com.ptithcm.ptitmeet.dto.meeting.ApprovalRequest;
 import com.ptithcm.ptitmeet.dto.meeting.CreateMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.MeetingInfoResponse;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingResponse;
+import com.ptithcm.ptitmeet.dto.meeting.ParticipantResponse;
 import com.ptithcm.ptitmeet.entity.enums.MeetingAccessType;
 import com.ptithcm.ptitmeet.entity.enums.MeetingStatus;
 import com.ptithcm.ptitmeet.entity.enums.ParticipantApprovalStatus;
@@ -27,6 +29,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 @Service
@@ -200,6 +203,64 @@ public class MeetingService {
                 .role(role.name())
                 .status(participant.getApprovalStatus().name())
                 .build();
+    }
+
+    public List<ParticipantResponse> getWaitingParticipants(String meetingCode, String hostEmail) {
+        Meeting meeting = meetingRepository.findByMeetingCode(meetingCode)
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
+
+        User host = userRepository.findByEmail(hostEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (!meeting.getHostId().equals(host.getUserId())) {
+            throw new AppException(ErrorCode.HOST_ONLY_ACTION);
+        }
+
+        List<Participant> pendingList = participantRepository.findAllByMeetingAndApprovalStatus(
+                meeting, 
+                ParticipantApprovalStatus.PENDING
+        );
+
+        return pendingList.stream().map(p -> ParticipantResponse.builder()
+                .participantId(p.getParticipantId())
+                .userId(p.getUser().getUserId())
+                .displayName(p.getUser().getFullName())
+                .email(p.getUser().getEmail())
+                .avatarUrl(p.getUser().getAvatarUrl())
+                .status(p.getApprovalStatus().name())
+                .requestTime(p.getCreatedAt() != null ? p.getCreatedAt().toString() : "")
+                .build()
+        ).collect(Collectors.toList());
+    }
+
+    public void processParticipantApproval(String meetingCode, String hostEmail, ApprovalRequest request) {
+        Meeting meeting = meetingRepository.findByMeetingCode(meetingCode)
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
+
+        User host = userRepository.findByEmail(hostEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (!meeting.getHostId().equals(host.getUserId())) {
+            throw new AppException(ErrorCode.HOST_ONLY_ACTION);
+        }
+
+        Participant participant = participantRepository.findById(request.getParticipantId())
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (!participant.getMeeting().getMeetingId().equals(meeting.getMeetingId())) {
+             throw new AppException(ErrorCode.INVALID_KEY);
+        }
+
+        if ("APPROVED".equalsIgnoreCase(request.getAction())) {
+            participant.setApprovalStatus(ParticipantApprovalStatus.APPROVED);
+            // TODO: (Nâng cao) Có thể bắn socket thông báo cho User kia biết là "Bạn đã được duyệt, hãy vào đi"
+        } else if ("REJECT".equalsIgnoreCase(request.getAction())) {
+            participant.setApprovalStatus(ParticipantApprovalStatus.REJECTED);
+        } else {
+            throw new AppException(ErrorCode.INVALID_KEY); 
+        }
+
+        participantRepository.save(participant);
     }
 
     private ParticipantApprovalStatus determineParticipantStatus(Meeting meeting, User user) {
