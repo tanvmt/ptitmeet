@@ -22,6 +22,7 @@ import com.ptithcm.ptitmeet.repositories.ParticipantRepository;
 import com.ptithcm.ptitmeet.services.LiveKitService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
@@ -42,6 +43,7 @@ public class MeetingService {
     private final ParticipantRepository participantRepository;
     private final LiveKitService liveKitService;
     private final ObjectMapper objectMapper;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public Meeting createInstantMeeting(UUID hostId, CreateMeetingRequest request) {
         if (!userRepository.existsById(hostId)) {
@@ -185,6 +187,15 @@ public class MeetingService {
         participantRepository.save(participant);
 
         if (participant.getApprovalStatus() == ParticipantApprovalStatus.PENDING) {
+            ParticipantResponse notiData = ParticipantResponse.builder()
+                    .participantId(participant.getParticipantId())
+                    .userId(user.getUserId())
+                    .displayName(user.getFullName())
+                    .status("PENDING")
+                    .build();
+            
+            messagingTemplate.convertAndSend("/topic/meeting/" + meetingCode + "/admin", notiData);
+
             return JoinMeetingResponse.builder()
                     .status("PENDING")
                     .message("Bạn đang ở trong phòng chờ. Vui lòng chờ chủ phòng duyệt.")
@@ -252,10 +263,36 @@ public class MeetingService {
         }
 
         if ("APPROVED".equalsIgnoreCase(request.getAction())) {
-            participant.setApprovalStatus(ParticipantApprovalStatus.APPROVED);
-            // TODO: (Nâng cao) Có thể bắn socket thông báo cho User kia biết là "Bạn đã được duyệt, hãy vào đi"
+            participant.setApprovalStatus(ParticipantApprovalStatus.APPROVED);          
+            participantRepository.save(participant); 
+
+            User guestUser = participant.getUser();
+            String token = liveKitService.generateToken(guestUser, meeting);
+
+            JoinMeetingResponse approvalResponse = JoinMeetingResponse.builder()
+                    .status("APPROVED")
+                    .role("ATTENDEE")
+                    .token(token)
+                    .serverUrl(liveKitService.getLiveKitUrl())
+                    .build();
+
+            messagingTemplate.convertAndSend(
+                    "/topic/meeting/" + meetingCode + "/user/" + guestUser.getUserId(), 
+                    approvalResponse
+            );
         } else if ("REJECT".equalsIgnoreCase(request.getAction())) {
             participant.setApprovalStatus(ParticipantApprovalStatus.REJECTED);
+            participantRepository.save(participant);
+
+            JoinMeetingResponse rejectResponse = JoinMeetingResponse.builder()
+                    .status("REJECTED")
+                    .message("Chủ phòng đã từ chối yêu cầu tham gia.")
+                    .build();
+
+            messagingTemplate.convertAndSend(
+                    "/topic/meeting/" + meetingCode + "/user/" + participant.getUser().getUserId(),
+                    rejectResponse
+            );
         } else {
             throw new AppException(ErrorCode.INVALID_KEY); 
         }
