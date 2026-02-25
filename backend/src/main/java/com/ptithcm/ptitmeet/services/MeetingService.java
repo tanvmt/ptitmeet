@@ -138,7 +138,7 @@ public class MeetingService {
     }
 
     @Transactional
-    public JoinMeetingResponse joinMeeting(String meetingCode, JoinMeetingRequest request, String email) {
+    public JoinMeetingResponse joinMeeting(String meetingCode, JoinMeetingRequest request, UUID userId) {
         Meeting meeting = meetingRepository.findByMeetingCode(meetingCode)
                 .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
 
@@ -146,19 +146,15 @@ public class MeetingService {
             throw new AppException(ErrorCode.MEETING_ALREADY_FINISHED);
         }
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         boolean isHost = meeting.getHostId().equals(user.getUserId());
         ParticipantRole role = isHost ? ParticipantRole.HOST : ParticipantRole.ATTENDEE;
-
-        ParticipantApprovalStatus status;
-
-        if (isHost) {
-            status = ParticipantApprovalStatus.APPROVED;
-        } else {
-            status = determineParticipantStatus(meeting, user);
-        }
+        System.out.println("is host: " + isHost);
+        System.out.println("userId: " + user.getUserId());
+        System.out.println("meeting hostId: " + meeting.getHostId());
+        System.out.println("Role: " + role);
 
         if (!isHost && meeting.getPassword() != null && !meeting.getPassword().isEmpty()) {
             if (request.getPassword() == null || !request.getPassword().equals(meeting.getPassword())) {
@@ -171,20 +167,26 @@ public class MeetingService {
                     Participant newP = new Participant();
                     newP.setMeeting(meeting);
                     newP.setUser(user);
-                    newP.setRole(role);
-                    newP.setApprovalStatus(status);
+                    String displayName = (request.getDisplayName() != null && !request.getDisplayName().isEmpty()) 
+                                         ? request.getDisplayName() 
+                                         : user.getFullName();
+                    newP.setDisplayName(displayName);
                     return newP;
                 });
 
-        if (!participant.getRole().equals(role)) {
-            participant.setRole(role);
+        participant.setRole(role);
+
+        if (isHost) {
+            participant.setApprovalStatus(ParticipantApprovalStatus.APPROVED); 
+        } else {
+            ParticipantApprovalStatus calculatedStatus = determineParticipantStatus(meeting, user);
+            
+            if (participant.getApprovalStatus() != ParticipantApprovalStatus.APPROVED) {
+                participant.setApprovalStatus(calculatedStatus);
+            }
         }
 
-        if (participant.getApprovalStatus() != status && !isHost) {
-            participant.setApprovalStatus(status);
-        }
-
-        participantRepository.save(participant);
+        participant = participantRepository.save(participant);
 
         if (participant.getApprovalStatus() == ParticipantApprovalStatus.PENDING) {
             ParticipantResponse notiData = ParticipantResponse.builder()
@@ -195,7 +197,7 @@ public class MeetingService {
                     .build();
             
             messagingTemplate.convertAndSend("/topic/meeting/" + meetingCode + "/admin", notiData);
-
+            System.out.println("Sent waiting room notification for user " + user.getUserId() + " to meeting " + meetingCode);
             return JoinMeetingResponse.builder()
                     .status("PENDING")
                     .message("Bạn đang ở trong phòng chờ. Vui lòng chờ chủ phòng duyệt.")
@@ -207,7 +209,7 @@ public class MeetingService {
         }
 
         String token = liveKitService.generateToken(user, meeting);
-
+        System.out.println("Generated token for user " + user.getUserId() + " to join meeting " + meetingCode);
         return JoinMeetingResponse.builder()
                 .token(token)
                 .serverUrl(liveKitService.getLiveKitUrl())
@@ -216,11 +218,11 @@ public class MeetingService {
                 .build();
     }
 
-    public List<ParticipantResponse> getWaitingParticipants(String meetingCode, String hostEmail) {
+    public List<ParticipantResponse> getWaitingParticipants(String meetingCode, UUID hostId) {
         Meeting meeting = meetingRepository.findByMeetingCode(meetingCode)
                 .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
 
-        User host = userRepository.findByEmail(hostEmail)
+        User host = userRepository.findByUserId(hostId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (!meeting.getHostId().equals(host.getUserId())) {
@@ -244,11 +246,11 @@ public class MeetingService {
         ).collect(Collectors.toList());
     }
 
-    public void processParticipantApproval(String meetingCode, String hostEmail, ApprovalRequest request) {
+    public void processParticipantApproval(String meetingCode, UUID hostId, ApprovalRequest request) {
         Meeting meeting = meetingRepository.findByMeetingCode(meetingCode)
                 .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
 
-        User host = userRepository.findByEmail(hostEmail)
+        User host = userRepository.findByUserId(hostId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (!meeting.getHostId().equals(host.getUserId())) {

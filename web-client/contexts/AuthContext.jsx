@@ -48,12 +48,6 @@ export const AuthProvider = ({ children }) => {
     // Kiểm tra session khi reload trang
     useEffect(() => {
         const checkAuth = async () => {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                setLoading(false);
-                return;
-            }
-
             try {
                 const res = await api.get('/auth/me'); 
                 if (res.data.code === 1000) {

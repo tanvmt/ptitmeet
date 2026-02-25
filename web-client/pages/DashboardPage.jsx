@@ -84,7 +84,7 @@ const DashboardPage = ({ onLogout }) => {
 
       setIsJoinModalOpen(false);
 
-      if (response.status === "ALLOWED") {
+      if (response.status === "APPROVED") {
         navigate(`/meeting/${code}`, {
           state: {
             token: response.token,
@@ -122,7 +122,7 @@ const DashboardPage = ({ onLogout }) => {
       <JoinMeetingModal
         isOpen={isJoinModalOpen}
         onClose={() => setIsJoinModalOpen(false)}
-        onJoin={(code) => handleJoinLogic(code)}
+        onJoin={(code) => handleJoinMeeting(code)}
         isLoading={isLoading}
       />
       {/* Sidebar */}
@@ -464,7 +464,7 @@ const DashboardPage = ({ onLogout }) => {
                     </div>
                     <button
                       onClick={() =>
-                        handleJoinLogic(UPCOMING_MEETING.meetingId)
+                        handleJoinMeeting(UPCOMING_MEETING.meetingId)
                       }
                       disabled={isLoading}
                       className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"

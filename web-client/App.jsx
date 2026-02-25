@@ -27,11 +27,11 @@ const App = () => {
 
                     {/* Waiting Room có thể cần truyền thêm ID phòng họp sau này */}
                     <Route
-                        path="/waiting-room"
+                        path="/waiting-room/:code"
                         element={user ? <WaitingRoomPage userName={user.fullName} /> : <Navigate to="/login" />}
                     />
 
-                    <Route path="/meeting" element={<MeetingPage />} />
+                    <Route path="/meeting/:code" element={<MeetingPage />} />
                     <Route path="/summary" element={<SummaryPage />} />
 
                     <Route

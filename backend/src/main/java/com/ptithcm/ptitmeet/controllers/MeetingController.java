@@ -72,14 +72,11 @@ public class MeetingController {
             @PathVariable String code,
             @RequestBody(required = false) JoinMeetingRequest request
     ) {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-        
         if (request == null) {
             request = new JoinMeetingRequest();
         }
 
-        JoinMeetingResponse response = meetingService.joinMeeting(code, request, email);
+        JoinMeetingResponse response = meetingService.joinMeeting(code, request, getCurrentUserId());
         return ApiResponse.success(response, "Tham gia phòng họp thành công");
     }
 
@@ -87,10 +84,7 @@ public class MeetingController {
     public ResponseEntity<ApiResponse<List<ParticipantResponse>>> getWaitingRoom(
             @PathVariable String code
     ) {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-
-        List<ParticipantResponse> list = meetingService.getWaitingParticipants(code, email);
+        List<ParticipantResponse> list = meetingService.getWaitingParticipants(code, getCurrentUserId());
         return ResponseEntity.ok(ApiResponse.success(list, "Lấy danh sách chờ thành công"));
     }
 
@@ -99,10 +93,7 @@ public class MeetingController {
             @PathVariable String code,
             @RequestBody ApprovalRequest request
     ) {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-
-        meetingService.processParticipantApproval(code, email, request);
+        meetingService.processParticipantApproval(code, getCurrentUserId(), request);
         
         String msg = "APPROVED".equalsIgnoreCase(request.getAction()) ? "Đã duyệt thành viên" : "Đã từ chối thành viên";
         return ResponseEntity.ok(ApiResponse.success(null, msg));
