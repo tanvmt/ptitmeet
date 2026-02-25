@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import api from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -47,13 +48,20 @@ export const AuthProvider = ({ children }) => {
     // Kiểm tra session khi reload trang
     useEffect(() => {
         const checkAuth = async () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                setLoading(false);
+                return;
+            }
+
             try {
-                const res = await axios.get('http://localhost:8080/api/users/me');
+                const res = await api.get('/auth/me'); 
                 if (res.data.code === 1000) {
                     setUser(res.data.data);
                 }
             } catch (error) {
-
+                console.error("Auth check error", error);
+                localStorage.removeItem('token');
                 setUser(null);
             } finally {
                 setLoading(false);
