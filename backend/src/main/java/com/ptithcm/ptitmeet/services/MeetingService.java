@@ -66,6 +66,19 @@ public class MeetingService {
                 .settings(request.getSettings())
                 .build();
 
+        if (request.getSettings() == null || request.getSettings().isEmpty()) {
+            String defaultSettings = "{" +
+                    "\"waitingRoom\": true," +
+                    "\"muteAudioOnEntry\": false," +
+                    "\"muteVideoOnEntry\": false," +
+                    "\"chatEnabled\": true," +
+                    "\"screenShareEnabled\": true" +
+                    "}";
+            meeting.setSettings(defaultSettings);
+        } else {
+            meeting.setSettings(request.getSettings());
+        }
+
         return meetingRepository.save(meeting);
     }
 
@@ -96,6 +109,19 @@ public class MeetingService {
                 .accessType(request.getAccessType() != null ? request.getAccessType() : MeetingAccessType.TRUSTED)
                 .settings(request.getSettings())
                 .build();
+
+        if (request.getSettings() == null || request.getSettings().isEmpty()) {
+            String defaultSettings = "{" +
+                    "\"waitingRoom\": true," +
+                    "\"muteAudioOnEntry\": false," +
+                    "\"muteVideoOnEntry\": false," +
+                    "\"chatEnabled\": true," +
+                    "\"screenShareEnabled\": true" +
+                    "}";
+            meeting.setSettings(defaultSettings);
+        } else {
+            meeting.setSettings(request.getSettings());
+        }
 
         return meetingRepository.save(meeting);
     }

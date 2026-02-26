@@ -49,13 +49,12 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                const res = await api.get('/auth/me'); 
+                const res = await axios.get('http://localhost:8080/api/users/me');
                 if (res.data.code === 1000) {
                     setUser(res.data.data);
                 }
             } catch (error) {
-                console.error("Auth check error", error);
-                localStorage.removeItem('token');
+
                 setUser(null);
             } finally {
                 setLoading(false);
