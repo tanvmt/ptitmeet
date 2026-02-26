@@ -308,7 +308,7 @@ public class MeetingService {
                     "/topic/meeting/" + meetingCode + "/user/" + guestUser.getUserId(), 
                     approvalResponse
             );
-        } else if ("REJECT".equalsIgnoreCase(request.getAction())) {
+        } else if ("REJECTED".equalsIgnoreCase(request.getAction())) {
             participant.setApprovalStatus(ParticipantApprovalStatus.REJECTED);
             participantRepository.save(participant);
 

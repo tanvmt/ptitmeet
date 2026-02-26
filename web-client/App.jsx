@@ -28,7 +28,7 @@ const App = () => {
                     {/* Waiting Room có thể cần truyền thêm ID phòng họp sau này */}
                     <Route
                         path="/waiting-room/:code"
-                        element={user ? <WaitingRoomPage userName={user.fullName} /> : <Navigate to="/login" />}
+                        element={user ? <WaitingRoomPage /> : <Navigate to="/login" />}
                     />
 
                     <Route path="/meeting/:code" element={<MeetingPage />} />

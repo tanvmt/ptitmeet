@@ -67,7 +67,19 @@ const DashboardPage = ({ onLogout }) => {
     try {
       setIsLoading(true);
       const meeting = await meetingService.createInstantMeeting();
-      await handleJoinMeeting(meeting.meetingCode);
+      const joinRes = await meetingService.joinMeeting(meeting.meetingCode);
+
+      if (joinRes.status === "APPROVED") {
+        navigate(`/meeting/${meeting.meetingCode}`, {
+          state: {
+            token: joinRes.token,
+            role: joinRes.role,
+            serverUrl: joinRes.serverUrl,
+            micOn: true,
+            camOn: true,
+          },
+        });
+      }
     } catch (error) {
       alert(`Lỗi tạo phòng: ${error.response?.data?.message || error.message}`);
     } finally {
@@ -77,31 +89,8 @@ const DashboardPage = ({ onLogout }) => {
 
   const handleJoinMeeting = async (code) => {
     if (!code) return alert("Vui lòng nhập mã phòng!");
-
-    try {
-      setIsLoading(true);
-      const response = await meetingService.joinMeeting(code);
-
-      setIsJoinModalOpen(false);
-
-      if (response.status === "APPROVED") {
-        navigate(`/meeting/${code}`, {
-          state: {
-            token: response.token,
-            role: response.role,
-            serverUrl: response.serverUrl,
-          },
-        });
-      } else if (response.status === "PENDING") {
-        navigate(`/waiting-room/${code}`);
-      } else {
-        alert("Bạn không thể tham gia cuộc họp này.");
-      }
-    } catch (error) {
-      alert(`Lỗi tham gia: ${error.response?.data?.message || error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
+    setIsJoinModalOpen(false);
+    navigate(`/waiting-room/${code}`);
   };
 
   // Cập nhật thời gian thực (tùy chọn)
