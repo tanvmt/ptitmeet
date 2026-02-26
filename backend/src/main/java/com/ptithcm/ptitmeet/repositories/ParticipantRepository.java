@@ -9,9 +9,10 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
-public interface ParticipantRepository extends JpaRepository<Participant, Long> {
+public interface ParticipantRepository extends JpaRepository<Participant, UUID> {
     Optional<Participant> findByMeetingAndUser(Meeting meeting, User user);
     List<Participant> findAllByMeetingAndApprovalStatus(Meeting meeting, ParticipantApprovalStatus status);
     long countByMeeting(Meeting meeting);
