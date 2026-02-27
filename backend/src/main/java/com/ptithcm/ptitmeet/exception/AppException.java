@@ -1,14 +1,15 @@
 package com.ptithcm.ptitmeet.exception;
 
 import lombok.Getter;
+import org.springframework.http.HttpStatus;
 
 @Getter
 public class AppException extends RuntimeException {
+    
+    private final HttpStatus status;
 
-    private final ErrorCode errorCode;
-
-    public AppException(ErrorCode errorCode) {
-        super(errorCode.getMessage());
-        this.errorCode = errorCode;
+    public AppException(HttpStatus status, String message) {
+        super(message);
+        this.status = status;
     }
 }
