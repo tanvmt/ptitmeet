@@ -68,8 +68,9 @@ const DashboardPage = ({ onLogout }) => {
     try {
       setIsLoading(true);
       const meeting = await meetingService.createInstantMeeting();
+      console.log(meeting);
       const joinRes = await meetingService.joinMeeting(meeting.meetingCode);
-
+      console.log(joinRes)
       if (joinRes.status === "APPROVED") {
         navigate(`/meeting/${meeting.meetingCode}`, {
           state: {

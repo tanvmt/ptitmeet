@@ -280,11 +280,11 @@ public class MeetingService {
             throw new AppException(ErrorCode.MEETING_REJECTED);
         }
 
-        String token = liveKitService.generateToken(user, meeting);
+        String token = liveKitService.generateJoinToken(meetingCode, user.getFullName(), userId.toString());
         
         return JoinMeetingResponse.builder()
                 .token(token)
-                .serverUrl(liveKitService.getLiveKitUrl())
+                .serverUrl(liveKitService.getLivekitUrl())
                 .role(role.name())
                 .status(participant.getApprovalStatus().name())
                 .build();
@@ -341,13 +341,13 @@ public class MeetingService {
             participantRepository.save(participant); 
 
             User guestUser = participant.getUser();
-            String token = liveKitService.generateToken(guestUser, meeting);
+            String token = liveKitService.generateJoinToken(meetingCode, guestUser.getFullName(), guestUser.getUserId().toString());
 
             JoinMeetingResponse approvalResponse = JoinMeetingResponse.builder()
                     .status("APPROVED")
                     .role("ATTENDEE")
                     .token(token)
-                    .serverUrl(liveKitService.getLiveKitUrl())
+                    .serverUrl(liveKitService.getLivekitUrl())
                     .build();
 
             messagingTemplate.convertAndSend(

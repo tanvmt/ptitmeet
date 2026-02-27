@@ -8,6 +8,7 @@ import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingResponse;
 import com.ptithcm.ptitmeet.dto.meeting.ParticipantResponse;
 import com.ptithcm.ptitmeet.entity.mysql.Meeting;
+import com.ptithcm.ptitmeet.services.LiveKitService;
 import com.ptithcm.ptitmeet.services.MeetingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +17,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -25,6 +28,8 @@ import java.util.UUID;
 public class MeetingController {
 
     private final MeetingService meetingService;
+
+    private final LiveKitService liveKitService;
 
     private UUID getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -97,5 +102,27 @@ public class MeetingController {
         
         String msg = "APPROVED".equalsIgnoreCase(request.getAction()) ? "Đã duyệt thành viên" : "Đã từ chối thành viên";
         return ResponseEntity.ok(ApiResponse.success(null, msg));
+    }
+
+    @GetMapping("/{meetingCode}/token")
+    public ResponseEntity<ApiResponse<Map<String, String>>> getMeetingToken(
+            @PathVariable String meetingCode,
+            @RequestParam String participantName,
+            @RequestParam String participantId) {
+
+        // Trong thực tế, bạn có thể gọi MeetingService để check xem meetingCode có tồn tại không
+        // và user có quyền vào không trước khi cấp token.
+
+        String token = liveKitService.generateJoinToken(meetingCode, participantName, participantId);
+
+        Map<String, String> data = new HashMap<>();
+        data.put("token", token);
+
+        return ResponseEntity.ok(
+                ApiResponse.<Map<String, String>>builder()
+                        .message("Lấy token thành công")
+                        .data(data)
+                        .build()
+        );
     }
 }
