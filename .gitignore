@@ -1,7 +1,7 @@
 # Gradle files
 .gradle/
 build/
-
+web-client/node_modules
 # Local configuration file (sdk path, etc)
 local.properties
 

@@ -10,21 +10,21 @@ import lombok.*;
 @JsonInclude(JsonInclude.Include.NON_NULL) 
 public class ApiResponse<T> {
 
-    private int status;      
-    private String message;  
-    private T data;         
+    private int code;       
+    private String message; 
+    private T data;        
 
     public static <T> ApiResponse<T> success(T data, String message) {
         return ApiResponse.<T>builder()
-                .status(200)
+                .code(1000)
                 .message(message)
                 .data(data)
                 .build();
     }
-
-    public static <T> ApiResponse<T> error(int status, String message) {
+    
+    public static <T> ApiResponse<T> error(int code, String message) {
         return ApiResponse.<T>builder()
-                .status(status)
+                .code(code)
                 .message(message)
                 .build();
     }

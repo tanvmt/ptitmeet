@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 
-const SummaryPage: React.FC = () => {
+const SummaryPage = () => {
   const navigate = useNavigate();
 
   //Mock Random Meeting Data
@@ -24,14 +24,14 @@ const SummaryPage: React.FC = () => {
         <p className="text-gray-400 mb-12">Weekly Product Sync • {stats.duration} duration</p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-          <button 
+          <button
             onClick={() => navigate('/waiting-room')}
             className="px-8 h-14 bg-primary hover:bg-blue-600 text-white font-black rounded-full shadow-xl shadow-primary/20 transition-all active:scale-95 flex items-center justify-center gap-2"
           >
             <span className="material-symbols-outlined">replay</span>
             Rejoin Meeting
           </button>
-          <button 
+          <button
             onClick={() => navigate('/')}
             className="px-8 h-14 bg-white/5 hover:bg-white/10 text-white font-bold rounded-full border border-white/5 transition-all flex items-center justify-center gap-2"
           >

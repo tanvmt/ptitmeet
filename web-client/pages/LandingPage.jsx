@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const LandingPage: React.FC = () => {
+const LandingPage = () => {
   const navigate = useNavigate();
 
   return (
@@ -17,7 +17,7 @@ const LandingPage: React.FC = () => {
           </div>
           <span className="text-xl font-black tracking-tight">PTIT-Meet</span>
         </div>
-        
+
         <nav className="hidden md:flex items-center gap-8">
           <a href="#" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Product</a>
           <a href="#" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Solutions</a>
@@ -25,14 +25,14 @@ const LandingPage: React.FC = () => {
         </nav>
 
         <div className="flex items-center gap-4">
-          <button 
-            onClick={() => navigate('/login')} 
+          <button
+            onClick={() => navigate('/login')}
             className="text-sm font-semibold text-gray-400 hover:text-white mr-4"
           >
             Sign In
           </button>
-          <button 
-            onClick={() => navigate('/signup')} 
+          <button
+            onClick={() => navigate('/signup')}
             className="bg-primary hover:bg-blue-600 px-6 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105"
           >
             Start Free
@@ -55,7 +55,7 @@ const LandingPage: React.FC = () => {
             Collaborate from anywhere with enterprise-grade security, HD audio/video, and seamless real-time tools.
           </p>
           <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
-            <button 
+            <button
               onClick={() => navigate('/login')}
               className="h-14 px-10 bg-primary hover:bg-blue-600 text-white rounded-full font-bold flex items-center gap-3 transition-all hover:scale-105 w-full sm:w-auto justify-center"
             >
@@ -64,9 +64,9 @@ const LandingPage: React.FC = () => {
             </button>
             <div className="relative w-full sm:w-64 group">
               <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-primary transition-colors">keyboard</span>
-              <input 
-                type="text" 
-                placeholder="Enter code" 
+              <input
+                type="text"
+                placeholder="Enter code"
                 className="w-full h-14 pl-12 pr-20 rounded-full bg-surface border border-white/10 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
               />
               <button className="absolute right-2 top-2 bottom-2 px-4 rounded-full text-primary hover:bg-primary/10 font-bold text-sm transition-colors">Join</button>
@@ -75,9 +75,9 @@ const LandingPage: React.FC = () => {
         </div>
         <div className="flex-1 w-full max-w-[600px] lg:max-w-none relative">
           <div className="aspect-video bg-surface rounded-2xl overflow-hidden shadow-2xl border border-white/10">
-            <img 
-              src="https://picsum.photos/1200/800?random=1" 
-              alt="UI Mockup" 
+            <img
+              src="https://picsum.photos/1200/800?random=1"
+              alt="UI Mockup"
               className="w-full h-full object-cover opacity-80"
             />
           </div>

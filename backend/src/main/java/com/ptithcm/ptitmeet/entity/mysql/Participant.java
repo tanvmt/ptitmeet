@@ -47,7 +47,11 @@ public class Participant {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        approvalStatus = ParticipantApprovalStatus.PENDING;
-        role = ParticipantRole.ATTENDEE;
+        if (approvalStatus == null) {
+            approvalStatus = ParticipantApprovalStatus.PENDING;
+        }
+        if (role == null) {
+            role = ParticipantRole.ATTENDEE;
+        }
     }
 }
