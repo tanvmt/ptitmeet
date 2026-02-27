@@ -33,4 +33,9 @@ export const meetingService = {
         const response = await api.post('/meetings/schedule', meetingData);
         return response.data.data;
     },
+
+    getHistory: async () => {
+        const response = await api.get('/meetings/history');
+        return response.data.data;
+    },
 };

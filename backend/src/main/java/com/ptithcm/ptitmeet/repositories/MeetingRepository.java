@@ -4,6 +4,8 @@ import com.ptithcm.ptitmeet.entity.mysql.Meeting;
 import com.ptithcm.ptitmeet.entity.enums.MeetingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,4 +22,9 @@ public interface MeetingRepository extends JpaRepository<Meeting, UUID> {
     List<Meeting> findByHostIdOrderByStartTimeDesc(UUID hostId);
     
     List<Meeting> findByStatusAndEndTimeBefore(MeetingStatus status, LocalDateTime now);
+
+    @Query("SELECT DISTINCT m FROM Meeting m LEFT JOIN Participant p ON m.meetingId = p.meeting.meetingId " +
+           "WHERE (m.hostId = :userId OR p.user.userId = :userId) " +
+           "ORDER BY m.startTime DESC")
+    List<Meeting> findMeetingHistoryByUserId(@Param("userId") UUID userId);
 }

@@ -11,6 +11,8 @@ import com.ptithcm.ptitmeet.entity.mysql.Meeting;
 import com.ptithcm.ptitmeet.services.MeetingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.ptithcm.ptitmeet.dto.meeting.MeetingHistoryResponse;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -47,6 +49,13 @@ public class MeetingController {
             
         Meeting meeting = meetingService.scheduleMeeting(getCurrentUserId(), request);
         return ResponseEntity.ok(ApiResponse.success(meeting, "Lên lịch họp thành công"));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<ApiResponse<List<MeetingHistoryResponse>>> getHistory() {
+        List<MeetingHistoryResponse> history = meetingService.getUserMeetingHistory(getCurrentUserId());
+        
+        return ResponseEntity.ok(ApiResponse.success(history, "Lấy lịch sử họp thành công"));
     }
     
     @GetMapping("/my-meetings")

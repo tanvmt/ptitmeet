@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
+import com.ptithcm.ptitmeet.dto.meeting.MeetingHistoryResponse;
 
 import org.springframework.stereotype.Service;
 
@@ -333,12 +334,12 @@ public class MeetingService {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (!participant.getMeeting().getMeetingId().equals(meeting.getMeetingId())) {
-             throw new AppException(ErrorCode.INVALID_KEY);
+            throw new AppException(ErrorCode.INVALID_KEY);
         }
 
         if ("APPROVED".equalsIgnoreCase(request.getAction())) {
-            participant.setApprovalStatus(ParticipantApprovalStatus.APPROVED);          
-            participantRepository.save(participant); 
+            participant.setApprovalStatus(ParticipantApprovalStatus.APPROVED);
+            participantRepository.save(participant);
 
             User guestUser = participant.getUser();
             String token = liveKitService.generateToken(guestUser, meeting);
@@ -351,9 +352,8 @@ public class MeetingService {
                     .build();
 
             messagingTemplate.convertAndSend(
-                    "/topic/meeting/" + meetingCode + "/user/" + guestUser.getUserId(), 
-                    approvalResponse
-            );
+                    "/topic/meeting/" + meetingCode + "/user/" + guestUser.getUserId(),
+                    approvalResponse);
         } else if ("REJECTED".equalsIgnoreCase(request.getAction())) {
             participant.setApprovalStatus(ParticipantApprovalStatus.REJECTED);
             participantRepository.save(participant);
@@ -365,13 +365,28 @@ public class MeetingService {
 
             messagingTemplate.convertAndSend(
                     "/topic/meeting/" + meetingCode + "/user/" + participant.getUser().getUserId(),
-                    rejectResponse
-            );
+                    rejectResponse);
         } else {
-            throw new AppException(ErrorCode.INVALID_KEY); 
+            throw new AppException(ErrorCode.INVALID_KEY);
         }
 
         participantRepository.save(participant);
+    }
+
+    public List<MeetingHistoryResponse> getUserMeetingHistory(UUID userId) {
+        List<Meeting> meetings = meetingRepository.findMeetingHistoryByUserId(userId);
+        
+        return meetings.stream().map(meeting -> {
+            boolean isHost = meeting.getHostId().equals(userId);
+            return MeetingHistoryResponse.builder()
+                    .meetingCode(meeting.getMeetingCode())
+                    .title(meeting.getTitle())
+                    .startTime(meeting.getStartTime())
+                    .endTime(meeting.getEndTime())
+                    .status(meeting.getStatus().name())
+                    .isHost(isHost)
+                    .build();
+        }).toList();
     }
 
     private ParticipantApprovalStatus determineParticipantStatus(Meeting meeting, User user) {
