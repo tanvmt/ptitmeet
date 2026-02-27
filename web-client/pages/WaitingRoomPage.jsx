@@ -15,6 +15,9 @@ const WaitingRoomPage = () => {
   const [joinState, setJoinState] = useState("IDLE"); // IDLE (Mới vào) -> ASKING (Đang gọi API) -> WAITING (Đang chờ duyệt)
   const [errorMsg, setErrorMsg] = useState(null);
 
+  const [waitingMessage, setWaitingMessage] = useState("Joining meeting...");
+  const [isWaiting, setIsWaiting] = useState(false);
+
   const [stompClient, setStompClient] = useState(null);
 
   //Mock Check Devices Call
@@ -24,8 +27,10 @@ const WaitingRoomPage = () => {
   }, []);
 
   const handleAskToJoin = async () => {
-    setJoinState("ASKING");
-    setErrorMsg(null);
+    if (!isWaiting) {
+      setJoinState("ASKING");
+      setErrorMsg(null);
+    }
 
     try {
       const response = await meetingService.joinMeeting(code);
@@ -42,14 +47,18 @@ const WaitingRoomPage = () => {
         });
       } else if (response.status === "PENDING") {
         setJoinState("WAITING");
-        connectWebSocket();
+        setWaitingMessage(response.message);
+        setIsWaiting(true);
+
+        if (!stompClient || !stompClient.active) {
+          connectWebSocket();
+        }
       }
     } catch (error) {
-      console.error("Lỗi thật sự khiến app bị dừng:", error);
+      console.error("Lỗi khi gọi API join:", error);
       setJoinState("IDLE");
       setErrorMsg(
-        error.response?.data?.message ||
-          "Lỗi khi xin vào phòng. Vui lòng kiểm tra lại mã."
+        error.response?.data?.message || "An error occurred while trying to join the meeting. Please try again."
       );
     }
   };
@@ -76,14 +85,42 @@ const WaitingRoomPage = () => {
               });
             } else if (res.status === "REJECTED") {
               setJoinState("IDLE");
-              setErrorMsg("Chủ phòng đã từ chối yêu cầu tham gia của bạn.");
+              setIsWaiting(false);
+              setErrorMsg("Your request to join the meeting was rejected by the host.");
               client.deactivate();
             }
           }
         );
+
+        client.subscribe(
+          `/topic/meeting/${code}/waiting-room`,
+          async (msg) => {
+            if (msg.body === "HOST_JOINED") {
+              setWaitingMessage("The meeting has started. Please wait for the host to let you in.");
+              
+              try {
+                const checkRes = await meetingService.joinMeeting(code);
+                if (checkRes.status === "APPROVED") {
+                  navigate(`/meeting/${code}`, {
+                    state: {
+                      token: checkRes.token,
+                      role: checkRes.role,
+                      serverUrl: checkRes.serverUrl,
+                      micOn: micOn,
+                      videoOn: videoOn,
+                    },
+                  });
+                }
+              } catch (err) {
+                console.error("Lỗi khi re-check trạng thái phòng:", err);
+              }
+            }
+          }
+        );
       },
-      onStompError: (frame) =>
-        console.error("Lỗi Broker: ", frame.headers["message"]),
+      onStompError: (frame) => {
+        console.error("Lỗi Broker: ", frame.headers["message"]);
+      },
     });
 
     client.activate();
@@ -104,20 +141,27 @@ const WaitingRoomPage = () => {
           className="w-full h-16 bg-blue-900 text-blue-200 text-xl font-black rounded-2xl flex items-center justify-center gap-3 cursor-not-allowed transition-all"
         >
           <div className="size-5 border-2 border-blue-200/30 border-t-blue-200 rounded-full animate-spin"></div>
-          Sending join request...
+          Sending request...
         </button>
       );
     }
 
     if (joinState === "WAITING") {
       return (
-        <button
-          disabled
-          className="w-full h-16 bg-slate-800 text-gray-400 text-xl font-black rounded-2xl flex items-center justify-center gap-3 cursor-not-allowed transition-all"
-        >
-          <div className="size-5 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin"></div>
-          Waiting for host approval...
-        </button>
+        <div className="flex flex-col gap-4">
+          <div className="bg-blue-500/10 border border-blue-500/20 text-blue-300 text-sm py-3 px-4 rounded-xl flex items-start gap-3 text-left animate-fade-in">
+            <span className="material-symbols-outlined mt-0.5 text-lg">info</span>
+            <span className="leading-relaxed">{waitingMessage}</span>
+          </div>
+          
+          <button
+            disabled
+            className="w-full h-16 bg-slate-800 text-gray-400 text-lg font-bold rounded-2xl flex items-center justify-center gap-3 cursor-not-allowed transition-all shadow-inner"
+          >
+            <div className="size-5 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin"></div>
+            Waiting for host...
+          </button>
+        </div>
       );
     }
 

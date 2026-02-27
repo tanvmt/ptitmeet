@@ -11,6 +11,7 @@ import com.ptithcm.ptitmeet.entity.enums.MeetingStatus;
 import com.ptithcm.ptitmeet.entity.enums.ParticipantApprovalStatus;
 import com.ptithcm.ptitmeet.entity.enums.ParticipantRole;
 import com.ptithcm.ptitmeet.entity.mysql.Meeting;
+import com.ptithcm.ptitmeet.entity.mysql.MeetingInvitation;
 import com.ptithcm.ptitmeet.entity.mysql.Participant;
 import com.ptithcm.ptitmeet.entity.mysql.User;
 import com.ptithcm.ptitmeet.exception.AppException;
@@ -44,6 +45,7 @@ public class MeetingService {
     private final LiveKitService liveKitService;
     private final ObjectMapper objectMapper;
     private final SimpMessagingTemplate messagingTemplate;
+    private final EmailService emailService;
 
     public Meeting createInstantMeeting(UUID hostId, CreateMeetingRequest request) {
         if (!userRepository.existsById(hostId)) {
@@ -83,9 +85,8 @@ public class MeetingService {
     }
 
     public Meeting scheduleMeeting(UUID hostId, CreateMeetingRequest request) {
-        if (!userRepository.existsById(hostId)) {
-            throw new AppException(ErrorCode.USER_NOT_FOUND);
-        }
+        User host = userRepository.findById(hostId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (request.getStartTime() == null) {
             throw new AppException(ErrorCode.INVALID_KEY); 
@@ -97,7 +98,7 @@ public class MeetingService {
 
         String meetingCode = generateUniqueMeetingCode();
 
-        Meeting meeting = Meeting.builder()
+        Meeting newMeeting = Meeting.builder()
                 .hostId(hostId)
                 .meetingCode(meetingCode)
                 .title(request.getTitle())
@@ -118,12 +119,41 @@ public class MeetingService {
                     "\"chatEnabled\": true," +
                     "\"screenShareEnabled\": true" +
                     "}";
-            meeting.setSettings(defaultSettings);
+            newMeeting.setSettings(defaultSettings);
         } else {
-            meeting.setSettings(request.getSettings());
+            newMeeting.setSettings(request.getSettings());
         }
 
-        return meetingRepository.save(meeting);
+        Meeting meeting = meetingRepository.save(newMeeting);
+
+        System.out.println("Danh sách email nhận được từ Frontend: " + request.getParticipantEmails());
+        
+        if (request.getParticipantEmails() != null && !request.getParticipantEmails().isEmpty()) {
+            
+            List<String> uniqueEmails = request.getParticipantEmails().stream().distinct().toList();
+            
+            for (String email : uniqueEmails) {
+                User invitedUser = userRepository.findByEmail(email).orElse(null);
+
+                MeetingInvitation invitation = MeetingInvitation.builder()
+                        .meeting(meeting)
+                        .email(email)
+                        .user(invitedUser)
+                        .build();
+                
+                meetingInvitationRepository.save(invitation);
+
+                emailService.sendMeetingInvite(
+                        email, 
+                        meeting.getMeetingCode(), 
+                        meeting.getTitle(), 
+                        meeting.getStartTime(), 
+                        host.getFullName()
+                );
+            }
+        }
+
+        return meeting;
     }
 
     public MeetingInfoResponse getMeetingInfo(String code) {
@@ -168,23 +198,41 @@ public class MeetingService {
         Meeting meeting = meetingRepository.findByMeetingCode(meetingCode)
                 .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
 
-        if (meeting.getStatus() == MeetingStatus.FINISHED) {
-            throw new AppException(ErrorCode.MEETING_ALREADY_FINISHED);
-        }
-
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
+        if (meeting.getStatus() == MeetingStatus.FINISHED) {
+            throw new AppException(ErrorCode.MEETING_ALREADY_FINISHED);
+        }
+        if (meeting.getStatus() == MeetingStatus.CANCELED) {
+            throw new AppException(ErrorCode.MEETING_CANCELED);
+        }
+
         boolean isHost = meeting.getHostId().equals(user.getUserId());
         ParticipantRole role = isHost ? ParticipantRole.HOST : ParticipantRole.ATTENDEE;
-        System.out.println("is host: " + isHost);
-        System.out.println("userId: " + user.getUserId());
-        System.out.println("meeting hostId: " + meeting.getHostId());
-        System.out.println("Role: " + role);
 
         if (!isHost && meeting.getPassword() != null && !meeting.getPassword().isEmpty()) {
             if (request.getPassword() == null || !request.getPassword().equals(meeting.getPassword())) {
                 throw new AppException(ErrorCode.INVALID_MEETING_PASSWORD);
+            }
+        }
+
+        ParticipantApprovalStatus targetStatus;
+        
+        if (isHost) {
+            targetStatus = ParticipantApprovalStatus.APPROVED;
+            
+            if (meeting.getStatus() == MeetingStatus.SCHEDULED) {
+                meeting.setStatus(MeetingStatus.ACTIVE);
+                meeting.setStartTime(LocalDateTime.now()); 
+                meetingRepository.save(meeting);
+                messagingTemplate.convertAndSend("/topic/meeting/" + meetingCode + "/waiting-room", "HOST_JOINED");
+            }
+        } else {
+            if (meeting.getStatus() == MeetingStatus.SCHEDULED) {
+                targetStatus = ParticipantApprovalStatus.PENDING;
+            } else {
+                targetStatus = determineParticipantStatus(meeting, user);
             }
         }
 
@@ -201,15 +249,9 @@ public class MeetingService {
                 });
 
         participant.setRole(role);
-
-        if (isHost) {
-            participant.setApprovalStatus(ParticipantApprovalStatus.APPROVED); 
-        } else {
-            ParticipantApprovalStatus calculatedStatus = determineParticipantStatus(meeting, user);
-            
-            if (participant.getApprovalStatus() != ParticipantApprovalStatus.APPROVED) {
-                participant.setApprovalStatus(calculatedStatus);
-            }
+        
+        if (participant.getApprovalStatus() != ParticipantApprovalStatus.APPROVED) {
+            participant.setApprovalStatus(targetStatus);
         }
 
         participant = participantRepository.save(participant);
@@ -218,15 +260,19 @@ public class MeetingService {
             ParticipantResponse notiData = ParticipantResponse.builder()
                     .participantId(participant.getParticipantId())
                     .userId(user.getUserId())
-                    .displayName(user.getFullName())
+                    .displayName(participant.getDisplayName()) 
                     .status("PENDING")
                     .build();
             
             messagingTemplate.convertAndSend("/topic/meeting/" + meetingCode + "/admin", notiData);
-            System.out.println("Sent waiting room notification for user " + user.getUserId() + " to meeting " + meetingCode);
+            
+            String message = (meeting.getStatus() == MeetingStatus.SCHEDULED)
+                    ? "The meeting has not started yet. Please wait for the host to join."
+                    : "You are in the waiting room. Please wait for the host to let you in.";
+
             return JoinMeetingResponse.builder()
                     .status("PENDING")
-                    .message("Bạn đang ở trong phòng chờ. Vui lòng chờ chủ phòng duyệt.")
+                    .message(message)
                     .build();
         }
 
@@ -235,7 +281,7 @@ public class MeetingService {
         }
 
         String token = liveKitService.generateToken(user, meeting);
-        System.out.println("Generated token for user " + user.getUserId() + " to join meeting " + meetingCode);
+        
         return JoinMeetingResponse.builder()
                 .token(token)
                 .serverUrl(liveKitService.getLiveKitUrl())
