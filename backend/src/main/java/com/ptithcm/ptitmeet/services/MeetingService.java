@@ -29,6 +29,10 @@ import lombok.RequiredArgsConstructor;
 import com.ptithcm.ptitmeet.dto.meeting.MeetingHistoryResponse;
 
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -373,10 +377,17 @@ public class MeetingService {
         participantRepository.save(participant);
     }
 
-    public List<MeetingHistoryResponse> getUserMeetingHistory(UUID userId) {
-        List<Meeting> meetings = meetingRepository.findMeetingHistoryByUserId(userId);
+    public Page<MeetingHistoryResponse> getUserMeetingHistory(UUID userId, String role, String statusStr, int page, int size) {
+        MeetingStatus statusEnum = null;
+        if (statusStr != null && !statusStr.equals("ALL")) {
+            statusEnum = MeetingStatus.valueOf(statusStr);
+        }
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "startTime"));
+
+        Page<Meeting> meetingPage = meetingRepository.findMeetingHistoryWithFilters(userId, role, statusEnum, pageable);
         
-        return meetings.stream().map(meeting -> {
+        return meetingPage.map(meeting -> {
             boolean isHost = meeting.getHostId().equals(userId);
             return MeetingHistoryResponse.builder()
                     .meetingCode(meeting.getMeetingCode())
@@ -386,7 +397,7 @@ public class MeetingService {
                     .status(meeting.getStatus().name())
                     .isHost(isHost)
                     .build();
-        }).toList();
+        });
     }
 
     private ParticipantApprovalStatus determineParticipantStatus(Meeting meeting, User user) {

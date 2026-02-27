@@ -17,6 +17,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 import java.util.UUID;
@@ -52,10 +56,16 @@ public class MeetingController {
     }
 
     @GetMapping("/history")
-    public ResponseEntity<ApiResponse<List<MeetingHistoryResponse>>> getHistory() {
-        List<MeetingHistoryResponse> history = meetingService.getUserMeetingHistory(getCurrentUserId());
+    public ResponseEntity<ApiResponse<Page<MeetingHistoryResponse>>> getHistory(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "6") int size,
+            @RequestParam(defaultValue = "ALL") String role,
+            @RequestParam(defaultValue = "ALL") String status) {
         
-        return ResponseEntity.ok(ApiResponse.success(history, "Lấy lịch sử họp thành công"));
+        Page<MeetingHistoryResponse> historyPage = meetingService.getUserMeetingHistory(
+                getCurrentUserId(), role, status, page - 1, size);
+                
+        return ResponseEntity.ok(ApiResponse.success(historyPage, "Lấy lịch sử họp thành công"));
     }
     
     @GetMapping("/my-meetings")

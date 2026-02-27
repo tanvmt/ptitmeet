@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,6 +27,11 @@ public interface MeetingRepository extends JpaRepository<Meeting, UUID> {
 
     @Query("SELECT DISTINCT m FROM Meeting m LEFT JOIN Participant p ON m.meetingId = p.meeting.meetingId " +
            "WHERE (m.hostId = :userId OR p.user.userId = :userId) " +
-           "ORDER BY m.startTime DESC")
-    List<Meeting> findMeetingHistoryByUserId(@Param("userId") UUID userId);
+           "AND (:status IS NULL OR m.status = :status) " +
+           "AND (:role = 'ALL' OR (:role = 'HOST' AND m.hostId = :userId) OR (:role = 'GUEST' AND m.hostId <> :userId AND p.user.userId = :userId))")
+    Page<Meeting> findMeetingHistoryWithFilters(
+            @Param("userId") UUID userId,
+            @Param("role") String role,
+            @Param("status") MeetingStatus status,
+            Pageable pageable);
 }
