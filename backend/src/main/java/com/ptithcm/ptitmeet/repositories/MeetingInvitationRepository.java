@@ -6,6 +6,7 @@ import com.ptithcm.ptitmeet.entity.mysql.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,4 +15,7 @@ public interface MeetingInvitationRepository extends JpaRepository<MeetingInvita
     boolean existsByMeetingAndUser(Meeting meeting, User user);
     
     boolean existsByMeetingAndEmail(Meeting meeting, String email);
+
+    boolean existsByMeeting_MeetingIdAndEmail(UUID meetingId, String email);
+    List<MeetingInvitation> findByMeeting_MeetingId(UUID meetingId);
 }

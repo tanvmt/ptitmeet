@@ -73,7 +73,7 @@ const SchedulePage = () => {
         title: formData.title || "Untitled Meeting",
         start_time: formatLocal(startDateTime),
         end_time: formatLocal(endDateTime),
-        // participantEmails: formData.participants,
+        participant_emails: formData.participants,
 
         access_type: "TRUSTED",
         settings: JSON.stringify(meetingSettings),

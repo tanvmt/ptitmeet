@@ -6,6 +6,7 @@ import lombok.Data;
 
 import jakarta.validation.constraints.Future;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class CreateMeetingRequest {
@@ -23,5 +24,8 @@ public class CreateMeetingRequest {
     @JsonProperty("access_type")
     private MeetingAccessType accessType; 
     
+    @JsonProperty("participant_emails")
+    private List<String> participantEmails;
+
     private String settings; 
 }
