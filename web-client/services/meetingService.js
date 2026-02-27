@@ -27,5 +27,10 @@ export const meetingService = {
             action
         });
         return response.data;
-    }
+    },
+
+    scheduleMeeting: async (meetingData) => {
+        const response = await api.post('/meetings/schedule', meetingData);
+        return response.data.data;
+    },
 };
