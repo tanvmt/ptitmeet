@@ -7,7 +7,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -16,11 +15,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AppException.class)
     public ResponseEntity<ApiResponse<Void>> handleAppException(AppException e) {
-        ErrorCode errorCode = e.getErrorCode();
-        
         return ResponseEntity
-                .status(errorCode.getStatusCode())
-                .body(ApiResponse.error(errorCode.getCode(), errorCode.getMessage()));
+                .status(e.getStatus())
+                .body(ApiResponse.error(e.getStatus().value(), e.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -33,17 +30,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.<Map<String, String>>builder()
-                        // .status(400) 
-                        .message("Dữ liệu đầu vào không hợp lệ")
+                        .status(400)
+                        .message("Dữ liệu không hợp lệ")
                         .data(errors)
                         .build());
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleUnwantedException(Exception e) {
-        e.printStackTrace();
+        e.printStackTrace(); 
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error(ErrorCode.UNCATEGORIZED_EXCEPTION.getCode(), e.getMessage()));
+                .body(ApiResponse.error(500, "Lỗi hệ thống: " + e.getMessage()));
     }
 }
