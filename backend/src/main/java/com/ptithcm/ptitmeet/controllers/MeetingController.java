@@ -11,6 +11,9 @@ import com.ptithcm.ptitmeet.entity.mysql.Meeting;
 import com.ptithcm.ptitmeet.services.MeetingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.ptithcm.ptitmeet.entity.mongodb.ChatMessage;
+import com.ptithcm.ptitmeet.repositories.ChatMessageRepository;
+
 import com.ptithcm.ptitmeet.dto.meeting.MeetingHistoryResponse;
 
 import org.springframework.http.ResponseEntity;
@@ -21,6 +24,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.UUID;
@@ -122,5 +126,14 @@ public class MeetingController {
         
         String msg = "APPROVED".equalsIgnoreCase(request.getAction()) ? "Đã duyệt thành viên" : "Đã từ chối thành viên";
         return ResponseEntity.ok(ApiResponse.success(null, msg));
+    }
+
+    @Autowired
+    private ChatMessageRepository chatMessageRepository;
+
+    @GetMapping("/{code}/chat/history")
+    public ResponseEntity<ApiResponse<List<ChatMessage>>> getChatHistory(@PathVariable String code) {
+        List<ChatMessage> history = chatMessageRepository.findByMeetingCodeOrderByTimestampAsc(code);
+        return ResponseEntity.ok(ApiResponse.success(history, "Lấy lịch sử chat thành công"));
     }
 }
