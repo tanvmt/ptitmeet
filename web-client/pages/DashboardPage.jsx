@@ -1,68 +1,64 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { meetingService } from "../services/meetingService";
 import JoinMeetingModal from "../components/JoinMeetingModal";
 import DashboardLayout from "../components/DashboardLayout";
 
-// 2. Dữ liệu Mock
-const RECENT_ACTIVITIES = [
-  {
-    id: "1",
-    title: "Q3 Marketing Strategy",
-    meetingId: "892-231-009",
-    date: "Today",
-    time: "10:00 AM - 11:30 AM",
-    status: "Completed",
-    icon: "group",
-    iconColor:
-      "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30",
-  },
-  {
-    id: "2",
-    title: "1:1 with Manager",
-    meetingId: "442-110-552",
-    date: "Yesterday",
-    time: "02:00 PM - 02:45 PM",
-    status: "Ended",
-    icon: "person",
-    iconColor:
-      "text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30",
-  },
-  {
-    id: "3",
-    title: "Client Kickoff",
-    meetingId: "112-998-334",
-    date: "Mon, Sep 12",
-    time: "09:00 AM - 10:30 AM",
-    status: "Completed",
-    icon: "rocket_launch",
-    iconColor:
-      "text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30",
-  },
-];
-
-const UPCOMING_MEETING = {
-  title: "Weekly Sync",
-  team: "Engineering & Design Teams",
-  time: "11:00 AM - 12:00 PM",
-  meetingId: "884-219-440",
-  startsIn: "15m",
-  participants: [
-    "https://picsum.photos/200?random=6",
-    "https://picsum.photos/200?random=7",
-    "https://picsum.photos/200?random=8",
-  ],
-  totalParticipants: 8,
-};
-
-const DashboardPage = ({ onLogout }) => {
+const DashboardPage = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(true);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
-  const [time, setTime] = useState("10:42 AM");
+  const [time, setTime] = useState(
+    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  );
+
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [upcomingMeeting, setUpcomingMeeting] = useState(null);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsFetchingData(true);
+        
+        const [historyData, upNextData] = await Promise.all([
+          meetingService.getHistory(1, 5, 'ALL', 'ALL'),
+          meetingService.getUpNext()
+        ]);
+
+        setUpcomingMeeting(upNextData);
+
+        let recent = historyData.content || [];
+        if (upNextData) {
+            recent = recent.filter(m => m.meetingCode !== upNextData.meetingCode);
+        }
+        
+        setRecentActivities(recent);
+
+      } catch (error) {
+        console.error("Lỗi tải dữ liệu Dashboard:", error);
+      } finally {
+        setIsFetchingData(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(
+        new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      );
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleCreateMeeting = async () => {
     try {
@@ -94,18 +90,73 @@ const DashboardPage = ({ onLogout }) => {
     navigate(`/waiting-room/${code}`);
   };
 
-  // Cập nhật thời gian thực (tùy chọn)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTime(
-        new Date().toLocaleTimeString([], {
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "N/A";
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+    return date.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const formatTimeRange = (startStr, endStr) => {
+    if (!startStr) return "N/A";
+    const start = new Date(startStr).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const end = endStr
+      ? new Date(endStr).toLocaleTimeString("en-US", {
           hour: "2-digit",
           minute: "2-digit",
         })
-      );
-    }, 60000);
-    return () => clearInterval(timer);
-  }, []);
+      : "TBD";
+    return `${start} - ${end}`;
+  };
+
+  const getStartsInText = (startStr) => {
+    if (!startStr) return "";
+    const diffMs = new Date(startStr) - new Date();
+    if (diffMs <= 0) return "Started";
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 60) return `${diffMins}m`;
+    const diffHours = Math.floor(diffMins / 60);
+    return `${diffHours}h ${diffMins % 60}m`;
+  };
+
+  const getIconData = (isHost) => {
+    return isHost
+      ? {
+          icon: "star",
+          color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30",
+        }
+      : {
+          icon: "group",
+          color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30",
+        };
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "FINISHED":
+        return "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-400";
+      case "ACTIVE":
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 animate-pulse";
+      case "SCHEDULED":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+      case "CANCELED":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+      default:
+        return "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-400";
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -118,6 +169,7 @@ const DashboardPage = ({ onLogout }) => {
 
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-7xl mx-auto flex flex-col gap-8">
+          {/* Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
@@ -135,8 +187,9 @@ const DashboardPage = ({ onLogout }) => {
             </div>
           </div>
 
-          {/* Quick Actions Grid */}
+          {/* Quick Actions Grid (Giữ nguyên) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/*  New Meeting, Join, Schedule  */}
             <button
               onClick={handleCreateMeeting}
               disabled={isLoading}
@@ -191,153 +244,205 @@ const DashboardPage = ({ onLogout }) => {
 
           {/* Main Content Split */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            {/* Left Column: Recent Activity */}
             <div className="xl:col-span-2 flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-bold">Recent Activity</h3>
-                <button className="text-sm text-primary font-medium hover:underline">
+                <button
+                  onClick={() => navigate("/history")}
+                  className="text-sm text-primary font-medium hover:underline"
+                >
                   View All History
                 </button>
               </div>
               <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs uppercase text-slate-500 font-semibold tracking-wider">
-                        <th className="px-6 py-4">Meeting Details</th>
-                        <th className="px-6 py-4">Date & Time</th>
-                        <th className="px-6 py-4">Status</th>
-                        <th className="px-6 py-4 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                      {RECENT_ACTIVITIES.map((activity) => (
-                        <tr
-                          key={activity.id}
-                          className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
-                        >
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={`p-2 rounded-lg ${activity.iconColor}`}
-                              >
-                                <span className="material-symbols-outlined text-xl">
-                                  {activity.icon}
-                                </span>
-                              </div>
-                              <div>
-                                <p className="text-sm font-semibold">
-                                  {activity.title}
-                                </p>
-                                <p className="text-xs text-slate-500">
-                                  ID: {activity.meetingId}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-sm">
-                            <p>{activity.date}</p>
-                            <p className="text-xs text-slate-500">
-                              {activity.time}
-                            </p>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                activity.status === "Completed"
-                                  ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                                  : "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-400"
-                              }`}
-                            >
-                              {activity.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <button
-                              className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                                activity.status === "Completed"
-                                  ? "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
-                                  : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
-                              }`}
-                            >
-                              {activity.status === "Completed"
-                                ? "View Recording"
-                                : "Rejoin"}
-                            </button>
-                          </td>
+                <div className="overflow-x-auto min-h-[300px]">
+                  {isFetchingData ? (
+                    <div className="flex justify-center items-center h-full py-20">
+                      <div className="size-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                    </div>
+                  ) : recentActivities.length === 0 ? (
+                    <div className="text-center py-20 text-slate-500">
+                      No recent activities found.
+                    </div>
+                  ) : (
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs uppercase text-slate-500 font-semibold tracking-wider">
+                          <th className="px-6 py-4">Meeting Details</th>
+                          <th className="px-6 py-4">Date & Time</th>
+                          <th className="px-6 py-4">Status</th>
+                          <th className="px-6 py-4 text-right">Action</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                        {recentActivities.map((activity) => {
+                          const iconData = getIconData(activity.host);
+                          return (
+                            <tr
+                              key={activity.meetingCode}
+                              className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                            >
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={`p-2 rounded-lg ${iconData.color}`}
+                                  >
+                                    <span className="material-symbols-outlined text-xl">
+                                      {iconData.icon}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-semibold">
+                                      {activity.title || "Untitled Meeting"}
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                      ID: {activity.meetingCode}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-sm">
+                                <p>{formatDate(activity.startTime)}</p>
+                                <p className="text-xs text-slate-500">
+                                  {formatTimeRange(
+                                    activity.startTime,
+                                    activity.endTime
+                                  )}
+                                </p>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wider ${getStatusBadge(
+                                    activity.status
+                                  )}`}
+                                >
+                                  {activity.status}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <button
+                                  onClick={() =>
+                                    navigate(
+                                      activity.status === "ACTIVE" ||
+                                        activity.status === "SCHEDULED"
+                                        ? `/waiting-room/${activity.meetingCode}`
+                                        : `/history`
+                                    )
+                                  }
+                                  className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                                    activity.status === "FINISHED" ||
+                                    activity.status === "CANCELED"
+                                      ? "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+                                      : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                                  }`}
+                                >
+                                  {activity.status === "FINISHED"
+                                    ? "Details"
+                                    : activity.status === "CANCELED"
+                                    ? "View"
+                                    : "Rejoin"}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Right Column: Upcoming Meeting */}
+            {/* Right Column: Up Next */}
             <div className="xl:col-span-1 flex flex-col gap-4">
               <h3 className="text-xl font-bold">Up Next</h3>
-              <div className="bg-[#1c2127] dark:bg-slate-800 rounded-xl border border-slate-700/50 shadow-lg relative overflow-hidden flex flex-col h-full min-h-[300px]">
-                <div
-                  className="h-32 bg-cover bg-center relative"
-                  style={{
-                    backgroundImage:
-                      "url('https://picsum.photos/400/200?random=5')",
-                  }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#1c2127] dark:from-slate-800 to-transparent"></div>
-                  <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium text-white flex items-center gap-1 border border-white/10">
-                    <span className="block size-2 rounded-full bg-red-500 animate-pulse"></span>
-                    Starts in {UPCOMING_MEETING.startsIn}
-                  </div>
+
+              {isFetchingData ? (
+                <div className="bg-[#1c2127] dark:bg-slate-800 rounded-xl border border-slate-700/50 shadow-lg relative overflow-hidden flex flex-col items-center justify-center min-h-[300px]">
+                  <div className="size-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
                 </div>
-                <div className="p-5 flex flex-col flex-1">
-                  <div className="flex-1">
-                    <h4 className="text-2xl font-bold text-white mb-1">
-                      {UPCOMING_MEETING.title}
-                    </h4>
-                    <p className="text-slate-400 text-sm mb-4">
-                      {UPCOMING_MEETING.team}
-                    </p>
-                    <div className="flex items-center gap-2 mb-2 text-slate-300 text-sm">
-                      <span className="material-symbols-outlined text-[18px]">
-                        schedule
-                      </span>
-                      <span>{UPCOMING_MEETING.time}</span>
+              ) : upcomingMeeting ? (
+                <div className="bg-[#1c2127] dark:bg-slate-800 rounded-xl border border-slate-700/50 shadow-lg relative overflow-hidden flex flex-col h-full min-h-[300px]">
+                  <div
+                    className="h-32 bg-cover bg-center relative"
+                    style={{
+                      backgroundImage:
+                        "url('https://picsum.photos/400/200?random=5')",
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#1c2127] dark:from-slate-800 to-transparent"></div>
+                    <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium text-white flex items-center gap-1 border border-white/10">
+                      <span className="block size-2 rounded-full bg-red-500 animate-pulse"></span>
+                      {upcomingMeeting.status === "ACTIVE"
+                        ? "Live Now"
+                        : `Starts in ${getStartsInText(
+                            upcomingMeeting.startTime
+                          )}`}
                     </div>
-                    <div className="flex items-center gap-2 mb-6 text-slate-300 text-sm">
-                      <span className="material-symbols-outlined text-[18px]">
-                        videocam
-                      </span>
-                      <span>ID: {UPCOMING_MEETING.meetingId}</span>
-                    </div>
-                    <div className="flex -space-x-3 mb-6">
-                      {UPCOMING_MEETING.participants.map((avatar, idx) => (
-                        <div
-                          key={idx}
-                          className="size-8 rounded-full border-2 border-[#1c2127] bg-cover bg-center"
-                          style={{ backgroundImage: `url(${avatar})` }}
-                        ></div>
-                      ))}
-                      <div className="size-8 rounded-full border-2 border-[#1c2127] bg-slate-600 flex items-center justify-center text-xs font-medium text-white">
-                        +
-                        {UPCOMING_MEETING.totalParticipants -
-                          UPCOMING_MEETING.participants.length}
+                  </div>
+                  <div className="p-5 flex flex-col flex-1">
+                    <div className="flex-1">
+                      <h4 className="text-2xl font-bold text-white mb-1">
+                        {upcomingMeeting.title || "Untitled Meeting"}
+                      </h4>
+                      <p className="text-slate-400 text-sm mb-4">
+                        {upcomingMeeting.host
+                          ? "You are the Host"
+                          : "You are a Guest"}
+                      </p>
+                      <div className="flex items-center gap-2 mb-2 text-slate-300 text-sm">
+                        <span className="material-symbols-outlined text-[18px]">
+                          schedule
+                        </span>
+                        <span>
+                          {formatTimeRange(
+                            upcomingMeeting.startTime,
+                            upcomingMeeting.endTime
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mb-6 text-slate-300 text-sm">
+                        <span className="material-symbols-outlined text-[18px]">
+                          videocam
+                        </span>
+                        <span>ID: {upcomingMeeting.meetingCode}</span>
                       </div>
                     </div>
+                    <button
+                      onClick={() =>
+                        handleJoinMeeting(upcomingMeeting.meetingCode)
+                      }
+                      disabled={isLoading}
+                      className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">login</span>
+                      Join Meeting Now
+                    </button>
                   </div>
-                  <button
-                    onClick={() =>
-                      handleJoinMeeting(UPCOMING_MEETING.meetingId)
-                    }
-                    disabled={isLoading}
-                    className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
-                  >
-                    <span className="material-symbols-outlined">
-                      video_call
+                </div>
+              ) : (
+                <div className="bg-[#1c2127] dark:bg-slate-800 rounded-xl border border-slate-700/50 shadow-lg relative overflow-hidden flex flex-col items-center justify-center text-center p-8 h-full min-h-[300px]">
+                  <div className="size-16 rounded-full bg-slate-700/50 flex items-center justify-center mb-4 text-slate-400">
+                    <span className="material-symbols-outlined text-3xl">
+                      free_cancellation
                     </span>
-                    Join Meeting Now
+                  </div>
+                  <h4 className="text-lg font-bold text-white mb-2">
+                    No Upcoming Meetings
+                  </h4>
+                  <p className="text-sm text-slate-400 mb-6">
+                    You're all clear! Enjoy your free time or start a new
+                    meeting.
+                  </p>
+                  <button
+                    onClick={handleCreateMeeting}
+                    className="text-sm font-bold text-primary hover:underline"
+                  >
+                    + Start an instant meeting
                   </button>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

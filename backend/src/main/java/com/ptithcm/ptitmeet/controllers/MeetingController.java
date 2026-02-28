@@ -11,10 +11,16 @@ import com.ptithcm.ptitmeet.entity.mysql.Meeting;
 import com.ptithcm.ptitmeet.services.MeetingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.ptithcm.ptitmeet.dto.meeting.MeetingHistoryResponse;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 import java.util.UUID;
@@ -47,6 +53,25 @@ public class MeetingController {
             
         Meeting meeting = meetingService.scheduleMeeting(getCurrentUserId(), request);
         return ResponseEntity.ok(ApiResponse.success(meeting, "Lên lịch họp thành công"));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<ApiResponse<Page<MeetingHistoryResponse>>> getHistory(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "6") int size,
+            @RequestParam(defaultValue = "ALL") String role,
+            @RequestParam(defaultValue = "ALL") String status) {
+        
+        Page<MeetingHistoryResponse> historyPage = meetingService.getUserMeetingHistory(
+                getCurrentUserId(), role, status, page - 1, size);
+                
+        return ResponseEntity.ok(ApiResponse.success(historyPage, "Lấy lịch sử họp thành công"));
+    }
+
+    @GetMapping("/up-next")
+    public ResponseEntity<ApiResponse<MeetingHistoryResponse>> getUpNext() {
+        MeetingHistoryResponse upNext = meetingService.getUpNextMeeting(getCurrentUserId());
+        return ResponseEntity.ok(ApiResponse.success(upNext, "Lấy Up Next thành công"));
     }
     
     @GetMapping("/my-meetings")

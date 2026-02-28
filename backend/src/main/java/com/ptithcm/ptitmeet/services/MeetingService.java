@@ -26,8 +26,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
+import com.ptithcm.ptitmeet.dto.meeting.MeetingHistoryResponse;
 
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -333,12 +338,12 @@ public class MeetingService {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (!participant.getMeeting().getMeetingId().equals(meeting.getMeetingId())) {
-             throw new AppException(ErrorCode.INVALID_KEY);
+            throw new AppException(ErrorCode.INVALID_KEY);
         }
 
         if ("APPROVED".equalsIgnoreCase(request.getAction())) {
-            participant.setApprovalStatus(ParticipantApprovalStatus.APPROVED);          
-            participantRepository.save(participant); 
+            participant.setApprovalStatus(ParticipantApprovalStatus.APPROVED);
+            participantRepository.save(participant);
 
             User guestUser = participant.getUser();
             String token = liveKitService.generateToken(guestUser, meeting);
@@ -351,9 +356,8 @@ public class MeetingService {
                     .build();
 
             messagingTemplate.convertAndSend(
-                    "/topic/meeting/" + meetingCode + "/user/" + guestUser.getUserId(), 
-                    approvalResponse
-            );
+                    "/topic/meeting/" + meetingCode + "/user/" + guestUser.getUserId(),
+                    approvalResponse);
         } else if ("REJECTED".equalsIgnoreCase(request.getAction())) {
             participant.setApprovalStatus(ParticipantApprovalStatus.REJECTED);
             participantRepository.save(participant);
@@ -365,13 +369,59 @@ public class MeetingService {
 
             messagingTemplate.convertAndSend(
                     "/topic/meeting/" + meetingCode + "/user/" + participant.getUser().getUserId(),
-                    rejectResponse
-            );
+                    rejectResponse);
         } else {
-            throw new AppException(ErrorCode.INVALID_KEY); 
+            throw new AppException(ErrorCode.INVALID_KEY);
         }
 
         participantRepository.save(participant);
+    }
+
+    public Page<MeetingHistoryResponse> getUserMeetingHistory(UUID userId, String role, String statusStr, int page, int size) {
+        MeetingStatus statusEnum = null;
+        if (statusStr != null && !statusStr.equals("ALL")) {
+            statusEnum = MeetingStatus.valueOf(statusStr);
+        }
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "startTime"));
+
+        Page<Meeting> meetingPage = meetingRepository.findMeetingHistoryWithFilters(userId, role, statusEnum, pageable);
+        
+        return meetingPage.map(meeting -> {
+            boolean isHost = meeting.getHostId().equals(userId);
+            return MeetingHistoryResponse.builder()
+                    .meetingCode(meeting.getMeetingCode())
+                    .title(meeting.getTitle())
+                    .startTime(meeting.getStartTime())
+                    .endTime(meeting.getEndTime())
+                    .status(meeting.getStatus().name())
+                    .isHost(isHost)
+                    .build();
+        });
+    }
+
+    public MeetingHistoryResponse getUpNextMeeting(UUID userId) {
+        List<MeetingStatus> activeStatuses = List.of(MeetingStatus.ACTIVE, MeetingStatus.SCHEDULED);
+        
+        Pageable topOne = PageRequest.of(0, 1);
+        
+        Page<Meeting> pageResult = meetingRepository.findUpNextMeeting(userId, activeStatuses, topOne);
+        
+        if (pageResult.isEmpty()) {
+            return null;
+        }
+        
+        Meeting meeting = pageResult.getContent().get(0);
+        boolean isHost = meeting.getHostId().equals(userId);
+        
+        return MeetingHistoryResponse.builder()
+                .meetingCode(meeting.getMeetingCode())
+                .title(meeting.getTitle())
+                .startTime(meeting.getStartTime())
+                .endTime(meeting.getEndTime())
+                .status(meeting.getStatus().name())
+                .isHost(isHost)
+                .build();
     }
 
     private ParticipantApprovalStatus determineParticipantStatus(Meeting meeting, User user) {
