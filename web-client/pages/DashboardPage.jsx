@@ -85,7 +85,7 @@ const DashboardPage = () => {
     }
   };
 
-  const handleJoinMeeting = async (code) => {
+  const handleJoinMeeting = async (inputValue) => {
     if (!inputValue || inputValue.trim() === "") {
       return alert("Please enter a meeting code or link.");
     }
