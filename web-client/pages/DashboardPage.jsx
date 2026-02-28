@@ -23,21 +23,22 @@ const DashboardPage = () => {
     const fetchDashboardData = async () => {
       try {
         setIsFetchingData(true);
-        
+
         const [historyData, upNextData] = await Promise.all([
-          meetingService.getHistory(1, 5, 'ALL', 'ALL'),
-          meetingService.getUpNext()
+          meetingService.getHistory(1, 5, "ALL", "ALL"),
+          meetingService.getUpNext(),
         ]);
 
         setUpcomingMeeting(upNextData);
 
         let recent = historyData.content || [];
         if (upNextData) {
-            recent = recent.filter(m => m.meetingCode !== upNextData.meetingCode);
+          recent = recent.filter(
+            (m) => m.meetingCode !== upNextData.meetingCode
+          );
         }
-        
-        setRecentActivities(recent);
 
+        setRecentActivities(recent);
       } catch (error) {
         console.error("Lỗi tải dữ liệu Dashboard:", error);
       } finally {
@@ -85,7 +86,20 @@ const DashboardPage = () => {
   };
 
   const handleJoinMeeting = async (code) => {
-    if (!code) return alert("Vui lòng nhập mã phòng!");
+    if (!inputValue || inputValue.trim() === "") {
+      return alert("Please enter a meeting code or link.");
+    }
+
+    let code = inputValue.trim();
+
+    if (code.includes("/")) {
+      if (code.endsWith("/")) {
+        code = code.slice(0, -1);
+      }
+      code = code.split("/").pop();
+    }
+
+    code = code.replace(/\s+/g, "");
     setIsJoinModalOpen(false);
     navigate(`/waiting-room/${code}`);
   };
