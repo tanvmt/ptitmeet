@@ -400,6 +400,30 @@ public class MeetingService {
         });
     }
 
+    public MeetingHistoryResponse getUpNextMeeting(UUID userId) {
+        List<MeetingStatus> activeStatuses = List.of(MeetingStatus.ACTIVE, MeetingStatus.SCHEDULED);
+        
+        Pageable topOne = PageRequest.of(0, 1);
+        
+        Page<Meeting> pageResult = meetingRepository.findUpNextMeeting(userId, activeStatuses, topOne);
+        
+        if (pageResult.isEmpty()) {
+            return null;
+        }
+        
+        Meeting meeting = pageResult.getContent().get(0);
+        boolean isHost = meeting.getHostId().equals(userId);
+        
+        return MeetingHistoryResponse.builder()
+                .meetingCode(meeting.getMeetingCode())
+                .title(meeting.getTitle())
+                .startTime(meeting.getStartTime())
+                .endTime(meeting.getEndTime())
+                .status(meeting.getStatus().name())
+                .isHost(isHost)
+                .build();
+    }
+
     private ParticipantApprovalStatus determineParticipantStatus(Meeting meeting, User user) {
         boolean isWaitingRoom = isWaitingRoomEnabled(meeting.getSettings());
         MeetingAccessType type = meeting.getAccessType();

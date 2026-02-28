@@ -34,4 +34,13 @@ public interface MeetingRepository extends JpaRepository<Meeting, UUID> {
             @Param("role") String role,
             @Param("status") MeetingStatus status,
             Pageable pageable);
+
+    @Query("SELECT DISTINCT m FROM Meeting m LEFT JOIN Participant p ON m.meetingId = p.meeting.meetingId " +
+           "WHERE (m.hostId = :userId OR p.user.userId = :userId) " +
+           "AND m.status IN :statuses " +
+           "ORDER BY m.startTime ASC")
+    Page<Meeting> findUpNextMeeting(
+            @Param("userId") UUID userId, 
+            @Param("statuses") List<MeetingStatus> statuses, 
+            Pageable pageable);
 }

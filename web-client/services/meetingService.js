@@ -38,4 +38,9 @@ export const meetingService = {
         const response = await api.get(`/meetings/history?page=${page}&size=${size}&role=${role}&status=${status}`);
         return response.data.data;
     },
+
+    getUpNext: async () => {
+        const response = await api.get('/meetings/up-next');
+        return response.data.data; 
+    },
 };

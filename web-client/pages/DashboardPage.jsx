@@ -23,34 +23,21 @@ const DashboardPage = () => {
     const fetchDashboardData = async () => {
       try {
         setIsFetchingData(true);
+        
+        const [historyData, upNextData] = await Promise.all([
+          meetingService.getHistory(1, 5, 'ALL', 'ALL'),
+          meetingService.getUpNext()
+        ]);
 
-        const responseData = await meetingService.getHistory(
-          1,
-          20,
-          "ALL",
-          "ALL"
-        );
+        setUpcomingMeeting(upNextData);
 
-        const history = responseData.content || [];
-
-        const now = new Date();
-
-        const upcoming = history
-          .filter(
-            (m) =>
-              m.status === "ACTIVE" ||
-              (m.status === "SCHEDULED" && new Date(m.startTime) >= now)
-          )
-          .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))[0];
-
-        setUpcomingMeeting(upcoming || null);
-
-        let recent = history
-          .filter((m) => !upcoming || m.meetingCode !== upcoming.meetingCode)
-          .sort((a, b) => new Date(b.startTime) - new Date(a.startTime))
-          .slice(0, 5);
-
+        let recent = historyData.content || [];
+        if (upNextData) {
+            recent = recent.filter(m => m.meetingCode !== upNextData.meetingCode);
+        }
+        
         setRecentActivities(recent);
+
       } catch (error) {
         console.error("Lỗi tải dữ liệu Dashboard:", error);
       } finally {

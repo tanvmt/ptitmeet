@@ -67,6 +67,12 @@ public class MeetingController {
                 
         return ResponseEntity.ok(ApiResponse.success(historyPage, "Lấy lịch sử họp thành công"));
     }
+
+    @GetMapping("/up-next")
+    public ResponseEntity<ApiResponse<MeetingHistoryResponse>> getUpNext() {
+        MeetingHistoryResponse upNext = meetingService.getUpNextMeeting(getCurrentUserId());
+        return ResponseEntity.ok(ApiResponse.success(upNext, "Lấy Up Next thành công"));
+    }
     
     @GetMapping("/my-meetings")
     public ResponseEntity<ApiResponse<List<Meeting>>> getMyMeetings() {
