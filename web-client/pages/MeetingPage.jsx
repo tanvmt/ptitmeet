@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { meetingService } from "../services/meetingService";
 import { Client } from "@stomp/stompjs";
+import ChatPanel from "../components/ChatPanel";
 
 const INITIAL_PARTICIPANTS = [
   {
@@ -47,7 +48,6 @@ const MeetingPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const chatEndRef = useRef(null);
 
   const joinData = location.state || {};
   const isHost = joinData.role === "HOST";
@@ -61,23 +61,14 @@ const MeetingPage = () => {
   const [isRecording, setIsRecording] = useState(true);
 
   const [timer, setTimer] = useState(0);
-  const [newMessage, setNewMessage] = useState("");
-  const [chatMessages, setChatMessages] = useState([
-    {
-      id: 3,
-      user: "Van Minh Tan",
-      text: "Vu Tien Dat gay",
-      time: "10:02 AM",
-      isMe: false,
-    },
-    {
-      id: 5,
-      user: "Vu Tien Dat",
-      text: "Van Minh Tan la wibu",
-      time: "10:03 AM",
-      isMe: false,
-    },
-  ]);
+
+  const [toastMessage, setToastMessage] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const toastTimerRef = useRef(null);
+  const isChatOpenRef = useRef(false);
+
+  const [stompClient, setStompClient] = useState(null);
+  const [isStompConnected, setIsStompConnected] = useState(false);
 
   const [waitingList, setWaitingList] = useState([]);
   const [isLoadingWaiting, setIsLoadingWaiting] = useState(false);
@@ -95,25 +86,28 @@ const MeetingPage = () => {
   }, [sidebarOpen, activeTab, isHost]);
 
   useEffect(() => {
-    if (!isHost || !code) return;
+    if (!code) return;
 
     const client = new Client({
-      brokerURL: "ws://localhost:8080/ws", 
+      brokerURL: "ws://localhost:8080/ws",
       reconnectDelay: 5000,
       onConnect: () => {
-        console.log("Host đã kết nối kênh Admin!");
+        console.log("Đã kết nối WebSocket phòng họp!");
+        setIsStompConnected(true);
 
-        client.subscribe(`/topic/meeting/${code}/admin`, (message) => {
-          console.log("Có người vừa xin vào phòng chờ!");
-          fetchWaitingList();
-        });
+        if (isHost) {
+          client.subscribe(`/topic/meeting/${code}/admin`, (message) => {
+            fetchWaitingList();
+          });
+        }
       },
-      onStompError: (frame) => {
-        console.error("Lỗi Broker Host:", frame.headers["message"]);
-      },
+      onDisconnect: () => setIsStompConnected(false),
+      onStompError: (frame) =>
+        console.error("Lỗi Broker:", frame.headers["message"]),
     });
 
     client.activate();
+    setStompClient(client);
 
     return () => {
       if (client.active) client.deactivate();
@@ -144,34 +138,10 @@ const MeetingPage = () => {
     }
   };
 
-  // Tự động cuộn xuống khi có tin nhắn mới
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages, sidebarOpen]);
-
   useEffect(() => {
     const interval = setInterval(() => setTimer((t) => t + 1), 1000);
     return () => clearInterval(interval);
   }, []);
-
-  const sendMessage = (e) => {
-    e.preventDefault();
-    if (!newMessage.trim()) return;
-    setChatMessages([
-      ...chatMessages,
-      {
-        id: Date.now(),
-        user: "em Tai sieu cap co bap (You)",
-        text: newMessage,
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        isMe: true,
-      },
-    ]);
-    setNewMessage("");
-  };
 
   const formatTime = (seconds) => {
     const h = Math.floor(seconds / 3600);
@@ -181,6 +151,39 @@ const MeetingPage = () => {
       .toString()
       .padStart(2, "0")}`;
   };
+
+  useEffect(() => {
+    const isOpen = sidebarOpen && activeTab === "chat";
+    isChatOpenRef.current = isOpen;
+
+    if (isOpen) {
+      setToastMessage(null);
+      setUnreadCount(0);
+    }
+  }, [sidebarOpen, activeTab]);
+
+  useEffect(() => {
+    if (!stompClient || !isStompConnected) return;
+
+    const notiSubscription = stompClient.subscribe(
+      `/topic/meeting/${code}/chat`,
+      (message) => {
+        const newMsg = JSON.parse(message.body);
+
+        if (!isChatOpenRef.current && newMsg.senderId !== user.userId) {
+          setToastMessage(newMsg);
+          setUnreadCount((prev) => prev + 1);
+
+          if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+          toastTimerRef.current = setTimeout(() => {
+            setToastMessage(null);
+          }, 4000);
+        }
+      }
+    );
+
+    return () => notiSubscription.unsubscribe();
+  }, [stompClient, isStompConnected, code, user.userId]);
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden text-white font-sans">
@@ -305,66 +308,15 @@ const MeetingPage = () => {
                 People ({participants.length})
               </button>
             </div>
-
             {/* Chat Content */}
             {activeTab === "chat" && (
-              <>
-                <div className="flex-grow overflow-y-auto p-4 space-y-4 no-scrollbar">
-                  <p className="text-[10px] text-center text-gray-500 font-bold uppercase tracking-widest bg-white/5 py-2 rounded-lg">
-                    Messages are visible only to people in the call
-                  </p>
-                  {chatMessages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex flex-col ${
-                        msg.isMe ? "items-end" : "items-start"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1 px-1">
-                        {!msg.isMe && (
-                          <span className="text-[10px] font-black text-gray-400">
-                            {msg.user}
-                          </span>
-                        )}
-                        <span className="text-[9px] text-gray-600">
-                          {msg.time}
-                        </span>
-                      </div>
-                      <div
-                        className={`max-w-[85%] p-3 text-sm leading-relaxed ${
-                          msg.isMe
-                            ? "bg-primary text-white rounded-2xl rounded-tr-none shadow-md shadow-primary/10"
-                            : "bg-white/5 text-gray-200 rounded-2xl rounded-tl-none border border-white/5"
-                        }`}
-                      >
-                        {msg.text}
-                      </div>
-                    </div>
-                  ))}
-                  <div ref={chatEndRef} />
-                </div>
-                <form
-                  onSubmit={sendMessage}
-                  className="p-4 border-t border-white/5 bg-background/40"
-                >
-                  <div className="relative">
-                    <input
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder="Send a message..."
-                      className="w-full bg-surface border border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                    />
-                    <button
-                      type="submit"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                    >
-                      <span className="material-symbols-outlined">send</span>
-                    </button>
-                  </div>
-                </form>
-              </>
+              <ChatPanel
+                meetingCode={code}
+                currentUser={user}
+                stompClient={stompClient}
+                isStompConnected={isStompConnected}
+              />
             )}
-
             {/* People Content */}
             {activeTab === "people" && (
               <div className="flex-grow flex flex-col overflow-y-auto no-scrollbar">
@@ -508,6 +460,48 @@ const MeetingPage = () => {
         </aside>
       </div>
 
+      {/* FLOATING CHAT NOTIFICATION (THÔNG BÁO NỔI GÓC PHẢI) */}
+      <div
+        className={`fixed bottom-28 right-6 z-50 transition-all duration-500 transform ${
+          toastMessage
+            ? "translate-x-0 opacity-100"
+            : "translate-x-10 opacity-0 pointer-events-none"
+        }`}
+      >
+        {toastMessage && (
+          <div
+            onClick={() => {
+              setSidebarOpen(true);
+              setActiveTab("chat");
+            }}
+            className="bg-surface/90 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl shadow-black/50 w-72 flex flex-col gap-2 cursor-pointer hover:bg-surface transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
+                  {toastMessage.senderName?.charAt(0)}
+                </div>
+                <span className="text-sm font-bold text-white truncate max-w-[150px]">
+                  {toastMessage.senderName}
+                </span>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setToastMessage(null);
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+            <p className="text-sm text-gray-300 line-clamp-2">
+              {toastMessage.content}
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Control Bar - Tinh chỉnh hiệu ứng shadow và nút Sidebar */}
       <footer className="h-24 flex items-center justify-center px-6 relative z-40 bg-background shrink-0 border-t border-white/5">
         <div className="flex items-center gap-3 bg-surface/90 backdrop-blur-xl p-2 rounded-full border border-white/10 shadow-2xl">
@@ -554,7 +548,7 @@ const MeetingPage = () => {
                 setActiveTab("chat");
               }
             }}
-            className={`size-12 rounded-full flex items-center justify-center transition-all ${
+            className={`relative size-12 rounded-full flex items-center justify-center transition-all ${
               sidebarOpen && activeTab === "chat"
                 ? "bg-primary text-white shadow-lg shadow-primary/20"
                 : "bg-white/10 hover:bg-white/20 text-white"
@@ -563,6 +557,12 @@ const MeetingPage = () => {
             <span className="material-symbols-outlined text-[22px]">
               chat_bubble
             </span>
+
+            {unreadCount > 0 && (
+              <span className="absolute 0 top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold border border-background animate-bounce">
+                {unreadCount}
+              </span>
+            )}
           </button>
           <button
             onClick={() => {

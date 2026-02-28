@@ -43,4 +43,9 @@ export const meetingService = {
         const response = await api.get('/meetings/up-next');
         return response.data.data; 
     },
+
+    getChatHistory: async (code) => {
+        const response = await api.get(`/meetings/${code}/chat/history`);
+        return response.data.data;
+    },
 };
