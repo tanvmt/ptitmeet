@@ -22,16 +22,14 @@ public class LiveKitService {
     @Value("${livekit.api.url}")
     private String livekitUrl;
 
-    // Hàm tạo vé (Token) cho người dùng vào phòng
+
     public String generateJoinToken(String roomName, String participantName, String participantId) {
         AccessToken token = new AccessToken(livekitApiKey, livekitApiSecret);
 
-        // Tên hiển thị trong phòng họp
         token.setName(participantName);
-        // ID duy nhất của người dùng
+
         token.setIdentity(participantId);
 
-        // Cấp quyền tham gia vào đúng phòng có tên là roomName
         token.addGrants(new RoomJoin(true), new RoomName(roomName));
 
         return token.toJwt();
