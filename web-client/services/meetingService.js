@@ -48,4 +48,12 @@ export const meetingService = {
         const response = await api.get(`/meetings/${code}/chat/history`);
         return response.data.data;
     },
+
+    leaveMeeting: async (code) => {
+        return await api.post(`/meetings/${code}/leave`);
+    },
+    
+    endMeetingForAll: async (code) => {
+        return await api.post(`/meetings/${code}/end`);
+    }
 };
