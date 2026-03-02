@@ -1,30 +1,19 @@
 package com.ptithcm.ptitmeet.controllers;
 
 import com.ptithcm.ptitmeet.dto.ApiResponse;
-import com.ptithcm.ptitmeet.dto.meeting.ApprovalRequest;
-import com.ptithcm.ptitmeet.dto.meeting.CreateMeetingRequest;
-import com.ptithcm.ptitmeet.dto.meeting.MeetingInfoResponse;
-import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingRequest;
-import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingResponse;
-import com.ptithcm.ptitmeet.dto.meeting.ParticipantResponse;
+import com.ptithcm.ptitmeet.dto.meeting.*;
+import com.ptithcm.ptitmeet.entity.mongodb.ChatMessage;
 import com.ptithcm.ptitmeet.entity.mysql.Meeting;
+import com.ptithcm.ptitmeet.repositories.ChatMessageRepository;
 import com.ptithcm.ptitmeet.services.MeetingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import com.ptithcm.ptitmeet.entity.mongodb.ChatMessage;
-import com.ptithcm.ptitmeet.repositories.ChatMessageRepository;
-
-import com.ptithcm.ptitmeet.dto.meeting.MeetingHistoryResponse;
-
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.UUID;
@@ -35,6 +24,8 @@ import java.util.UUID;
 public class MeetingController {
 
     private final MeetingService meetingService;
+
+    private final ChatMessageRepository chatMessageRepository;
 
     private UUID getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -65,10 +56,10 @@ public class MeetingController {
             @RequestParam(defaultValue = "6") int size,
             @RequestParam(defaultValue = "ALL") String role,
             @RequestParam(defaultValue = "ALL") String status) {
-        
+
         Page<MeetingHistoryResponse> historyPage = meetingService.getUserMeetingHistory(
                 getCurrentUserId(), role, status, page - 1, size);
-                
+
         return ResponseEntity.ok(ApiResponse.success(historyPage, "Lấy lịch sử họp thành công"));
     }
 
@@ -77,7 +68,7 @@ public class MeetingController {
         MeetingHistoryResponse upNext = meetingService.getUpNextMeeting(getCurrentUserId());
         return ResponseEntity.ok(ApiResponse.success(upNext, "Lấy Up Next thành công"));
     }
-    
+
     @GetMapping("/my-meetings")
     public ResponseEntity<ApiResponse<List<Meeting>>> getMyMeetings() {
         List<Meeting> meetings = meetingService.getMyMeetings(getCurrentUserId());
@@ -127,9 +118,6 @@ public class MeetingController {
         String msg = "APPROVED".equalsIgnoreCase(request.getAction()) ? "Đã duyệt thành viên" : "Đã từ chối thành viên";
         return ResponseEntity.ok(ApiResponse.success(null, msg));
     }
-
-    @Autowired
-    private ChatMessageRepository chatMessageRepository;
 
     @GetMapping("/{code}/chat/history")
     public ResponseEntity<ApiResponse<List<ChatMessage>>> getChatHistory(@PathVariable String code) {
