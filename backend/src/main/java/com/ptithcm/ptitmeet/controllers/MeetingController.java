@@ -7,10 +7,13 @@ import com.ptithcm.ptitmeet.dto.meeting.MeetingInfoResponse;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingResponse;
 import com.ptithcm.ptitmeet.dto.meeting.ParticipantResponse;
+import com.ptithcm.ptitmeet.entity.mongodb.ChatMessage;
 import com.ptithcm.ptitmeet.entity.mysql.Meeting;
+import com.ptithcm.ptitmeet.repositories.ChatMessageRepository;
 import com.ptithcm.ptitmeet.services.MeetingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -25,6 +28,8 @@ import java.util.UUID;
 public class MeetingController {
 
     private final MeetingService meetingService;
+
+    private final ChatMessageRepository chatMessageRepository;
 
     private UUID getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -97,5 +102,11 @@ public class MeetingController {
         
         String msg = "APPROVED".equalsIgnoreCase(request.getAction()) ? "Đã duyệt thành viên" : "Đã từ chối thành viên";
         return ResponseEntity.ok(ApiResponse.success(null, msg));
+    }
+
+    @GetMapping("/{code}/chat/history")
+    public ResponseEntity<ApiResponse<List<ChatMessage>>> getChatHistory(@PathVariable String code) {
+        List<ChatMessage> history = chatMessageRepository.findByMeetingCodeOrderByTimestampAsc(code);
+        return ResponseEntity.ok(ApiResponse.success(history, "Lấy lịch sử chat thành công"));
     }
 }

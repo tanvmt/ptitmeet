@@ -142,11 +142,89 @@ const MeetingSidebar = ({
                     </div>
                 )}
 
-                {/* TAB PEOPLE & PHÒNG CHỜ (Giữ nguyên như cũ) */}
+                {/* TAB PEOPLE & PHÒNG CHỜ */}
                 {activeTab === "people" && (
-                    // ... (Phần code hiển thị Waiting Room và Danh sách người trong phòng giữ nguyên như file trước)
                     <div className="flex-grow flex flex-col overflow-y-auto no-scrollbar">
-                        {/* ... */}
+
+                        <div className="p-4 border-b border-white/5">
+                            <button className="w-full py-2.5 rounded-xl border border-primary/30 text-primary text-xs font-bold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2">
+                                <span className="material-symbols-outlined text-sm">person_add</span> Invite someone
+                            </button>
+                        </div>
+
+                        {/* WAITING ROOM - Đã phục hồi HTML ban đầu */}
+                        {isHost && waitingList.length > 0 && (
+                            <div className="mb-2">
+                                <div className="px-4 py-2 bg-red-500/10 text-red-400 text-[10px] font-bold uppercase tracking-widest flex justify-between items-center border-y border-red-500/10">
+                                    <span>Waiting Room ({waitingList.length})</span>
+                                    <button onClick={fetchWaitingList} className="hover:text-red-300">
+                                        <span className="material-symbols-outlined text-sm">refresh</span>
+                                    </button>
+                                </div>
+                                <div className="p-2 space-y-2">
+                                    {isLoadingWaiting ? (
+                                        <div className="p-4 text-center text-sm text-gray-500">Đang tải...</div>
+                                    ) : (
+                                        waitingList.map((p) => (
+                                            <div key={p.participantId} className="bg-white/5 p-2 rounded-xl border border-white/10 flex flex-col gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+                                                        {p.displayName?.charAt(0) || "U"}
+                                                    </div>
+                                                    <div className="flex flex-col flex-1 overflow-hidden">
+                                                        <span className="text-sm font-semibold truncate">{p.displayName}</span>
+                                                        <span className="text-[10px] text-gray-500 truncate">{p.email}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleApproval(p.participantId, "APPROVED")} className="flex-1 bg-green-500/20 hover:bg-green-500 text-green-500 hover:text-white py-1.5 rounded-lg text-xs font-bold transition-all">
+                                                        Admit
+                                                    </button>
+                                                    <button onClick={() => handleApproval(p.participantId, "REJECTED")} className="flex-1 bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white py-1.5 rounded-lg text-xs font-bold transition-all">
+                                                        Deny
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* IN-CALL PARTICIPANTS */}
+                        <div>
+                            <div className="px-4 py-2 bg-white/5 text-gray-400 text-[10px] font-bold uppercase tracking-widest border-y border-white/5">
+                                In Call ({participants.length})
+                            </div>
+                            <div className="p-2 space-y-1">
+                                {participants.map((p) => (
+                                    <div key={p.sid} className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 transition-colors group">
+                                        <div className="flex items-center gap-3">
+                                            <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold border border-white/10">
+                                                {(p.name || p.identity || "U").charAt(0)}
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-semibold truncate max-w-[120px]">{p.name } {p.isLocal && "(You)"}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                      <span className={`material-symbols-outlined text-[18px] ${!p.isMicrophoneEnabled ? "text-red-500" : "text-gray-400"}`}>
+                        {!p.isMicrophoneEnabled ? "mic_off" : "mic"}
+                      </span>
+                                            <button className="material-symbols-outlined text-[18px] text-gray-400 hover:text-white">more_vert</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {isHost && (
+                            <div className="p-4 border-t border-white/5 mt-auto">
+                                <button className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold transition-colors">
+                                    Mute All Participants
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
