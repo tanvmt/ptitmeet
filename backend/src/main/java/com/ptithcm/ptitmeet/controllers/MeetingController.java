@@ -1,12 +1,7 @@
 package com.ptithcm.ptitmeet.controllers;
 
 import com.ptithcm.ptitmeet.dto.ApiResponse;
-import com.ptithcm.ptitmeet.dto.meeting.ApprovalRequest;
-import com.ptithcm.ptitmeet.dto.meeting.CreateMeetingRequest;
-import com.ptithcm.ptitmeet.dto.meeting.MeetingInfoResponse;
-import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingRequest;
-import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingResponse;
-import com.ptithcm.ptitmeet.dto.meeting.ParticipantResponse;
+import com.ptithcm.ptitmeet.dto.meeting.*;
 import com.ptithcm.ptitmeet.entity.mongodb.ChatMessage;
 import com.ptithcm.ptitmeet.entity.mysql.Meeting;
 import com.ptithcm.ptitmeet.repositories.ChatMessageRepository;
@@ -14,6 +9,7 @@ import com.ptithcm.ptitmeet.services.MeetingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -53,7 +49,26 @@ public class MeetingController {
         Meeting meeting = meetingService.scheduleMeeting(getCurrentUserId(), request);
         return ResponseEntity.ok(ApiResponse.success(meeting, "Lên lịch họp thành công"));
     }
-    
+
+    @GetMapping("/history")
+    public ResponseEntity<ApiResponse<Page<MeetingHistoryResponse>>> getHistory(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "6") int size,
+            @RequestParam(defaultValue = "ALL") String role,
+            @RequestParam(defaultValue = "ALL") String status) {
+
+        Page<MeetingHistoryResponse> historyPage = meetingService.getUserMeetingHistory(
+                getCurrentUserId(), role, status, page - 1, size);
+
+        return ResponseEntity.ok(ApiResponse.success(historyPage, "Lấy lịch sử họp thành công"));
+    }
+
+    @GetMapping("/up-next")
+    public ResponseEntity<ApiResponse<MeetingHistoryResponse>> getUpNext() {
+        MeetingHistoryResponse upNext = meetingService.getUpNextMeeting(getCurrentUserId());
+        return ResponseEntity.ok(ApiResponse.success(upNext, "Lấy Up Next thành công"));
+    }
+
     @GetMapping("/my-meetings")
     public ResponseEntity<ApiResponse<List<Meeting>>> getMyMeetings() {
         List<Meeting> meetings = meetingService.getMyMeetings(getCurrentUserId());
