@@ -1,38 +1,33 @@
 package com.ptithcm.ptitmeet.entity.mongodb;
 
-import java.time.LocalDateTime;
-
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
-import com.ptithcm.ptitmeet.entity.enums.MessageType;
-
-import lombok.Builder;
-import lombok.Data;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Data
 @Builder
-@Document(collection = "chat_messages") 
+@NoArgsConstructor
+@AllArgsConstructor
+@Document(collection = "meeting_chats")
 public class ChatMessage {
     
     @Id
     private String id; 
 
-    @Field("meeting_id")
-    private String meetingId;
+    private String meetingCode;
 
-    @Field("sender_id")
-    private String senderId;
+    private UUID senderId;
 
-    @Field("sender_name")
     private String senderName; 
 
     private String content;
 
-    @Field("type")
-    private MessageType type;
-
-    @Field("created_at")
-    private LocalDateTime createdAt;
+    private LocalDateTime timestamp;
 }

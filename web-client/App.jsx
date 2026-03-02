@@ -11,6 +11,7 @@ import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import HistoryPage from './pages/HistoryPage';
 import { useAuth } from './contexts/AuthContext';
 const App = () => {
     const { user, setUser, logout } = useAuth();
@@ -43,6 +44,7 @@ const App = () => {
                         path="/schedule"
                         element={user ? <SchedulePage /> : <Navigate to="/login" />}
                     />
+                    <Route path="/history" element={<HistoryPage />} />
 
                     <Route path="/settings" element={user ? <SettingsPage /> : <Navigate to="/login" />} />
 

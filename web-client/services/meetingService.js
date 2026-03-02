@@ -34,6 +34,16 @@ export const meetingService = {
         return response.data.data;
     },
 
+    getHistory: async (page = 1, size = 6, role = 'ALL', status = 'ALL') => {
+        const response = await api.get(`/meetings/history?page=${page}&size=${size}&role=${role}&status=${status}`);
+        return response.data.data;
+    },
+
+    getUpNext: async () => {
+        const response = await api.get('/meetings/up-next');
+        return response.data.data; 
+    },
+
     getChatHistory: async (code) => {
         const response = await api.get(`/meetings/${code}/chat/history`);
         return response.data.data;
