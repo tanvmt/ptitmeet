@@ -33,21 +33,6 @@ const MeetingPage = () => {
   const [activeTab, setActiveTab] = useState("chat");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const [isRecord, setIsRecord] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
-  const [isRecording, setIsRecording] = useState(true);
-
-  const [timer, setTimer] = useState(0);
-  const [egressId, setEgressId ] = useState("")
-
-  const [toastMessage, setToastMessage] = useState(null);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const toastTimerRef = useRef(null);
-  const isChatOpenRef = useRef(false);
-
-
-
   const [waitingList, setWaitingList] = useState([]);
   const [isLoadingWaiting, setIsLoadingWaiting] = useState(false);
 
@@ -85,7 +70,7 @@ const MeetingPage = () => {
             if (message.body === "MEETING_ENDED") {
                if (!isHost) {
                    navigate("/summary", { 
-                       state: { meetingCode: code, actionTaken: "KICKED" } 
+                       state: { meetingCode: code, actionTaken: "ENDED_BY_HOST" } 
                    });
                }
             }

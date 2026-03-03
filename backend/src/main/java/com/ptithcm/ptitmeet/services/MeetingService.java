@@ -22,6 +22,7 @@ import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingResponse;
 import com.ptithcm.ptitmeet.dto.meeting.MeetingHistoryResponse;
 import com.ptithcm.ptitmeet.dto.meeting.MeetingInfoResponse;
+import com.ptithcm.ptitmeet.dto.meeting.MeetingSummaryResponse;
 import com.ptithcm.ptitmeet.dto.meeting.ParticipantResponse;
 import com.ptithcm.ptitmeet.entity.enums.MeetingAccessType;
 import com.ptithcm.ptitmeet.entity.enums.MeetingStatus;
@@ -30,13 +31,16 @@ import com.ptithcm.ptitmeet.entity.enums.ParticipantRole;
 import com.ptithcm.ptitmeet.entity.enums.SessionStatus;
 import com.ptithcm.ptitmeet.entity.mysql.Meeting;
 import com.ptithcm.ptitmeet.entity.mysql.MeetingInvitation;
+import com.ptithcm.ptitmeet.entity.mysql.MeetingFeedback;
 import com.ptithcm.ptitmeet.entity.mysql.Participant;
 import com.ptithcm.ptitmeet.entity.mysql.ParticipantSession;
 import com.ptithcm.ptitmeet.entity.mysql.User;
 import com.ptithcm.ptitmeet.exception.AppException;
 import com.ptithcm.ptitmeet.exception.ErrorCode;
+import com.ptithcm.ptitmeet.repositories.ChatMessageRepository;
 import com.ptithcm.ptitmeet.repositories.MeetingInvitationRepository;
 import com.ptithcm.ptitmeet.repositories.MeetingRepository;
+import com.ptithcm.ptitmeet.repositories.MeetingFeedbackRepository;
 import com.ptithcm.ptitmeet.repositories.ParticipantRepository;
 import com.ptithcm.ptitmeet.repositories.ParticipantSessionRepository;
 import com.ptithcm.ptitmeet.repositories.UserRepository;
@@ -61,6 +65,12 @@ public class MeetingService {
 
     @Autowired
     private HttpServletRequest request;
+
+    @Autowired
+    private ChatMessageRepository chatMessageRepository;
+    
+    @Autowired
+    private MeetingFeedbackRepository feedbackRepository;
 
     public Meeting createInstantMeeting(UUID hostId, CreateMeetingRequest request) {
         if (!userRepository.existsById(hostId)) {
@@ -439,13 +449,13 @@ public class MeetingService {
     @Transactional
     public void leaveMeeting(String code, UUID userId) {
         Meeting meeting = meetingRepository.findByMeetingCode(code)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy phòng"));
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
 
         User user = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         Participant participant = participantRepository.findByMeetingAndUser(meeting, user)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người tham gia"));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_PARTICIPANT));
 
         ParticipantSession activeSession = sessionRepository
                 .findFirstByParticipantAndStatusOrderByJoinedAtDesc(participant, SessionStatus.ACTIVE)
@@ -461,10 +471,10 @@ public class MeetingService {
     @Transactional
     public void endMeetingForAll(String code, UUID hostId) {
         Meeting meeting = meetingRepository.findByMeetingCode(code)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy phòng"));
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
 
         if (!meeting.getHostId().equals(hostId)) {
-            throw new RuntimeException("Chỉ Host mới có quyền kết thúc cuộc họp!");
+            throw new AppException(ErrorCode.HOST_ONLY_ACTION);
         }
 
         meeting.setStatus(MeetingStatus.FINISHED);
@@ -481,6 +491,71 @@ public class MeetingService {
         sessionRepository.saveAll(activeSessions);
 
         messagingTemplate.convertAndSend("/topic/meeting/" + code + "/system", "MEETING_ENDED");
+    }
+
+    public MeetingSummaryResponse getMeetingSummary(String code, UUID userId, String actionTaken) {
+        Meeting meeting = meetingRepository.findByMeetingCode(code)
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
+
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        MeetingSummaryResponse summary = new MeetingSummaryResponse();
+
+        int totalMessages = chatMessageRepository.findByMeetingCodeOrderByTimestampAsc(code).size();
+        summary.setMessages(totalMessages);
+
+        if ("END".equals(actionTaken) || "ENDED_BY_HOST".equals(actionTaken)) {
+            LocalDateTime end = meeting.getEndTime() != null ? meeting.getEndTime() : LocalDateTime.now();
+            long totalSeconds = java.time.Duration.between(meeting.getCreatedAt(), end).getSeconds();
+            summary.setDuration(formatDuration(totalSeconds));
+
+            summary.setParticipants((int) participantRepository.countByMeeting(meeting));
+
+        } else {
+            Participant p = participantRepository.findByMeetingAndUser(meeting, user)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_PARTICIPANT));
+
+            List<ParticipantSession> sessions = sessionRepository.findByParticipant(p);
+            long totalSeconds = 0;
+            for (ParticipantSession s : sessions) {
+                LocalDateTime out = s.getLeftAt() != null ? s.getLeftAt() : LocalDateTime.now();
+                totalSeconds += java.time.Duration.between(s.getJoinedAt(), out).getSeconds();
+            }
+            summary.setDuration(formatDuration(totalSeconds));
+            summary.setParticipants(1);
+        }
+
+        return summary;
+    }
+
+    @Transactional
+    public void submitFeedback(String code, UUID userId, int rating) {
+        Meeting meeting = meetingRepository.findByMeetingCode(code)
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
+                
+        User user = null;
+        if (userId != null) {
+            user = userRepository.findById(userId).orElse(null);
+        }
+
+        MeetingFeedback feedback = MeetingFeedback.builder()
+                .meeting(meeting)
+                .user(user)
+                .rating(rating)
+                .build();
+        feedbackRepository.save(feedback);
+    }
+
+    private String formatDuration(long totalSeconds) {
+        if (totalSeconds < 0) totalSeconds = 0;
+        long h = totalSeconds / 3600;
+        long m = (totalSeconds % 3600) / 60;
+        long s = totalSeconds % 60;
+        
+        if (h > 0) return h + "h " + m + "m " + s + "s";
+        if (m > 0) return m + "m " + s + "s";
+        return s + "s";
     }
 
     private ParticipantApprovalStatus determineParticipantStatus(Meeting meeting, User user) {

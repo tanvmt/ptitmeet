@@ -21,6 +21,8 @@ import com.ptithcm.ptitmeet.dto.meeting.ApprovalRequest;
 import com.ptithcm.ptitmeet.dto.meeting.CreateMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingResponse;
+import com.ptithcm.ptitmeet.dto.meeting.FeedbackRequest;
+import com.ptithcm.ptitmeet.dto.meeting.MeetingSummaryResponse;
 import com.ptithcm.ptitmeet.dto.meeting.MeetingHistoryResponse;
 import com.ptithcm.ptitmeet.dto.meeting.MeetingInfoResponse;
 import com.ptithcm.ptitmeet.dto.meeting.ParticipantResponse;
@@ -149,5 +151,21 @@ public class MeetingController {
     public ResponseEntity<ApiResponse<Void>> endForAll(@PathVariable String code) {
         meetingService.endMeetingForAll(code, getCurrentUserId());
         return ResponseEntity.ok(ApiResponse.success(null, "Đã kết thúc cuộc họp cho tất cả"));
+    }
+
+    @GetMapping("/{code}/summary")
+    public ResponseEntity<ApiResponse<MeetingSummaryResponse>> getSummary(
+            @PathVariable String code,
+            @RequestParam(defaultValue = "LEAVE") String action) {
+        MeetingSummaryResponse summary = meetingService.getMeetingSummary(code, getCurrentUserId(), action);
+        return ResponseEntity.ok(ApiResponse.success(summary, "Lấy thống kê thành công"));
+    }
+
+    @PostMapping("/{code}/feedback")
+    public ResponseEntity<ApiResponse<Void>> submitFeedback(
+            @PathVariable String code,
+            @RequestBody FeedbackRequest request) {
+        meetingService.submitFeedback(code, getCurrentUserId(), request.getRating());
+        return ResponseEntity.ok(ApiResponse.success(null, "Cảm ơn bạn đã đánh giá"));
     }
 }
