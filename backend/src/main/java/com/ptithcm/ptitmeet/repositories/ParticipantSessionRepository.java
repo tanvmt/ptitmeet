@@ -1,4 +1,4 @@
-package com.ptithcm.ptitmeet.repositories.mysql;
+package com.ptithcm.ptitmeet.repositories;
 
 import com.ptithcm.ptitmeet.entity.mysql.ParticipantSession;
 import com.ptithcm.ptitmeet.entity.mysql.Participant;

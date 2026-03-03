@@ -1,5 +1,21 @@
 package com.ptithcm.ptitmeet.services;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ptithcm.ptitmeet.dto.meeting.ApprovalRequest;
 import com.ptithcm.ptitmeet.dto.meeting.CreateMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingRequest;
@@ -12,41 +28,22 @@ import com.ptithcm.ptitmeet.entity.enums.MeetingStatus;
 import com.ptithcm.ptitmeet.entity.enums.ParticipantApprovalStatus;
 import com.ptithcm.ptitmeet.entity.enums.ParticipantRole;
 import com.ptithcm.ptitmeet.entity.enums.SessionStatus;
-import com.ptithcm.ptitmeet.entity.mysql.ParticipantSession;
 import com.ptithcm.ptitmeet.entity.mysql.Meeting;
 import com.ptithcm.ptitmeet.entity.mysql.MeetingInvitation;
 import com.ptithcm.ptitmeet.entity.mysql.Participant;
+import com.ptithcm.ptitmeet.entity.mysql.ParticipantSession;
 import com.ptithcm.ptitmeet.entity.mysql.User;
 import com.ptithcm.ptitmeet.exception.AppException;
 import com.ptithcm.ptitmeet.exception.ErrorCode;
 import com.ptithcm.ptitmeet.repositories.MeetingInvitationRepository;
 import com.ptithcm.ptitmeet.repositories.MeetingRepository;
-import com.ptithcm.ptitmeet.repositories.UserRepository;
 import com.ptithcm.ptitmeet.repositories.ParticipantRepository;
-import com.ptithcm.ptitmeet.repositories.mysql.ParticipantSessionRepository;
-import com.ptithcm.ptitmeet.services.LiveKitService;
-import com.ptithcm.ptitmeet.services.EmailService;
+import com.ptithcm.ptitmeet.repositories.ParticipantSessionRepository;
+import com.ptithcm.ptitmeet.repositories.UserRepository;
 
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Autowired;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.transaction.annotation.Transactional;
+import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
-
-import org.springframework.stereotype.Service;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -71,9 +68,9 @@ public class MeetingService {
         }
 
         String meetingCode = generateUniqueMeetingCode();
-        String title = (request.getTitle() == null || request.getTitle().isEmpty()) 
-                        ? "Cuộc họp nhanh" 
-                        : request.getTitle();
+        String title = (request.getTitle() == null || request.getTitle().isEmpty())
+                ? "Cuộc họp nhanh"
+                : request.getTitle();
 
         Meeting meeting = Meeting.builder()
                 .hostId(hostId)
@@ -107,11 +104,11 @@ public class MeetingService {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (request.getStartTime() == null) {
-            throw new AppException(ErrorCode.INVALID_KEY); 
+            throw new AppException(ErrorCode.INVALID_KEY);
         }
-        
+
         if (request.getEndTime() != null && request.getEndTime().isBefore(request.getStartTime())) {
-             throw new AppException(ErrorCode.INVALID_TIME_RANGE);
+            throw new AppException(ErrorCode.INVALID_TIME_RANGE);
         }
 
         String meetingCode = generateUniqueMeetingCode();
@@ -120,11 +117,11 @@ public class MeetingService {
                 .hostId(hostId)
                 .meetingCode(meetingCode)
                 .title(request.getTitle())
-                .password(request.getPassword()) 
+                .password(request.getPassword())
                 .isInstant(false)
                 .status(MeetingStatus.SCHEDULED)
                 .startTime(request.getStartTime())
-                .endTime(request.getEndTime()) 
+                .endTime(request.getEndTime())
                 .accessType(request.getAccessType() != null ? request.getAccessType() : MeetingAccessType.TRUSTED)
                 .settings(request.getSettings())
                 .build();
@@ -145,11 +142,11 @@ public class MeetingService {
         Meeting meeting = meetingRepository.save(newMeeting);
 
         System.out.println("Danh sách email nhận được từ Frontend: " + request.getParticipantEmails());
-        
+
         if (request.getParticipantEmails() != null && !request.getParticipantEmails().isEmpty()) {
-            
+
             List<String> uniqueEmails = request.getParticipantEmails().stream().distinct().toList();
-            
+
             for (String email : uniqueEmails) {
                 User invitedUser = userRepository.findByEmail(email).orElse(null);
 
@@ -158,16 +155,15 @@ public class MeetingService {
                         .email(email)
                         .user(invitedUser)
                         .build();
-                
+
                 meetingInvitationRepository.save(invitation);
 
                 emailService.sendMeetingInvite(
-                        email, 
-                        meeting.getMeetingCode(), 
-                        meeting.getTitle(), 
-                        meeting.getStartTime(), 
-                        host.getFullName()
-                );
+                        email,
+                        meeting.getMeetingCode(),
+                        meeting.getTitle(),
+                        meeting.getStartTime(),
+                        host.getFullName());
             }
         }
 
@@ -176,10 +172,10 @@ public class MeetingService {
 
     public MeetingInfoResponse getMeetingInfo(String code) {
         Meeting meeting = meetingRepository.findByMeetingCode(code)
-                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND)); 
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
 
         if (meeting.getStatus() == MeetingStatus.FINISHED || meeting.getStatus() == MeetingStatus.CANCELED) {
-            throw new AppException(ErrorCode.MEETING_ALREADY_FINISHED); 
+            throw new AppException(ErrorCode.MEETING_ALREADY_FINISHED);
         }
 
         User host = userRepository.findById(meeting.getHostId())
@@ -194,7 +190,7 @@ public class MeetingService {
                 .status(meeting.getStatus().toString())
                 .build();
     }
-    
+
     public List<Meeting> getMyMeetings(UUID userId) {
         return meetingRepository.findByHostIdOrderByStartTimeDesc(userId);
     }
@@ -236,13 +232,13 @@ public class MeetingService {
         }
 
         ParticipantApprovalStatus targetStatus;
-        
+
         if (isHost) {
             targetStatus = ParticipantApprovalStatus.APPROVED;
-            
+
             if (meeting.getStatus() == MeetingStatus.SCHEDULED) {
                 meeting.setStatus(MeetingStatus.ACTIVE);
-                meeting.setStartTime(LocalDateTime.now()); 
+                meeting.setStartTime(LocalDateTime.now());
                 meetingRepository.save(meeting);
                 messagingTemplate.convertAndSend("/topic/meeting/" + meetingCode + "/waiting-room", "HOST_JOINED");
             }
@@ -259,15 +255,15 @@ public class MeetingService {
                     Participant newP = new Participant();
                     newP.setMeeting(meeting);
                     newP.setUser(user);
-                    String displayName = (request.getDisplayName() != null && !request.getDisplayName().isEmpty()) 
-                                         ? request.getDisplayName() 
-                                         : user.getFullName();
+                    String displayName = (request.getDisplayName() != null && !request.getDisplayName().isEmpty())
+                            ? request.getDisplayName()
+                            : user.getFullName();
                     newP.setDisplayName(displayName);
                     return newP;
                 });
 
         participant.setRole(role);
-        
+
         if (participant.getApprovalStatus() != ParticipantApprovalStatus.APPROVED) {
             participant.setApprovalStatus(targetStatus);
         }
@@ -278,12 +274,12 @@ public class MeetingService {
             ParticipantResponse notiData = ParticipantResponse.builder()
                     .participantId(participant.getParticipantId())
                     .userId(user.getUserId())
-                    .displayName(participant.getDisplayName()) 
+                    .displayName(participant.getDisplayName())
                     .status("PENDING")
                     .build();
-            
+
             messagingTemplate.convertAndSend("/topic/meeting/" + meetingCode + "/admin", notiData);
-            
+
             String message = (meeting.getStatus() == MeetingStatus.SCHEDULED)
                     ? "The meeting has not started yet. Please wait for the host to join."
                     : "You are in the waiting room. Please wait for the host to let you in.";
@@ -300,7 +296,7 @@ public class MeetingService {
 
         createNewSession(participant);
         String token = liveKitService.generateJoinToken(meetingCode, user.getFullName(), userId.toString());
-        
+
         return JoinMeetingResponse.builder()
                 .token(token)
                 .serverUrl(liveKitService.getLivekitUrl())
@@ -321,9 +317,8 @@ public class MeetingService {
         }
 
         List<Participant> pendingList = participantRepository.findAllByMeetingAndApprovalStatus(
-                meeting, 
-                ParticipantApprovalStatus.PENDING
-        );
+                meeting,
+                ParticipantApprovalStatus.PENDING);
 
         return pendingList.stream().map(p -> ParticipantResponse.builder()
                 .participantId(p.getParticipantId())
@@ -333,8 +328,7 @@ public class MeetingService {
                 .avatarUrl(p.getUser().getAvatarUrl())
                 .status(p.getApprovalStatus().name())
                 .requestTime(p.getCreatedAt() != null ? p.getCreatedAt().toString() : "")
-                .build()
-        ).collect(Collectors.toList());
+                .build()).collect(Collectors.toList());
     }
 
     public void processParticipantApproval(String meetingCode, UUID hostId, ApprovalRequest request) {
@@ -362,7 +356,8 @@ public class MeetingService {
             createNewSession(participant);
 
             User guestUser = participant.getUser();
-            String token = liveKitService.generateJoinToken(meetingCode, guestUser.getFullName(), guestUser.getUserId().toString());
+            String token = liveKitService.generateJoinToken(meetingCode, guestUser.getFullName(),
+                    guestUser.getUserId().toString());
 
             JoinMeetingResponse approvalResponse = JoinMeetingResponse.builder()
                     .status("APPROVED")
@@ -393,7 +388,8 @@ public class MeetingService {
         participantRepository.save(participant);
     }
 
-    public Page<MeetingHistoryResponse> getUserMeetingHistory(UUID userId, String role, String statusStr, int page, int size) {
+    public Page<MeetingHistoryResponse> getUserMeetingHistory(UUID userId, String role, String statusStr, int page,
+            int size) {
         MeetingStatus statusEnum = null;
         if (statusStr != null && !statusStr.equals("ALL")) {
             statusEnum = MeetingStatus.valueOf(statusStr);
@@ -402,7 +398,7 @@ public class MeetingService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "startTime"));
 
         Page<Meeting> meetingPage = meetingRepository.findMeetingHistoryWithFilters(userId, role, statusEnum, pageable);
-        
+
         return meetingPage.map(meeting -> {
             boolean isHost = meeting.getHostId().equals(userId);
             return MeetingHistoryResponse.builder()
@@ -418,18 +414,18 @@ public class MeetingService {
 
     public MeetingHistoryResponse getUpNextMeeting(UUID userId) {
         List<MeetingStatus> activeStatuses = List.of(MeetingStatus.ACTIVE, MeetingStatus.SCHEDULED);
-        
+
         Pageable topOne = PageRequest.of(0, 1);
-        
+
         Page<Meeting> pageResult = meetingRepository.findUpNextMeeting(userId, activeStatuses, topOne);
-        
+
         if (pageResult.isEmpty()) {
             return null;
         }
-        
+
         Meeting meeting = pageResult.getContent().get(0);
         boolean isHost = meeting.getHostId().equals(userId);
-        
+
         return MeetingHistoryResponse.builder()
                 .meetingCode(meeting.getMeetingCode())
                 .title(meeting.getTitle())
@@ -477,10 +473,10 @@ public class MeetingService {
 
         List<ParticipantSession> activeSessions = sessionRepository.findActiveSessionsByMeetingCode(code);
         LocalDateTime now = LocalDateTime.now();
-        
+
         for (ParticipantSession session : activeSessions) {
             session.setLeftAt(now);
-            session.setStatus(SessionStatus.ENDED_BY_HOST); 
+            session.setStatus(SessionStatus.ENDED_BY_HOST);
         }
         sessionRepository.saveAll(activeSessions);
 
@@ -501,7 +497,7 @@ public class MeetingService {
                     return ParticipantApprovalStatus.APPROVED;
                 } else {
                     if (isWaitingRoom) {
-                        return ParticipantApprovalStatus.PENDING; 
+                        return ParticipantApprovalStatus.PENDING;
                     } else {
                         return ParticipantApprovalStatus.REJECTED;
                     }
@@ -510,7 +506,7 @@ public class MeetingService {
             case RESTRICTED:
                 boolean isInvited = isUserInvited(meeting, user);
                 if (!isInvited) {
-                    return ParticipantApprovalStatus.REJECTED; 
+                    return ParticipantApprovalStatus.REJECTED;
                 }
                 return isWaitingRoom ? ParticipantApprovalStatus.PENDING : ParticipantApprovalStatus.APPROVED;
 
@@ -520,13 +516,14 @@ public class MeetingService {
     }
 
     private boolean isUserInternal(String email, String allowedDomain) {
-        if (allowedDomain == null || allowedDomain.isEmpty()) return false;
+        if (allowedDomain == null || allowedDomain.isEmpty())
+            return false;
         return email.endsWith(allowedDomain);
     }
 
     private boolean isUserInvited(Meeting meeting, User user) {
         return meetingInvitationRepository.existsByMeetingAndUser(meeting, user) ||
-               meetingInvitationRepository.existsByMeetingAndEmail(meeting, user.getEmail());
+                meetingInvitationRepository.existsByMeetingAndEmail(meeting, user.getEmail());
     }
 
     private String generateUniqueMeetingCode() {
@@ -554,7 +551,7 @@ public class MeetingService {
 
     private boolean isWaitingRoomEnabled(String settingsJson) {
         if (settingsJson == null || settingsJson.isEmpty()) {
-            return false; 
+            return false;
         }
         try {
             JsonNode root = objectMapper.readTree(settingsJson);
@@ -569,11 +566,11 @@ public class MeetingService {
 
     private void createNewSession(Participant participant) {
         List<ParticipantSession> oldSessions = sessionRepository
-            .findActiveSessionsByMeetingCode(participant.getMeeting().getMeetingCode())
-            .stream()
-            .filter(s -> s.getParticipant().getParticipantId().equals(participant.getParticipantId()))
-            .toList();
-            
+                .findActiveSessionsByMeetingCode(participant.getMeeting().getMeetingCode())
+                .stream()
+                .filter(s -> s.getParticipant().getParticipantId().equals(participant.getParticipantId()))
+                .toList();
+
         if (!oldSessions.isEmpty()) {
             LocalDateTime now = LocalDateTime.now();
             for (ParticipantSession old : oldSessions) {

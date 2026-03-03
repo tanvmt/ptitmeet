@@ -5,8 +5,8 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.ptithcm.ptitmeet.dto.auth.UserResponse;
 import com.ptithcm.ptitmeet.dto.user.UpdateProfileRequest;
+import com.ptithcm.ptitmeet.dto.user.UserResponse;
 import com.ptithcm.ptitmeet.entity.mysql.User;
 import com.ptithcm.ptitmeet.exception.AppException;
 import com.ptithcm.ptitmeet.exception.ErrorCode;

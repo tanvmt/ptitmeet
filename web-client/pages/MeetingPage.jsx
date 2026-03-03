@@ -3,6 +3,11 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { meetingService } from "../services/meetingService";
 import { Client } from "@stomp/stompjs";
+import { useRef } from "react";
+
+import ChatPanel from "../components/ChatPanel";
+import { RiRecordCircleFill } from "react-icons/ri";
+
 import { LiveKitRoom, RoomAudioRenderer } from "@livekit/components-react";
 import "@livekit/components-styles";
 
@@ -27,6 +32,22 @@ const MeetingPage = () => {
 
   const [activeTab, setActiveTab] = useState("chat");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [isRecord, setIsRecord] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(false);
+  const [isRecording, setIsRecording] = useState(true);
+
+  const [timer, setTimer] = useState(0);
+  const [egressId, setEgressId ] = useState("")
+
+  const [toastMessage, setToastMessage] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const toastTimerRef = useRef(null);
+  const isChatOpenRef = useRef(false);
+
+
+
   const [waitingList, setWaitingList] = useState([]);
   const [isLoadingWaiting, setIsLoadingWaiting] = useState(false);
 
