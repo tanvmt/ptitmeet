@@ -138,4 +138,16 @@ public class MeetingController {
         List<ChatMessage> history = chatMessageRepository.findByMeetingCodeOrderByTimestampAsc(code);
         return ResponseEntity.ok(ApiResponse.success(history, "Lấy lịch sử chat thành công"));
     }
+
+    @PostMapping("/{code}/leave")
+    public ResponseEntity<ApiResponse<Void>> leave(@PathVariable String code) {
+        meetingService.leaveMeeting(code, getCurrentUserId());
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã rời phòng"));
+    }
+
+    @PostMapping("/{code}/end")
+    public ResponseEntity<ApiResponse<Void>> endForAll(@PathVariable String code) {
+        meetingService.endMeetingForAll(code, getCurrentUserId());
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã kết thúc cuộc họp cho tất cả"));
+    }
 }

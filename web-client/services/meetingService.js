@@ -3,12 +3,12 @@ import api from './api';
 export const meetingService = {
     createInstantMeeting: async () => {
         const response = await api.post('/meetings/instant');
-        return response.data.data; 
+        return response.data.data;
     },
 
     joinMeeting: async (meetingCode, password = null) => {
         const response = await api.post(`/meetings/${meetingCode}/join`, { password });
-        return response.data.data; 
+        return response.data.data;
     },
 
     getMeetingInfo: async (meetingCode) => {
@@ -22,8 +22,8 @@ export const meetingService = {
     },
 
     processApproval: async (meetingCode, participantId, action) => {
-        const response = await api.post(`/meetings/${meetingCode}/approval`, { 
-            participantId, 
+        const response = await api.post(`/meetings/${meetingCode}/approval`, {
+            participantId,
             action
         });
         return response.data;
@@ -41,19 +41,25 @@ export const meetingService = {
 
     getUpNext: async () => {
         const response = await api.get('/meetings/up-next');
-        return response.data.data; 
+        return response.data.data;
     },
 
     getChatHistory: async (code) => {
         const response = await api.get(`/meetings/${code}/chat/history`);
         return response.data.data;
     },
-    startRecordMeeting: async(meetingCode)=>{
-          const response = await api.post(`/livekit/recordings/start?meetingCode=${meetingCode}`);
-        return response.data.data;
+
+    leaveMeeting: async (code) => {
+        return await api.post(`/meetings/${code}/leave`);
     },
-    endRecordMeeting: async(egressId)=>{
-          const response = await api.post(`/livekit/recordings/stop?egressId=${egressId}`);
-        return response.data.data;
+
+    endMeetingForAll: async (code) => {
+        return await api.post(`/meetings/${code}/end`);
+    },
+    startRecordMeeting: async (code) => {
+        return await api.post(`/livekit/recordings/start?meetingCode=${code}`);
+    },
+    endRecordMeeting: async (egressId) => {
+        return await api.post(`/livekit/recordings/stop?egressId=${egressId}`);
     }
 };

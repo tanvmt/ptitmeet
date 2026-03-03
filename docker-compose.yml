@@ -28,11 +28,13 @@ services:
   livekit:
     image: livekit/livekit-server:latest
     container_name: ptitmeet_livekit
-    command: --dev --bind 0.0.0.0
+    command: --config /etc/livekit.yaml --bind 0.0.0.0
     ports:
       - "7880:7880"
       - "7881:7881"
       - "7882:7882/udp"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
     depends_on:
       - redis
     networks:

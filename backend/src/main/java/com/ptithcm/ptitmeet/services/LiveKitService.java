@@ -4,12 +4,6 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import com.ptithcm.ptitmeet.entity.mysql.Meeting;
-import com.ptithcm.ptitmeet.entity.mysql.User;
-import io.livekit.server.AccessToken;
-import io.livekit.server.RoomJoin;
-import io.livekit.server.RoomName;
-import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,14 +11,17 @@ import org.springframework.transaction.annotation.Transactional;
 import com.ptithcm.ptitmeet.entity.mysql.MeetingRecording;
 import com.ptithcm.ptitmeet.repositories.MeetingRecordingRepository;
 
+import io.livekit.server.AccessToken;
 import io.livekit.server.EgressServiceClient;
-import io.livekit.server.VideoGrant;
+import io.livekit.server.RoomJoin;
+import io.livekit.server.RoomName;
+import jakarta.annotation.PostConstruct;
 import livekit.LivekitEgress.EgressInfo;
 import livekit.LivekitEgress.EncodedFileOutput;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import retrofit2.Call;
 import retrofit2.Response;
-import jakarta.annotation.PostConstruct;
 
 @Service
 @Slf4j

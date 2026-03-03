@@ -4,5 +4,6 @@ public enum SessionStatus {
     ACTIVE,
     LEFT,
     DISCONNECTED,
-    KICKED
+    KICKED,
+    ENDED_BY_HOST
 }
