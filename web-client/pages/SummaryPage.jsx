@@ -1,10 +1,20 @@
 
 import React, { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useRoomContext } from "@livekit/components-react";
+import { useEffect } from 'react';
 
 const SummaryPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+//   const room = useRoomContext();
+  const leaveData = location.state || {};
+
+//   useEffect(() => {
+//     if (room && room.state !== "disconnected") {
+//         room.disconnect();
+//     }
+//   }, [room]);
 
   //Mock Random Meeting Data
   const stats = useMemo(() => ({
@@ -20,17 +30,23 @@ const SummaryPage = () => {
         <div className="size-20 bg-slate-200 dark:bg-surface rounded-full flex items-center justify-center text-slate-500 dark:text-slate-400 mx-auto mb-8 shadow-inner">
           <span className="material-symbols-outlined text-4xl">waving_hand</span>
         </div>
-        <h1 className="text-4xl font-black mb-4">You left the meeting</h1>
-        <p className="text-gray-400 mb-12">Weekly Product Sync • {stats.duration} duration</p>
+        <h1 className="text-4xl font-black mb-4">
+          {leaveData.actionTaken === "END" ? "Meeting Ended" : "You left the meeting"}
+        </h1>
+        <p className="text-gray-400 mb-12">
+          Meeting ID: {leaveData.meetingCode || "Unknown"} • {stats.duration} duration
+        </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-          <button
-            onClick={() => navigate('/waiting-room')}
-            className="px-8 h-14 bg-primary hover:bg-blue-600 text-white font-black rounded-full shadow-xl shadow-primary/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined">replay</span>
-            Rejoin Meeting
-          </button>
+          {leaveData.actionTaken !== "END" && (
+            <button
+              onClick={() => navigate(`/waiting-room/${leaveData.meetingCode}`)}
+              className="px-8 h-14 bg-primary hover:bg-blue-600 text-white font-black rounded-full shadow-xl shadow-primary/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined">replay</span>
+              Rejoin Meeting
+            </button>
+          )}
           <button
             onClick={() => navigate('/')}
             className="px-8 h-14 bg-white/5 hover:bg-white/10 text-white font-bold rounded-full border border-white/5 transition-all flex items-center justify-center gap-2"

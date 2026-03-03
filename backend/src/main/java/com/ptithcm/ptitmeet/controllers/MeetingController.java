@@ -8,6 +8,9 @@ import com.ptithcm.ptitmeet.repositories.ChatMessageRepository;
 import com.ptithcm.ptitmeet.services.MeetingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.ptithcm.ptitmeet.dto.meeting.ApprovalRequest;
+import com.ptithcm.ptitmeet.dto.meeting.ParticipantResponse;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -123,5 +126,17 @@ public class MeetingController {
     public ResponseEntity<ApiResponse<List<ChatMessage>>> getChatHistory(@PathVariable String code) {
         List<ChatMessage> history = chatMessageRepository.findByMeetingCodeOrderByTimestampAsc(code);
         return ResponseEntity.ok(ApiResponse.success(history, "Lấy lịch sử chat thành công"));
+    }
+
+    @PostMapping("/{code}/leave")
+    public ResponseEntity<ApiResponse<Void>> leave(@PathVariable String code) {
+        meetingService.leaveMeeting(code, getCurrentUserId());
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã rời phòng"));
+    }
+
+    @PostMapping("/{code}/end")
+    public ResponseEntity<ApiResponse<Void>> endForAll(@PathVariable String code) {
+        meetingService.endMeetingForAll(code, getCurrentUserId());
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã kết thúc cuộc họp cho tất cả"));
     }
 }

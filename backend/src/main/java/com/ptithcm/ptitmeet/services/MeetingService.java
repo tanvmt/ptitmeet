@@ -2,14 +2,17 @@ package com.ptithcm.ptitmeet.services;
 
 import com.ptithcm.ptitmeet.dto.meeting.ApprovalRequest;
 import com.ptithcm.ptitmeet.dto.meeting.CreateMeetingRequest;
-import com.ptithcm.ptitmeet.dto.meeting.MeetingInfoResponse;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingResponse;
+import com.ptithcm.ptitmeet.dto.meeting.MeetingHistoryResponse;
+import com.ptithcm.ptitmeet.dto.meeting.MeetingInfoResponse;
 import com.ptithcm.ptitmeet.dto.meeting.ParticipantResponse;
 import com.ptithcm.ptitmeet.entity.enums.MeetingAccessType;
 import com.ptithcm.ptitmeet.entity.enums.MeetingStatus;
 import com.ptithcm.ptitmeet.entity.enums.ParticipantApprovalStatus;
 import com.ptithcm.ptitmeet.entity.enums.ParticipantRole;
+import com.ptithcm.ptitmeet.entity.enums.SessionStatus;
+import com.ptithcm.ptitmeet.entity.mysql.ParticipantSession;
 import com.ptithcm.ptitmeet.entity.mysql.Meeting;
 import com.ptithcm.ptitmeet.entity.mysql.MeetingInvitation;
 import com.ptithcm.ptitmeet.entity.mysql.Participant;
@@ -20,13 +23,19 @@ import com.ptithcm.ptitmeet.repositories.MeetingInvitationRepository;
 import com.ptithcm.ptitmeet.repositories.MeetingRepository;
 import com.ptithcm.ptitmeet.repositories.UserRepository;
 import com.ptithcm.ptitmeet.repositories.ParticipantRepository;
+import com.ptithcm.ptitmeet.repositories.mysql.ParticipantSessionRepository;
 import com.ptithcm.ptitmeet.services.LiveKitService;
+import com.ptithcm.ptitmeet.services.EmailService;
+
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
-import com.ptithcm.ptitmeet.dto.meeting.MeetingHistoryResponse;
 
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
@@ -47,10 +56,14 @@ public class MeetingService {
     private final MeetingRepository meetingRepository;
     private final UserRepository userRepository;
     private final ParticipantRepository participantRepository;
+    private final ParticipantSessionRepository sessionRepository;
     private final LiveKitService liveKitService;
     private final ObjectMapper objectMapper;
     private final SimpMessagingTemplate messagingTemplate;
     private final EmailService emailService;
+
+    @Autowired
+    private HttpServletRequest request;
 
     public Meeting createInstantMeeting(UUID hostId, CreateMeetingRequest request) {
         if (!userRepository.existsById(hostId)) {
@@ -285,6 +298,7 @@ public class MeetingService {
             throw new AppException(ErrorCode.MEETING_REJECTED);
         }
 
+        createNewSession(participant);
         String token = liveKitService.generateJoinToken(meetingCode, user.getFullName(), userId.toString());
         
         return JoinMeetingResponse.builder()
@@ -344,6 +358,8 @@ public class MeetingService {
         if ("APPROVED".equalsIgnoreCase(request.getAction())) {
             participant.setApprovalStatus(ParticipantApprovalStatus.APPROVED);
             participantRepository.save(participant);
+
+            createNewSession(participant);
 
             User guestUser = participant.getUser();
             String token = liveKitService.generateJoinToken(meetingCode, guestUser.getFullName(), guestUser.getUserId().toString());
@@ -424,6 +440,53 @@ public class MeetingService {
                 .build();
     }
 
+    @Transactional
+    public void leaveMeeting(String code, UUID userId) {
+        Meeting meeting = meetingRepository.findByMeetingCode(code)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phòng"));
+
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        Participant participant = participantRepository.findByMeetingAndUser(meeting, user)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người tham gia"));
+
+        ParticipantSession activeSession = sessionRepository
+                .findFirstByParticipantAndStatusOrderByJoinedAtDesc(participant, SessionStatus.ACTIVE)
+                .orElse(null);
+
+        if (activeSession != null) {
+            activeSession.setLeftAt(LocalDateTime.now());
+            activeSession.setStatus(SessionStatus.LEFT);
+            sessionRepository.save(activeSession);
+        }
+    }
+
+    @Transactional
+    public void endMeetingForAll(String code, UUID hostId) {
+        Meeting meeting = meetingRepository.findByMeetingCode(code)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phòng"));
+
+        if (!meeting.getHostId().equals(hostId)) {
+            throw new RuntimeException("Chỉ Host mới có quyền kết thúc cuộc họp!");
+        }
+
+        meeting.setStatus(MeetingStatus.FINISHED);
+        meeting.setEndTime(LocalDateTime.now());
+        meetingRepository.save(meeting);
+
+        List<ParticipantSession> activeSessions = sessionRepository.findActiveSessionsByMeetingCode(code);
+        LocalDateTime now = LocalDateTime.now();
+        
+        for (ParticipantSession session : activeSessions) {
+            session.setLeftAt(now);
+            session.setStatus(SessionStatus.ENDED_BY_HOST); 
+        }
+        sessionRepository.saveAll(activeSessions);
+
+        messagingTemplate.convertAndSend("/topic/meeting/" + code + "/system", "MEETING_ENDED");
+    }
+
     private ParticipantApprovalStatus determineParticipantStatus(Meeting meeting, User user) {
         boolean isWaitingRoom = isWaitingRoomEnabled(meeting.getSettings());
         MeetingAccessType type = meeting.getAccessType();
@@ -502,5 +565,33 @@ public class MeetingService {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private void createNewSession(Participant participant) {
+        List<ParticipantSession> oldSessions = sessionRepository
+            .findActiveSessionsByMeetingCode(participant.getMeeting().getMeetingCode())
+            .stream()
+            .filter(s -> s.getParticipant().getParticipantId().equals(participant.getParticipantId()))
+            .toList();
+            
+        if (!oldSessions.isEmpty()) {
+            LocalDateTime now = LocalDateTime.now();
+            for (ParticipantSession old : oldSessions) {
+                old.setLeftAt(now);
+                old.setStatus(SessionStatus.LEFT);
+            }
+            sessionRepository.saveAll(oldSessions);
+        }
+
+        String ipAddress = request.getRemoteAddr();
+        String deviceInfo = request.getHeader("User-Agent");
+
+        ParticipantSession newSession = ParticipantSession.builder()
+                .participant(participant)
+                .ipAddress(ipAddress)
+                .deviceInfo(deviceInfo)
+                .build();
+
+        sessionRepository.save(newSession);
     }
 }

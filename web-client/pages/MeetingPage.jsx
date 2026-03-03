@@ -59,6 +59,16 @@ const MeetingPage = () => {
             fetchWaitingList();
           });
         }
+
+        client.subscribe(`/topic/meeting/${code}/system`, (message) => {
+            if (message.body === "MEETING_ENDED") {
+               if (!isHost) {
+                   navigate("/summary", { 
+                       state: { meetingCode: code, actionTaken: "KICKED" } 
+                   });
+               }
+            }
+        });
       },
       onDisconnect: () => setIsStompConnected(false)
     });
@@ -117,7 +127,7 @@ const MeetingPage = () => {
                 meetingCode={code}
             />
           </div>
-          <ControlBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={setActiveTab} waitingCount={waitingList.length} isHost={isHost} />
+          <ControlBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={setActiveTab} waitingCount={waitingList.length} isHost={isHost} code={code} stompClient={stompClient}/>
           <RoomAudioRenderer />
         </div>
       </LiveKitRoom>
