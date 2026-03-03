@@ -1,17 +1,29 @@
 server.port=8080
 
-spring.datasource.url=jdbc:mysql://localhost:3306/ptitmeet_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-spring.datasource.username=root
-spring.datasource.password=yourpassword
+spring.datasource.url=jdbc:mysql://
+spring.datasource.username=av
+spring.datasource.password=AV
 spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
 
-spring.data.mongodb.uri=mongodb+srv://<username>:<password>@<cluster-url>/.6qqf9el.mongodb.net/ptitmeet_chat?retryWrites=true&w=majority&appName=<app-name>
-
+# spring.data.mongodb.uri=mongodb+srv://ta
 livekit.api.url=http://localhost:7880
 livekit.api.key=devkey
 livekit.api.secret=secret
 
-app.jwt-secret=examplejwtsecretkeyforptitmeetapplication
-app.jwt-expiration-milliseconds=604800000
+spring.data.mongodb.uri=mongodb+srv://t
+jwt.secret=djhskjdfhjksdhfkjdshfjkhskdjfdsfdskjfhkdshfkjdshfhsdjfhkdsjhfkjdshkfjadsjkfhksdjhfiyeiureifhdskhfaldsfjajoewhsdkfhkdjfhk
+jwt.access-token-expiration=3600000
+jwt.refresh-token-expiration=604800000
+
+google.client-id=108
+
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=tien
+spring.mail.password=jh
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+
+app.frontend-url=http://localhost:3000

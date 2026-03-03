@@ -1,15 +1,17 @@
-package com.ptithcm.ptitmeet.controllers.websocket;
+package com.ptithcm.ptitmeet.controllers;
 
-import com.ptithcm.ptitmeet.entity.mongodb.ChatMessage;
-import com.ptithcm.ptitmeet.repositories.ChatMessageRepository;
-import lombok.RequiredArgsConstructor;
+import java.time.LocalDateTime;
+
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
-import java.time.LocalDateTime;
+import com.ptithcm.ptitmeet.entity.mongodb.ChatMessage;
+import com.ptithcm.ptitmeet.repositories.ChatMessageRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Controller
 @RequiredArgsConstructor

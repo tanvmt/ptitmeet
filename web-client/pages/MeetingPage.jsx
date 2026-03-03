@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { meetingService } from "../services/meetingService";
 import { Client } from "@stomp/stompjs";
 import ChatPanel from "../components/ChatPanel";
+import { RiRecordCircleFill } from "react-icons/ri";
 
 const INITIAL_PARTICIPANTS = [
   {
@@ -56,11 +57,13 @@ const MeetingPage = () => {
   const [participants] = useState(INITIAL_PARTICIPANTS);
   const [activeTab, setActiveTab] = useState("chat"); // State chuyển tab
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isRecord, setIsRecord] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [isRecording, setIsRecording] = useState(true);
 
   const [timer, setTimer] = useState(0);
+  const [egressId, setEgressId ] = useState("")
 
   const [toastMessage, setToastMessage] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -223,19 +226,17 @@ const MeetingPage = () => {
       <div className="flex-grow flex relative">
         {/* Main Grid Area */}
         <main
-          className={`flex-grow p-4 transition-all duration-300 ${
-            sidebarOpen ? "lg:mr-80" : ""
-          }`}
+          className={`flex-grow p-4 transition-all duration-300 ${sidebarOpen ? "lg:mr-80" : ""
+            }`}
         >
           <div className="h-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 content-center max-w-7xl mx-auto">
             {participants.map((p) => (
               <div
                 key={p.id}
-                className={`group relative aspect-video bg-surface rounded-2xl overflow-hidden border-2 transition-all ${
-                  p.isSpeaking
+                className={`group relative aspect-video bg-surface rounded-2xl overflow-hidden border-2 transition-all ${p.isSpeaking
                     ? "border-primary shadow-lg shadow-primary/20"
                     : "border-transparent"
-                }`}
+                  }`}
               >
                 {!p.isVideoOff ? (
                   <img
@@ -280,30 +281,27 @@ const MeetingPage = () => {
 
         {/* Sidebar Hoàn thiện */}
         <aside
-          className={`fixed top-16 right-0 bottom-24 w-80 bg-surface border-l border-white/5 z-20 transition-transform duration-300 shadow-2xl ${
-            sidebarOpen ? "translate-x-0" : "translate-x-full"
-          }`}
+          className={`fixed top-16 right-0 bottom-24 w-80 bg-surface border-l border-white/5 z-20 transition-transform duration-300 shadow-2xl ${sidebarOpen ? "translate-x-0" : "translate-x-full"
+            }`}
         >
           <div className="flex flex-col h-full">
             {/* Tabs Navigation */}
             <div className="flex p-2 gap-1 border-b border-white/5 bg-background/20">
               <button
                 onClick={() => setActiveTab("chat")}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                  activeTab === "chat"
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === "chat"
                     ? "bg-primary text-white shadow-lg"
                     : "text-gray-500 hover:bg-white/5"
-                }`}
+                  }`}
               >
                 In-call Messages
               </button>
               <button
                 onClick={() => setActiveTab("people")}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                  activeTab === "people"
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === "people"
                     ? "bg-primary text-white shadow-lg"
                     : "text-gray-500 hover:bg-white/5"
-                }`}
+                  }`}
               >
                 People ({participants.length})
               </button>
@@ -431,9 +429,8 @@ const MeetingPage = () => {
                         </div>
                         <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                           <span
-                            className={`material-symbols-outlined text-[18px] ${
-                              p.isMuted ? "text-red-500" : "text-gray-400"
-                            }`}
+                            className={`material-symbols-outlined text-[18px] ${p.isMuted ? "text-red-500" : "text-gray-400"
+                              }`}
                           >
                             {p.isMuted ? "mic_off" : "mic"}
                           </span>
@@ -462,11 +459,10 @@ const MeetingPage = () => {
 
       {/* FLOATING CHAT NOTIFICATION (THÔNG BÁO NỔI GÓC PHẢI) */}
       <div
-        className={`fixed bottom-28 right-6 z-50 transition-all duration-500 transform ${
-          toastMessage
+        className={`fixed bottom-28 right-6 z-50 transition-all duration-500 transform ${toastMessage
             ? "translate-x-0 opacity-100"
             : "translate-x-10 opacity-0 pointer-events-none"
-        }`}
+          }`}
       >
         {toastMessage && (
           <div
@@ -507,11 +503,10 @@ const MeetingPage = () => {
         <div className="flex items-center gap-3 bg-surface/90 backdrop-blur-xl p-2 rounded-full border border-white/10 shadow-2xl">
           <button
             onClick={() => setIsMuted(!isMuted)}
-            className={`size-12 rounded-full flex items-center justify-center transition-all ${
-              !isMuted
+            className={`size-12 rounded-full flex items-center justify-center transition-all ${!isMuted
                 ? "bg-white/10 hover:bg-white/20 text-white"
                 : "bg-red-500 text-white shadow-lg shadow-red-500/20"
-            }`}
+              }`}
           >
             <span className="material-symbols-outlined">
               {!isMuted ? "mic" : "mic_off"}
@@ -519,11 +514,10 @@ const MeetingPage = () => {
           </button>
           <button
             onClick={() => setIsVideoOff(!isVideoOff)}
-            className={`size-12 rounded-full flex items-center justify-center transition-all ${
-              !isVideoOff
+            className={`size-12 rounded-full flex items-center justify-center transition-all ${!isVideoOff
                 ? "bg-white/10 hover:bg-white/20 text-white"
                 : "bg-red-500 text-white shadow-lg shadow-red-500/20"
-            }`}
+              }`}
           >
             <span className="material-symbols-outlined">
               {!isVideoOff ? "videocam" : "videocam_off"}
@@ -548,11 +542,10 @@ const MeetingPage = () => {
                 setActiveTab("chat");
               }
             }}
-            className={`relative size-12 rounded-full flex items-center justify-center transition-all ${
-              sidebarOpen && activeTab === "chat"
+            className={`relative size-12 rounded-full flex items-center justify-center transition-all ${sidebarOpen && activeTab === "chat"
                 ? "bg-primary text-white shadow-lg shadow-primary/20"
                 : "bg-white/10 hover:bg-white/20 text-white"
-            }`}
+              }`}
           >
             <span className="material-symbols-outlined text-[22px]">
               chat_bubble
@@ -572,11 +565,10 @@ const MeetingPage = () => {
                 setActiveTab("people");
               }
             }}
-            className={`relative size-12 rounded-full flex items-center justify-center transition-all ${
-              sidebarOpen && activeTab === "people"
+            className={`relative size-12 rounded-full flex items-center justify-center transition-all ${sidebarOpen && activeTab === "people"
                 ? "bg-primary text-white shadow-lg shadow-primary/20"
                 : "bg-white/10 hover:bg-white/20 text-white"
-            }`}
+              }`}
           >
             <span className="material-symbols-outlined text-[22px]">group</span>
             {isHost && waitingList.length > 0 && (
@@ -584,6 +576,28 @@ const MeetingPage = () => {
                 {waitingList.length}
               </span>
             )}
+          </button>
+
+          {/* record button */}
+          <button
+            onClick={async() => {
+              if(!isRecord){
+                const startRecordRes = await meetingService.startRecordMeeting(code);
+                setEgressId(startRecordRes.egressId);
+              }else{
+                meetingService.endRecordMeeting(egressId);
+              }
+              setIsRecord(!isRecord)
+            }}
+            className={`size-12 rounded-full flex items-center justify-center transition-all ${!isRecord
+                ? "bg-white/10 hover:bg-white/20 text-white"
+                : "bg-red-500 text-white shadow-lg shadow-red-500/20"
+              }`}
+          >
+            <span class="material-symbols-outlined">
+             
+              {isRecord ?  "screen_record" : "fiber_manual_record"}
+            </span>
           </button>
           <button className="size-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all">
             <span className="material-symbols-outlined text-[22px]">

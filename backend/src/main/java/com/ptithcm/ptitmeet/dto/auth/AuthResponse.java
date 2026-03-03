@@ -1,5 +1,7 @@
 package com.ptithcm.ptitmeet.dto.auth;
 
+import com.ptithcm.ptitmeet.dto.user.UserResponse;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

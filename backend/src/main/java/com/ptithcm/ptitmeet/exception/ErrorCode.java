@@ -33,12 +33,14 @@ public enum ErrorCode {
     CANNOT_GENERATE_CODE(3008, "Hệ thống đang bận, không thể tạo mã phòng. Vui lòng thử lại.",
             HttpStatus.SERVICE_UNAVAILABLE),
     MEETING_REJECTED(3009, "Bạn đã bị từ chối tham gia phòng họp", HttpStatus.FORBIDDEN),
-    MEETING_CANCELED(3010, "Cuộc họp này đã bị chủ phòng hủy bỏ.", HttpStatus.BAD_REQUEST);
+    MEETING_CANCELED(3010, "Cuộc họp này đã bị chủ phòng hủy bỏ.", HttpStatus.BAD_REQUEST),
+    UN_START_RECORD_MEETING_ROOM(3011, "Không thể quay video cuộc họp.", HttpStatus.BAD_REQUEST),
+    UN_END_RECORD_MEETING_ROOM(3011, "Không thể lưu video cuộc họp.", HttpStatus.BAD_REQUEST);
 
     private final int code; 
     private final String message;
     private final HttpStatus statusCode;
-
+ 
     ErrorCode(int code, String message, HttpStatus statusCode) {
         this.code = code;
         this.message = message;

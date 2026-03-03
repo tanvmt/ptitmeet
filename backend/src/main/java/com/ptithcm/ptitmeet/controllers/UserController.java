@@ -1,13 +1,12 @@
 package com.ptithcm.ptitmeet.controllers;
 
 import com.ptithcm.ptitmeet.dto.ApiResponse;
-import com.ptithcm.ptitmeet.dto.auth.UserResponse;
 import com.ptithcm.ptitmeet.dto.user.UpdateProfileRequest;
+import com.ptithcm.ptitmeet.dto.user.UserResponse;
 import com.ptithcm.ptitmeet.services.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;

@@ -1,4 +1,4 @@
-package com.ptithcm.ptitmeet.dto.auth;
+package com.ptithcm.ptitmeet.dto.user;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

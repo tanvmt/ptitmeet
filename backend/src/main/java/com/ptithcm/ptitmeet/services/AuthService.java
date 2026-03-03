@@ -21,7 +21,7 @@ import com.ptithcm.ptitmeet.dto.auth.GoogleLoginRequest;
 import com.ptithcm.ptitmeet.dto.auth.LoginRequest;
 import com.ptithcm.ptitmeet.dto.auth.RegisterRequest;
 import com.ptithcm.ptitmeet.dto.auth.ResetPasswordRequest;
-import com.ptithcm.ptitmeet.dto.auth.UserResponse;
+import com.ptithcm.ptitmeet.dto.user.UserResponse;
 import com.ptithcm.ptitmeet.entity.enums.AuthProvider;
 import com.ptithcm.ptitmeet.entity.mysql.User;
 import com.ptithcm.ptitmeet.exception.AppException;

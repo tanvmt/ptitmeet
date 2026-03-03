@@ -48,4 +48,12 @@ export const meetingService = {
         const response = await api.get(`/meetings/${code}/chat/history`);
         return response.data.data;
     },
+    startRecordMeeting: async(meetingCode)=>{
+          const response = await api.post(`/livekit/recordings/start?meetingCode=${meetingCode}`);
+        return response.data.data;
+    },
+    endRecordMeeting: async(egressId)=>{
+          const response = await api.post(`/livekit/recordings/stop?egressId=${egressId}`);
+        return response.data.data;
+    }
 };
