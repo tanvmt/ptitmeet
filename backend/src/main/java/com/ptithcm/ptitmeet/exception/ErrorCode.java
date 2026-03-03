@@ -35,7 +35,8 @@ public enum ErrorCode {
     MEETING_REJECTED(3009, "Bạn đã bị từ chối tham gia phòng họp", HttpStatus.FORBIDDEN),
     MEETING_CANCELED(3010, "Cuộc họp này đã bị chủ phòng hủy bỏ.", HttpStatus.BAD_REQUEST),
     UN_START_RECORD_MEETING_ROOM(3011, "Không thể quay video cuộc họp.", HttpStatus.BAD_REQUEST),
-    UN_END_RECORD_MEETING_ROOM(3011, "Không thể lưu video cuộc họp.", HttpStatus.BAD_REQUEST);
+    UN_END_RECORD_MEETING_ROOM(3011, "Không thể lưu video cuộc họp.", HttpStatus.BAD_REQUEST),
+    USER_NOT_PARTICIPANT(3012, "Bạn không phải là thành viên của cuộc họp này", HttpStatus.FORBIDDEN);
 
     private final int code; 
     private final String message;

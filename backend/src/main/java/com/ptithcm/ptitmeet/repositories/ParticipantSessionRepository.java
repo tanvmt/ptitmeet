@@ -19,4 +19,6 @@ public interface ParticipantSessionRepository extends JpaRepository<ParticipantS
 
     @Query("SELECT ps FROM ParticipantSession ps WHERE ps.participant.meeting.meetingCode = :code AND ps.status = 'ACTIVE'")
     List<ParticipantSession> findActiveSessionsByMeetingCode(@Param("code") String code);
+
+    List<ParticipantSession> findByParticipant(Participant participant);
 }

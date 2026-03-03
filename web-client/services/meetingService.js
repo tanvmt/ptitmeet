@@ -56,10 +56,22 @@ export const meetingService = {
     endMeetingForAll: async (code) => {
         return await api.post(`/meetings/${code}/end`);
     },
+
     startRecordMeeting: async (code) => {
         return await api.post(`/livekit/recordings/start?meetingCode=${code}`);
     },
+
     endRecordMeeting: async (egressId) => {
         return await api.post(`/livekit/recordings/stop?egressId=${egressId}`);
-    }
+    },
+
+    getMeetingSummary: async (code, actionTaken) => {
+        const response = await api.get(`/meetings/${code}/summary?action=${actionTaken}`);
+        return response.data;
+    },
+
+    submitFeedback: async (code, rating) => {
+        const response = await api.post(`/meetings/${code}/feedback`, { rating });
+        return response.data;
+    },
 };
