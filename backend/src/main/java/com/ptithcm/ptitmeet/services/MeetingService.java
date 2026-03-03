@@ -270,8 +270,6 @@ public class MeetingService {
         
         if (participant.getApprovalStatus() != ParticipantApprovalStatus.APPROVED) {
             participant.setApprovalStatus(targetStatus);
-        } else {
-            createNewSession(participant);
         }
 
         participant = participantRepository.save(participant);
@@ -300,6 +298,7 @@ public class MeetingService {
             throw new AppException(ErrorCode.MEETING_REJECTED);
         }
 
+        createNewSession(participant);
         String token = liveKitService.generateJoinToken(meetingCode, user.getFullName(), userId.toString());
         
         return JoinMeetingResponse.builder()
