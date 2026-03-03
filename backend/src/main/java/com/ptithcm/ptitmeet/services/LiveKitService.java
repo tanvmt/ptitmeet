@@ -4,16 +4,19 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import com.ptithcm.ptitmeet.entity.mysql.Meeting;
+import com.ptithcm.ptitmeet.entity.mysql.User;
+import io.livekit.server.AccessToken;
+import io.livekit.server.RoomJoin;
+import io.livekit.server.RoomName;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.ptithcm.ptitmeet.entity.mysql.Meeting;
 import com.ptithcm.ptitmeet.entity.mysql.MeetingRecording;
-import com.ptithcm.ptitmeet.entity.mysql.User;
 import com.ptithcm.ptitmeet.repositories.MeetingRecordingRepository;
 
-import io.livekit.server.AccessToken;
 import io.livekit.server.EgressServiceClient;
 import io.livekit.server.VideoGrant;
 import livekit.LivekitEgress.EgressInfo;
@@ -25,17 +28,19 @@ import jakarta.annotation.PostConstruct;
 
 @Service
 @Slf4j
+@Getter
 public class LiveKitService {
 
     @Value("${livekit.api.url}")
     private String livekitUrl;
 
     @Value("${livekit.api.key}")
-    private String apiKey;
+    private String livekitApiKey;
 
     @Value("${livekit.api.secret}")
-    private String apiSecret;
+    private String livekitApiSecret;
 
+    
     @Autowired
     private MeetingRecordingRepository recordingRepository;
 
@@ -44,7 +49,7 @@ public class LiveKitService {
     // Khởi tạo Client 1 lần duy nhất để tối ưu hiệu suất
     @PostConstruct
     public void init() {
-        this.egressClient = EgressServiceClient.createClient(livekitUrl, apiKey, apiSecret);
+        this.egressClient = EgressServiceClient.createClient(livekitUrl, livekitApiKey, livekitApiSecret);
     }
 
     @Transactional
@@ -109,12 +114,16 @@ public class LiveKitService {
         return recordingRepository.save(recording);
     }
 
-    public String generateToken(User user, Meeting meeting) {
-        return "mock_token_" + user.getEmail() + "_" + meeting.getMeetingCode();
+    public String generateJoinToken(String roomName, String participantName, String participantId) {
+        AccessToken token = new AccessToken(livekitApiKey, livekitApiSecret);
 
+        token.setName(participantName);
+
+        token.setIdentity(participantId);
+
+        token.addGrants(new RoomJoin(true), new RoomName(roomName));
+
+        return token.toJwt();
     }
 
-    public String getLiveKitUrl() {
-        return "ws://localhost:7880";
-    }
 }

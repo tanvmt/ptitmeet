@@ -3,7 +3,6 @@ package com.ptithcm.ptitmeet.controllers;
 import java.util.List;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -40,6 +39,8 @@ public class MeetingController {
 
     private final MeetingService meetingService;
 
+    private final ChatMessageRepository chatMessageRepository;
+
     private UUID getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return UUID.fromString(authentication.getName()); 
@@ -69,10 +70,10 @@ public class MeetingController {
             @RequestParam(defaultValue = "6") int size,
             @RequestParam(defaultValue = "ALL") String role,
             @RequestParam(defaultValue = "ALL") String status) {
-        
+
         Page<MeetingHistoryResponse> historyPage = meetingService.getUserMeetingHistory(
                 getCurrentUserId(), role, status, page - 1, size);
-                
+
         return ResponseEntity.ok(ApiResponse.success(historyPage, "Lấy lịch sử họp thành công"));
     }
 
@@ -81,7 +82,7 @@ public class MeetingController {
         MeetingHistoryResponse upNext = meetingService.getUpNextMeeting(getCurrentUserId());
         return ResponseEntity.ok(ApiResponse.success(upNext, "Lấy Up Next thành công"));
     }
-    
+
     @GetMapping("/my-meetings")
     public ResponseEntity<ApiResponse<List<Meeting>>> getMyMeetings() {
         List<Meeting> meetings = meetingService.getMyMeetings(getCurrentUserId());
@@ -131,9 +132,6 @@ public class MeetingController {
         String msg = "APPROVED".equalsIgnoreCase(request.getAction()) ? "Đã duyệt thành viên" : "Đã từ chối thành viên";
         return ResponseEntity.ok(ApiResponse.success(null, msg));
     }
-
-    @Autowired
-    private ChatMessageRepository chatMessageRepository;
 
     @GetMapping("/{code}/chat/history")
     public ResponseEntity<ApiResponse<List<ChatMessage>>> getChatHistory(@PathVariable String code) {
