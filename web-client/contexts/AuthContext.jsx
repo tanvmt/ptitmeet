@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
-import api from '../services/api';
+import api from '../services/api.js';
 
 const AuthContext = createContext(null);
 
@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }) => {
                         // Gọi endpoint refresh token. 
                         // VÌ đã bật withCredentials=true, trình duyệt sẽ TỰ ĐỘNG gửi cookie RefreshToken đi.
                         // Backend cần đọc cookie này, kiểm tra và set lại cookie AccessToken mới.
-                        await axios.post('http://localhost:8080/api/auth/refresh-token');
+                        await api.post('/api/auth/refresh-token');
 
                         // Nếu refresh thành công (không lỗi), gọi lại request ban đầu.
                         // Trình duyệt cũng sẽ tự động gửi cookie AccessToken mới vừa nhận được.
@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                const res = await axios.get('http://localhost:8080/api/users/me');
+                const res = await axios.get('/api/users/me');
                 if (res.data.code === 1000) {
                     setUser(res.data.data);
                 }
@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password) => {
         try {
-            const res = await axios.post("http://localhost:8080/api/auth/login", { email, password });
+            const res = await axios.post("/api/auth/login", { email, password });
             if (res.data.code === 1000) {
                 // Server phải trả về user info trong body, và set cookie HttpOnly ở header Response
                 setUser(res.data.data.user);
@@ -83,7 +83,7 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         try {
             // Gọi API logout để server xóa cookie
-            await axios.post("http://localhost:8080/api/auth/logout");
+            await axios.post("/api/auth/logout");
         } catch (error) {
             console.error("Logout error", error);
         } finally {

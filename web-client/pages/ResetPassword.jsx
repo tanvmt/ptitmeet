@@ -21,7 +21,7 @@ const ResetPassword = () => {
         const token = searchParam.get('token');
         setStatus('loading');
         try {
-            const response = await axios.post('http://localhost:8080/api/auth/reset-password', { token, newPassword: formData.password });
+            const response = await axios.post('/api/auth/reset-password', { token, newPassword: formData.password });
             console.log(response);
             if (response.status === 200) {
                 setStatus('success');

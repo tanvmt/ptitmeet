@@ -14,7 +14,7 @@ const LoginPage = ({ setUser }) => {
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       const { credential } = credentialResponse;
-      const response = await axios.post('http://localhost:8080/api/auth/google', { idToken: credential });
+      const response = await axios.post('/api/auth/google', { idToken: credential });
 
       if (response.data.code === 1000) {
         setUser(response.data.data.user);
@@ -30,7 +30,7 @@ const LoginPage = ({ setUser }) => {
     setError(null);
 
     try {
-      const loginRes = await axios.post("http://localhost:8080/api/auth/login", { email, password });
+      const loginRes = await axios.post("/api/auth/login", { email, password });
 
       if (loginRes.data.code === 1000) {
         setUser(loginRes.data.data.user);

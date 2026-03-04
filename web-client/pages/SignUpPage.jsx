@@ -19,7 +19,7 @@ const SignUpPage = () => {
       return;
     }
     try {
-      const response = await axios.post('http://localhost:8080/api/auth/register', formData);
+      const response = await axios.post('/api/auth/register', formData);
       if (response.data.code === 1000) {
         navigate('/login');
       }
@@ -43,7 +43,7 @@ const SignUpPage = () => {
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       const { credential } = credentialResponse;
-      const response = await axios.post('http://localhost:8080/api/auth/google', { idToken: credential });
+      const response = await axios.post('/api/auth/google', { idToken: credential });
       console.log(response);
       if (response.data.code === 1000) {
         navigate('/dashboard');
