@@ -1,8 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const [meetingCode, setMeetingCode] = useState("");
+
+  const handleJoinClick = () => {
+    if (meetingCode.trim()) {
+      const cleanCode = meetingCode.trim().toLowerCase();
+      navigate(`/waiting-room/${cleanCode}`);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleJoinClick();
+    }
+  };
 
   return (
     <div className="relative overflow-hidden bg-background">
@@ -66,10 +80,19 @@ const LandingPage = () => {
               <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-primary transition-colors">keyboard</span>
               <input
                 type="text"
-                placeholder="Enter code"
-                className="w-full h-14 pl-12 pr-20 rounded-full bg-surface border border-white/10 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                placeholder="Enter code (e.g. abc-def-ghi)"
+                value={meetingCode}
+                onChange={(e) => setMeetingCode(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-full h-14 pl-12 pr-20 rounded-full bg-surface border border-white/10 focus:ring-2 focus:ring-primary focus:outline-none transition-all text-white placeholder:text-gray-500 font-medium tracking-wide"
               />
-              <button className="absolute right-2 top-2 bottom-2 px-4 rounded-full text-primary hover:bg-primary/10 font-bold text-sm transition-colors">Join</button>
+              <button 
+                onClick={handleJoinClick}
+                disabled={!meetingCode.trim()}
+                className="absolute right-2 top-2 bottom-2 px-4 rounded-full text-primary hover:bg-primary/10 font-bold text-sm transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                Join
+              </button>
             </div>
           </div>
         </div>

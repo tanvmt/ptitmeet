@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Client } from "@stomp/stompjs";
@@ -19,6 +19,17 @@ const WaitingRoomPage = () => {
   const [isWaiting, setIsWaiting] = useState(false);
 
   const [stompClient, setStompClient] = useState(null);
+  
+  const [guestName, setGuestName] = useState("")
+
+  const guestIdentity = useMemo(() => {
+    let gId = localStorage.getItem("guest_identity");
+    if (!gId) {
+      gId = crypto.randomUUID();
+      localStorage.setItem("guest_identity", gId);
+    }
+    return gId;
+  }, []);
 
   //Mock Check Devices Call
   useEffect(() => {
@@ -33,7 +44,20 @@ const WaitingRoomPage = () => {
     }
 
     try {
-      const response = await meetingService.joinMeeting(code);
+      const payload = {};
+      if (user) {
+        payload.displayName = user.fullName;
+      } else {
+        if (!guestName.trim()) {
+          setJoinState("IDLE");
+          setErrorMsg("Please enter a display name to join the meeting.");
+          return;
+        }
+        payload.displayName = guestName;
+        payload.guestIdentity = guestIdentity;
+      }
+
+      const response = await meetingService.joinMeeting(code, payload);
 
       if (response.status === "APPROVED") {
         navigate(`/meeting/${code}`, {
@@ -68,9 +92,10 @@ const WaitingRoomPage = () => {
       brokerURL: "ws://localhost:8080/ws",
       reconnectDelay: 5000,
       onConnect: () => {
-        client.subscribe(
-          `/topic/meeting/${code}/user/${user.userId}`,
-          (message) => {
+        const topicPath = user 
+          ? `/topic/meeting/${code}/user/${user.userId}`
+          : `/topic/meeting/${code}/guest/${guestIdentity}`;
+        client.subscribe(topicPath, (message) => {
             const res = JSON.parse(message.body);
 
             if (res.status === "APPROVED") {
@@ -271,16 +296,20 @@ const WaitingRoomPage = () => {
             </div>
 
             <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-500 block">
-                  Your Display Name
-                </label>
-                <input
-                  type="text"
-                  value={user?.fullName || ""}
-                  readOnly
-                  className="w-full h-14 px-5 rounded-2xl bg-surface border border-white/10 text-lg font-bold"
-                />
+              <div className="space-y-2 text-left">
+                <label className="text-sm font-bold text-gray-500 block">Your Display Name</label>
+                {user ? (
+                  <input type="text" value={user.fullName} readOnly className="w-full h-14 px-5 rounded-2xl bg-surface border border-white/10 text-lg font-bold text-gray-300 cursor-not-allowed" />
+                ) : (
+                  <input 
+                    type="text" 
+                    value={guestName} 
+                    onChange={(e) => setGuestName(e.target.value)} 
+                    placeholder="Enter your name (e.g. Guest - Tấn)" 
+                    disabled={isWaiting || joinState === "ASKING"}
+                    className="w-full h-14 px-5 rounded-2xl bg-surface border border-white/20 focus:border-primary focus:ring-1 focus:ring-primary text-lg font-bold outline-none transition-all" 
+                  />
+                )}
               </div>
 
               {errorMsg && (

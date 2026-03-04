@@ -27,10 +27,7 @@ const App = () => {
                     <Route path="/reset-password" element={<ResetPassword />} />
 
                     {/* Waiting Room có thể cần truyền thêm ID phòng họp sau này */}
-                    <Route
-                        path="/waiting-room/:code"
-                        element={user ? <WaitingRoomPage /> : <Navigate to="/login" />}
-                    />
+                    <Route path="/waiting-room/:code" element={<WaitingRoomPage />} />
 
                     <Route path="/meeting/:code" element={<MeetingPage />} />
                     <Route path="/summary" element={<SummaryPage />} />
@@ -44,7 +41,7 @@ const App = () => {
                         path="/schedule"
                         element={user ? <SchedulePage /> : <Navigate to="/login" />}
                     />
-                    <Route path="/history" element={<HistoryPage />} />
+                    <Route path="/history" element={user ? <HistoryPage /> : <Navigate to="/login" />} />
 
                     <Route path="/settings" element={user ? <SettingsPage /> : <Navigate to="/login" />} />
 

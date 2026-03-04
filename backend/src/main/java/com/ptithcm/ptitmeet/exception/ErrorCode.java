@@ -21,6 +21,8 @@ public enum ErrorCode {
     INVALID_GOOGLE_TOKEN_ID(2006, "Google ID Token không hợp lệ", HttpStatus.BAD_REQUEST),
     INVALID_REFRESH_TOKEN(2007, "Refresh token không hợp lệ hoặc hết hạn.", HttpStatus.UNAUTHORIZED),
     INVALID_TOKEN(2008, "Token không hợp lệ hoặc hết hạn.", HttpStatus.UNAUTHORIZED),
+    GUEST_NAME_REQUIRED(2009, "Tên hiển thị của khách là bắt buộc", HttpStatus.BAD_REQUEST),
+    GUEST_IDENTITY_REQUIRED(2010, "Định danh thiết bị của khách là bắt buộc", HttpStatus.BAD_REQUEST),
 
     // --- Lỗi Meeting (3xxx) ---
     MEETING_NOT_FOUND(3001, "Không tìm thấy phòng họp", HttpStatus.NOT_FOUND),

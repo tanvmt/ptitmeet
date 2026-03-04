@@ -6,8 +6,8 @@ export const meetingService = {
         return response.data.data;
     },
 
-    joinMeeting: async (meetingCode, password = null) => {
-        const response = await api.post(`/meetings/${meetingCode}/join`, { password });
+    joinMeeting: async (meetingCode, payload) => {
+        const response = await api.post(`/meetings/${meetingCode}/join`, payload);
         return response.data.data;
     },
 

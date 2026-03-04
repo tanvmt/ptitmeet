@@ -43,9 +43,16 @@ public class MeetingController {
 
     private final ChatMessageRepository chatMessageRepository;
 
-    private UUID getCurrentUserId() {
+    protected UUID getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return UUID.fromString(authentication.getName()); 
+        
+        if (authentication == null || 
+            !authentication.isAuthenticated() || 
+            "anonymousUser".equals(authentication.getPrincipal())) {
+            return null;
+        }
+        
+        return UUID.fromString(authentication.getName());
     }
 
     @PostMapping("/instant")
@@ -106,10 +113,16 @@ public class MeetingController {
     @PostMapping("/{code}/join")
     public ApiResponse<JoinMeetingResponse> joinMeeting(
             @PathVariable String code,
-            @RequestBody(required = false) JoinMeetingRequest request
+            @RequestBody(required = false) JoinMeetingRequest request,
+            Authentication authentication
     ) {
         if (request == null) {
             request = new JoinMeetingRequest();
+        }
+
+        UUID userId = null;
+        if (authentication != null && authentication.isAuthenticated() && !authentication.getPrincipal().equals("anonymousUser")) {
+            userId = UUID.fromString(authentication.getName());
         }
 
         JoinMeetingResponse response = meetingService.joinMeeting(code, request, getCurrentUserId());

@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class JoinMeetingRequest {
+    private String guestName;
+    private String guestIdentity;
     private String password;
     private String displayName;
 }
