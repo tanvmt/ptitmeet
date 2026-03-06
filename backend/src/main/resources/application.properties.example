@@ -1,28 +1,59 @@
 server.port=8080
 
-spring.datasource.url=jdbc:mysql://
-spring.datasource.username=av
-spring.datasource.password=AV
+spring.datasource.url=jdbc:mysql://avnadmin:AVNS_z-Ui8@ptitmeet-tiendat242004-9799.c.aivencloud.com:28519/defaultdb?ssl-mode=REQUIRED
+spring.datasource.username=avnadmin
+spring.datasource.password=AVNS_zih
 spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
 
-# spring.data.mongodb.uri=mongodb+srv://ta
-livekit.api.url=http://localhost:7880
-livekit.api.key=devkey
-livekit.api.secret=secret
 
-spring.data.mongodb.uri=mongodb+srv://t
+
+
+
+
+# LiveKit Cloud - API URL (dùng cho EgressServiceClient, backend calls)
+
+
+# tài khoản của sang 
+# livekit.api.url=https://ptilivekit.cloud
+# livekit.api.ws-url=wss://p6.livekit.cloud
+# livekit.api.key=APIuCG
+# livekit.api.secret=VAYYO
+
+
+
+# LiveKit Cloud - WebSocket URL (dùng cho frontend kết nối)
+
+livekit.api.url=https://ptilivekit.cloud
+livekit.api.ws-url=wss://p6.livekit.cloud
+livekit.api.secret=AH1mPfIzh
+livekit.api.key=APIui7
+
+# Cloudflare R2 (S3-compatible) - Lưu video recording
+# Thay YOUR_ACCOUNT_ID, YOUR_ACCESS_KEY, YOUR_SECRET_KEY bằng giá trị thực từ Cloudflare R2
+s3.endpoint=https://s3.ap-southeast-1.amazonaws.com
+s3.access-key=AKIA
+s3.secret-key=T2W/ndmHaM
+s3.bucket=record-
+s3.region=south-asia
+
+
+
+
+
+spring.data.mongodb.uri=mongodb+srv://tanvmt:vanminhtan04@cluster0.6qqf9el.mongodb.net/ptitmeet_chat?retryWrites=true&w=majority&appName=Cluster0&uuidRepresentation=standard
+
 jwt.secret=djhskjdfhjksdhfkjdshfjkhskdjfdsfdskjfhkdshfkjdshfhsdjfhkdsjhfkjdshkfjadsjkfhksdjhfiyeiureifhdskhfaldsfjajoewhsdkfhkdjfhk
 jwt.access-token-expiration=3600000
 jwt.refresh-token-expiration=604800000
 
-google.client-id=108
+google.client-id=1086617479608-uuhsvoav6jddeqk21j7niucgo5md061c.apps.googleusercontent.com
 
 spring.mail.host=smtp.gmail.com
 spring.mail.port=587
-spring.mail.username=tien
-spring.mail.password=jh
+spring.mail.username=tiendat
+spring.mail.password=jhnz nrb
 spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
 

@@ -27,10 +27,11 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                            "/api/auth/**",
-                            "/api/meetings/*/info",
-                            "/ws/**"
-                        ).permitAll()
+                                "/api/auth/**",
+                                "/api/meetings/*/info",
+                                "/api/livekit/webhook",
+                                "/ws/**")
+                        .permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

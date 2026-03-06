@@ -25,36 +25,36 @@ services:
     networks:
       - ptitmeet_net
 
-  livekit:
-    image: livekit/livekit-server:latest
-    container_name: ptitmeet_livekit
-    command: --config /etc/livekit.yaml --bind 0.0.0.0
-    ports:
-      - "7880:7880"
-      - "7881:7881"
-      - "7882:7882/udp"
-    volumes:
-      - ./livekit.yaml:/etc/livekit.yaml:ro
-    depends_on:
-      - redis
-    networks:
-      - ptitmeet_net
+  # livekit:
+  #   image: livekit/livekit-server:latest
+  #   container_name: ptitmeet_livekit
+  #   command: --config /etc/livekit.yaml --bind 0.0.0.0
+  #   ports:
+  #     - "7880:7880"
+  #     - "7881:7881"
+  #     - "7882:7882/udp"
+  #   volumes:
+  #     - ./livekit.yaml:/etc/livekit.yaml:ro
+  #   depends_on:
+  #     - redis
+  #   networks:
+  #     - ptitmeet_net
 
-  livekit-egress:
-    image: livekit/egress
-    environment:
-      EGRESS_CONFIG_BODY: |
-        api_key: devkey
-        api_secret: secret
-        ws_url: ws://livekit:7880 # Kết nối nội bộ Docker
-        redis:
-          address: redis:6379
-    volumes:
-      - ./recordings:/out 
-    depends_on:
-      - livekit
-    networks:
-      - ptitmeet_net
+  # livekit-egress:
+  #   image: livekit/egress
+  #   environment:
+  #     EGRESS_CONFIG_BODY: |
+  #       api_key: devkey
+  #       api_secret: secret
+  #       ws_url: ws://livekit:7880 # Kết nối nội bộ Docker
+  #       redis:
+  #         address: redis:6379
+  #   volumes:
+  #     - ./recordings:/out 
+  #   depends_on:
+  #     - livekit
+  #   networks:
+  #     - ptitmeet_net
 
 volumes:
   mysql_data:
