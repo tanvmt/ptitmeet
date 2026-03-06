@@ -46,7 +46,6 @@ import com.ptithcm.ptitmeet.repositories.ParticipantSessionRepository;
 import com.ptithcm.ptitmeet.repositories.UserRepository;
 
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 
 @Service

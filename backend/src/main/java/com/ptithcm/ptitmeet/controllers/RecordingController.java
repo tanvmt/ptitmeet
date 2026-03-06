@@ -31,7 +31,7 @@ public class RecordingController {
             return ResponseEntity.ok(ApiResponse.success(recording, "")); // Trả về object có chứa egressId cho React
         } catch (Exception e) {
 
-           throw  new  AppException(ErrorCode.UN_START_RECORD_MEETING_ROOM);
+            throw new AppException(ErrorCode.UN_START_RECORD_MEETING_ROOM);
         }
     }
 
@@ -40,6 +40,17 @@ public class RecordingController {
     public ResponseEntity<?> stopRecording(@RequestParam String egressId) {
         try {
             MeetingRecording recording = recordingService.stopRecording(egressId);
+            return ResponseEntity.ok(recording);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // API: Kiểm tra trạng thái recording (frontend poll sau khi stop)
+    @GetMapping("/status")
+    public ResponseEntity<?> getRecordingStatus(@RequestParam String egressId) {
+        try {
+            MeetingRecording recording = recordingService.getRecordingByEgressId(egressId);
             return ResponseEntity.ok(recording);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
