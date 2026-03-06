@@ -57,10 +57,14 @@ public class LiveKitService {
     @Value("${s3.region}")
     private String s3Region;
 
+    @Value("${s3.livekit-record-domain}")
+    private String livekitRecordS3Domain;
+
     @Autowired
     private MeetingRecordingRepository recordingRepository;
 
     private EgressServiceClient egressClient;
+    
 
     // Khởi tạo Client 1 lần duy nhất để tối ưu hiệu suất
     @PostConstruct
@@ -87,7 +91,8 @@ public class LiveKitService {
                 .setS3(s3Upload)
                 .build();
 
-        Call<EgressInfo> call = egressClient.startRoomCompositeEgress(roomName, fileOutput);
+
+                Call<EgressInfo> call = egressClient.startRoomCompositeEgress(roomName, fileOutput);
 
         try {
             Response<EgressInfo> response = call.execute();
@@ -95,13 +100,14 @@ public class LiveKitService {
             if (response.isSuccessful() && response.body().getEgressId() != null) {
                 String egressId = response.body().getEgressId();
                 log.info("Bắt đầu ghi hình thành công, EgressId: {}", egressId);
-
+                                  
+                String fileRes = livekitRecordS3Domain + fileName;
                 MeetingRecording recording = new MeetingRecording();
                 recording.setRoomName(roomName);
                 recording.setEgressId(egressId);
                 recording.setStatus("RECORDING");
                 recording.setCreatedAt(LocalDateTime.now());
-                recording.setFileUrl(fileName);
+                recording.setFileUrl(fileRes);
 
                 return recordingRepository.save(recording);
             } else {

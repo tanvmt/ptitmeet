@@ -2,7 +2,7 @@ server.port=8080
 
 spring.datasource.url=jdbc:mysql://avnadmin:AVNS_z-Ui8@ptitmeet-tiendat242004-9799.c.aivencloud.com:28519/defaultdb?ssl-mode=REQUIRED
 spring.datasource.username=avnadmin
-spring.datasource.password=AVNS_zihLyZxBvc0l6m4-Ui8
+spring.datasource.password=AVNS_zih
 spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
