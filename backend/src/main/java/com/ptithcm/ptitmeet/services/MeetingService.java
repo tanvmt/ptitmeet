@@ -465,15 +465,24 @@ public class MeetingService {
     }
 
     @Transactional
-    public void leaveMeeting(String code, UUID userId) {
+    public void leaveMeeting(String code, UUID userId, String guestId) {
         Meeting meeting = meetingRepository.findByMeetingCode(code)
                 .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
 
-        User user = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        Participant participant;
 
-        Participant participant = participantRepository.findByMeetingAndUser(meeting, user)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_PARTICIPANT));
+        if (userId != null) {
+            User user = userRepository.findByUserId(userId)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            
+            participant = participantRepository.findByMeetingAndUser(meeting, user)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_PARTICIPANT));
+        } else if (guestId != null && !guestId.trim().isEmpty()) {
+            participant = participantRepository.findByMeetingCodeAndGuestIdentity(code, guestId)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_PARTICIPANT));
+        } else {
+            throw new AppException(ErrorCode.USER_NOT_FOUND);
+        }
 
         ParticipantSession activeSession = sessionRepository
                 .findFirstByParticipantAndStatusOrderByJoinedAtDesc(participant, SessionStatus.ACTIVE)
@@ -511,28 +520,31 @@ public class MeetingService {
         messagingTemplate.convertAndSend("/topic/meeting/" + code + "/system", "MEETING_ENDED");
     }
 
-    public MeetingSummaryResponse getMeetingSummary(String code, UUID userId, String actionTaken) {
+    public MeetingSummaryResponse getMeetingSummary(String code, UUID userId, String guestId, String actionTaken) {
         Meeting meeting = meetingRepository.findByMeetingCode(code)
                 .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
 
-        User user = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-
         MeetingSummaryResponse summary = new MeetingSummaryResponse();
-
         int totalMessages = chatMessageRepository.findByMeetingCodeOrderByTimestampAsc(code).size();
         summary.setMessages(totalMessages);
 
-        if ("END".equals(actionTaken) || "ENDED_BY_HOST".equals(actionTaken)) {
+        if ("END".equals(actionTaken) || "KICKED".equals(actionTaken)) {
             LocalDateTime end = meeting.getEndTime() != null ? meeting.getEndTime() : LocalDateTime.now();
             long totalSeconds = java.time.Duration.between(meeting.getCreatedAt(), end).getSeconds();
             summary.setDuration(formatDuration(totalSeconds));
-
             summary.setParticipants((int) participantRepository.countByMeeting(meeting));
-
         } else {
-            Participant p = participantRepository.findByMeetingAndUser(meeting, user)
-                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_PARTICIPANT));
+            Participant p;
+            
+            if (userId != null) {
+                p = participantRepository.findByMeetingCodeAndUserId(code, userId)
+                        .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_PARTICIPANT));
+            } else if (guestId != null) {
+                p = participantRepository.findByMeetingCodeAndGuestIdentity(code, guestId)
+                        .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_PARTICIPANT));
+            } else {
+                throw new AppException(ErrorCode.USER_NOT_FOUND);
+            }
 
             List<ParticipantSession> sessions = sessionRepository.findByParticipant(p);
             long totalSeconds = 0;

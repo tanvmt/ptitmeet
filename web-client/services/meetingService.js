@@ -50,7 +50,15 @@ export const meetingService = {
     },
 
     leaveMeeting: async (code) => {
-        return await api.post(`/meetings/${code}/leave`);
+        const guestId = localStorage.getItem("guest_identity");
+        
+        let url = `/meetings/${code}/leave`;
+        if (guestId) {
+            url += `?guestId=${guestId}`;
+        }
+        
+        const response = await api.post(url);
+        return response.data;
     },
 
     endMeetingForAll: async (code) => {
@@ -66,7 +74,13 @@ export const meetingService = {
     },
 
     getMeetingSummary: async (code, actionTaken) => {
-        const response = await api.get(`/meetings/${code}/summary?action=${actionTaken}`);
+        const guestId = localStorage.getItem("guest_identity");
+        let url = `/meetings/${code}/summary?action=${actionTaken}`;
+        if (guestId) {
+            url += `&guestId=${guestId}`;
+        }
+        
+        const response = await api.get(url);
         return response.data;
     },
 

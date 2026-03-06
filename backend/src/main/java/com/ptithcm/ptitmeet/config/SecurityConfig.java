@@ -35,6 +35,9 @@ public class SecurityConfig {
                             "/ws/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/meetings/*/join").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/meetings/*/summary").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/meetings/*/feedback").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/meetings/*/leave").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

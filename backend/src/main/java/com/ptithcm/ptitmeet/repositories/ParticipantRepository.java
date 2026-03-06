@@ -17,6 +17,10 @@ import java.util.UUID;
 public interface ParticipantRepository extends JpaRepository<Participant, UUID> {
     Optional<Participant> findByMeetingAndUser(Meeting meeting, User user);
 
+    @Query("SELECT p FROM Participant p WHERE p.meeting.meetingCode = :code AND p.user.id = :userId")
+    Optional<Participant> findByMeetingCodeAndUserId(String code, UUID userId);
+
+
     @Query("SELECT p FROM Participant p WHERE p.meeting.meetingCode = :code AND p.guestIdentity = :guestIdentity")
     Optional<Participant> findByMeetingCodeAndGuestIdentity(@Param("code") String code, @Param("guestIdentity") String guestIdentity);
 

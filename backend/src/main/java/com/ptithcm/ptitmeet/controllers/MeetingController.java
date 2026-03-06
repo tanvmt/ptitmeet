@@ -155,8 +155,8 @@ public class MeetingController {
     }
 
     @PostMapping("/{code}/leave")
-    public ResponseEntity<ApiResponse<Void>> leave(@PathVariable String code) {
-        meetingService.leaveMeeting(code, getCurrentUserId());
+    public ResponseEntity<ApiResponse<Void>> leave(@PathVariable String code, @RequestParam(required = false) String guestId) {
+        meetingService.leaveMeeting(code, getCurrentUserId(), guestId);
         return ResponseEntity.ok(ApiResponse.success(null, "Đã rời phòng"));
     }
 
@@ -169,8 +169,10 @@ public class MeetingController {
     @GetMapping("/{code}/summary")
     public ResponseEntity<ApiResponse<MeetingSummaryResponse>> getSummary(
             @PathVariable String code,
-            @RequestParam(defaultValue = "LEAVE") String action) {
-        MeetingSummaryResponse summary = meetingService.getMeetingSummary(code, getCurrentUserId(), action);
+            @RequestParam(defaultValue = "LEAVE") String action,
+            @RequestParam(required = false) String guestId) {
+            
+        MeetingSummaryResponse summary = meetingService.getMeetingSummary(code, getCurrentUserId(), guestId, action);
         return ResponseEntity.ok(ApiResponse.success(summary, "Lấy thống kê thành công"));
     }
 
