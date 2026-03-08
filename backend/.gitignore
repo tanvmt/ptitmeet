@@ -20,6 +20,8 @@ src/main/resources/application.properties
 *.iml
 *.ipr
 
+backend/src/main/resources/META-INF
+
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/

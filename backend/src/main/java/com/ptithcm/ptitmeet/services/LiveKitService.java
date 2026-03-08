@@ -18,6 +18,7 @@ import io.livekit.server.RoomName;
 import jakarta.annotation.PostConstruct;
 import livekit.LivekitEgress.EgressInfo;
 import livekit.LivekitEgress.EncodedFileOutput;
+import livekit.LivekitEgress.S3Upload;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import retrofit2.Call;
@@ -31,17 +32,39 @@ public class LiveKitService {
     @Value("${livekit.api.url}")
     private String livekitUrl;
 
+    @Value("${livekit.api.ws-url}")
+    private String livekitWsUrl;
+
     @Value("${livekit.api.key}")
     private String livekitApiKey;
 
     @Value("${livekit.api.secret}")
     private String livekitApiSecret;
 
-    
+    // Cloudflare R2 (S3-compatible) config
+    @Value("${s3.endpoint}")
+    private String s3Endpoint;
+
+    @Value("${s3.access-key}")
+    private String s3AccessKey;
+
+    @Value("${s3.secret-key}")
+    private String s3SecretKey;
+
+    @Value("${s3.bucket}")
+    private String s3Bucket;
+
+    @Value("${s3.region}")
+    private String s3Region;
+
+    @Value("${s3.livekit-record-domain}")
+    private String livekitRecordS3Domain;
+
     @Autowired
     private MeetingRecordingRepository recordingRepository;
 
     private EgressServiceClient egressClient;
+    
 
     // Khởi tạo Client 1 lần duy nhất để tối ưu hiệu suất
     @PostConstruct
@@ -51,13 +74,25 @@ public class LiveKitService {
 
     @Transactional
     public MeetingRecording startRoomRecording(String roomName) {
-        // 1. Cấu hình file đầu ra cho LiveKit
-        String fileName = "record_" + roomName + "_" + System.currentTimeMillis() + ".mp4";
-        EncodedFileOutput fileOutput = EncodedFileOutput.newBuilder()
-                .setFilepath("/out/" + fileName)
+        // 1. Cấu hình upload lên Cloudflare R2 (S3-compatible)
+        String fileName = "recordings/record_" + roomName + "_" + System.currentTimeMillis() + ".mp4";
+
+        S3Upload s3Upload = S3Upload.newBuilder()
+                .setAccessKey(s3AccessKey)
+                .setSecret(s3SecretKey)
+                .setBucket(s3Bucket)
+                .setRegion(s3Region)
+                .setEndpoint(s3Endpoint)
+                .setForcePathStyle(true)
                 .build();
 
-        Call<EgressInfo> call = egressClient.startRoomCompositeEgress(roomName, fileOutput);
+        EncodedFileOutput fileOutput = EncodedFileOutput.newBuilder()
+                .setFilepath(fileName)
+                .setS3(s3Upload)
+                .build();
+
+
+                Call<EgressInfo> call = egressClient.startRoomCompositeEgress(roomName, fileOutput);
 
         try {
             Response<EgressInfo> response = call.execute();
@@ -65,12 +100,14 @@ public class LiveKitService {
             if (response.isSuccessful() && response.body().getEgressId() != null) {
                 String egressId = response.body().getEgressId();
                 log.info("Bắt đầu ghi hình thành công, EgressId: {}", egressId);
-
+                                  
+                String fileRes = livekitRecordS3Domain + fileName;
                 MeetingRecording recording = new MeetingRecording();
                 recording.setRoomName(roomName);
                 recording.setEgressId(egressId);
                 recording.setStatus("RECORDING");
                 recording.setCreatedAt(LocalDateTime.now());
+                recording.setFileUrl(fileRes);
 
                 return recordingRepository.save(recording);
             } else {
@@ -100,7 +137,7 @@ public class LiveKitService {
 
         MeetingRecording recording = recordingRepository.findByEgressId(egressId)
                 .orElseThrow(() -> new RuntimeException(
-                "Không tìm thấy thông tin ghi hình trong Database với ID: " + egressId));
+                        "Không tìm thấy thông tin ghi hình trong Database với ID: " + egressId));
 
         if (isStopSuccess) {
             recording.setStatus("STOPPING");
@@ -109,6 +146,47 @@ public class LiveKitService {
         }
 
         return recordingRepository.save(recording);
+    }
+
+    /**
+     * Cập nhật recording khi egress hoàn tất (gọi từ webhook).
+     * Lưu fileUrl và đổi status thành COMPLETED.
+     */
+    @Transactional
+    public void updateRecordingCompleted(String egressId, String fileUrl) {
+        MeetingRecording recording = recordingRepository.findByEgressId(egressId)
+                .orElse(null);
+        if (recording != null) {
+            recording.setFileUrl(fileUrl);
+            recording.setStatus("COMPLETED");
+            recordingRepository.save(recording);
+            log.info("Recording COMPLETED - egressId: {}, fileUrl: {}", egressId, fileUrl);
+        } else {
+            log.warn("Không tìm thấy recording với egressId: {}", egressId);
+        }
+    }
+
+    /**
+     * Cập nhật recording khi egress thất bại (gọi từ webhook).
+     */
+    @Transactional
+    public void updateRecordingFailed(String egressId) {
+        MeetingRecording recording = recordingRepository.findByEgressId(egressId)
+                .orElse(null);
+        if (recording != null) {
+            recording.setStatus("FAILED");
+            recordingRepository.save(recording);
+            log.warn("Recording FAILED - egressId: {}", egressId);
+        }
+    }
+
+    /**
+     * Lấy thông tin recording theo egressId.
+     */
+    public MeetingRecording getRecordingByEgressId(String egressId) {
+        return recordingRepository.findByEgressId(egressId)
+                .orElseThrow(() -> new RuntimeException(
+                        "Không tìm thấy recording với egressId: " + egressId));
     }
 
     public String generateJoinToken(String roomName, String participantName, String participantId) {
