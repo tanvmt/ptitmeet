@@ -42,7 +42,7 @@ s3.region=south-asia
 
 
 
-spring.data.mongodb.uri=mongodb+srv://tanvmt:vanminhtan04@cluster0.6qqf9el.mongodb.net/ptitmeet_chat?retryWrites=true&w=majority&appName=Cluster0&uuidRepresentation=standard
+spring.data.mongodb.uri=mongodb+srv://<username>:<password>@cluster0.6qqf9el.mongodb.net/ptitmeet_chat?retryWrites=true&w=majority&appName=Cluster0&uuidRepresentation=standard
 
 jwt.secret=djhskjdfhjksdhfkjdshfjkhskdjfdsfdskjfhkdshfkjdshfhsdjfhkdsjhfkjdshkfjadsjkfhksdjhfiyeiureifhdskhfaldsfjajoewhsdkfhkdjfhk
 jwt.access-token-expiration=3600000
