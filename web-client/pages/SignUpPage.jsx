@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
+import { authService } from '../services/authService';
 
 const SignUpPage = () => {
   const navigate = useNavigate();
@@ -19,8 +19,8 @@ const SignUpPage = () => {
       return;
     }
     try {
-      const response = await axios.post('http://localhost:8080/api/auth/register', formData);
-      if (response.data.code === 1000) {
+      const response = await authService.register(formData);
+      if (response.code === 1000) {
         navigate('/login');
       }
     } catch (error) {
@@ -43,9 +43,9 @@ const SignUpPage = () => {
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       const { credential } = credentialResponse;
-      const response = await axios.post('http://localhost:8080/api/auth/google', { idToken: credential });
+      const response = await authService.loginWithGoogle(credential);
       console.log(response);
-      if (response.data.code === 1000) {
+      if (response.code === 1000) {
         navigate('/dashboard');
       }
     } catch (error) {

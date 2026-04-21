@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
 import api from '../services/api';
+import { authService } from '../services/authService';
 
 const AuthContext = createContext(null);
 
@@ -8,27 +8,26 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    axios.defaults.withCredentials = true;
-
     useEffect(() => {
-        const responseInterceptor = axios.interceptors.response.use(
+        const responseInterceptor = api.interceptors.response.use(
             (response) => response,
             async (error) => {
                 const originalRequest = error.config;
+                const isRefreshRequest = originalRequest?.url?.includes('/auth/refresh-token');
 
                 // Nếu lỗi 401 (Unauthorized) và chưa từng thử lại request này
-                if (error.response?.status === 401 && !originalRequest._retry) {
+                if (error.response?.status === 401 && !originalRequest?._retry && !isRefreshRequest) {
                     originalRequest._retry = true;
 
                     try {
                         // Gọi endpoint refresh token. 
                         // VÌ đã bật withCredentials=true, trình duyệt sẽ TỰ ĐỘNG gửi cookie RefreshToken đi.
                         // Backend cần đọc cookie này, kiểm tra và set lại cookie AccessToken mới.
-                        await axios.post('http://localhost:8080/api/auth/refresh-token');
+                        await authService.refreshToken();
 
                         // Nếu refresh thành công (không lỗi), gọi lại request ban đầu.
                         // Trình duyệt cũng sẽ tự động gửi cookie AccessToken mới vừa nhận được.
-                        return axios(originalRequest);
+                        return api(originalRequest);
                     } catch (refreshError) {
                         // Nếu refresh thất bại (token hết hạn hẳn), logout ra ngoài
                         logout();
@@ -41,7 +40,7 @@ export const AuthProvider = ({ children }) => {
         );
 
         return () => {
-            axios.interceptors.response.eject(responseInterceptor);
+            api.interceptors.response.eject(responseInterceptor);
         };
     }, []);
 
@@ -49,9 +48,9 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                const res = await axios.get('http://localhost:8080/api/users/me');
-                if (res.data.code === 1000) {
-                    setUser(res.data.data);
+                const res = await authService.getCurrentUser();
+                if (res.code === 1000) {
+                    setUser(res.data);
                 }
             } catch (error) {
 
@@ -65,13 +64,13 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password) => {
         try {
-            const res = await axios.post("http://localhost:8080/api/auth/login", { email, password });
-            if (res.data.code === 1000) {
+            const res = await authService.login(email, password);
+            if (res.code === 1000) {
                 // Server phải trả về user info trong body, và set cookie HttpOnly ở header Response
-                setUser(res.data.data.user);
+                setUser(res.data.user);
                 return { success: true };
             }
-            return { success: false, message: res.data.message };
+            return { success: false, message: res.message };
         } catch (error) {
             return {
                 success: false,
@@ -83,7 +82,7 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         try {
             // Gọi API logout để server xóa cookie
-            await axios.post("http://localhost:8080/api/auth/logout");
+            await authService.logout();
         } catch (error) {
             console.error("Logout error", error);
         } finally {
