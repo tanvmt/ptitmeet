@@ -65,20 +65,11 @@ const DashboardPage = () => {
     try {
       setIsLoading(true);
       const meeting = await meetingService.createInstantMeeting();
-      console.log(meeting);
-      const joinRes = await meetingService.joinMeeting(meeting.meetingCode);
-      console.log(joinRes)
-      if (joinRes.status === "APPROVED") {
-        navigate(`/meeting/${meeting.meetingCode}`, {
-          state: {
-            token: joinRes.token,
-            role: joinRes.role,
-            serverUrl: joinRes.serverUrl,
-            micOn: true,
-            camOn: true,
-          },
-        });
-      }
+      navigate(`/waiting-room/${meeting.meetingCode}`, {
+        state: {
+          hostSetup: true,
+        },
+      });
     } catch (error) {
       alert(`Lỗi tạo phòng: ${error.response?.data?.message || error.message}`);
     } finally {

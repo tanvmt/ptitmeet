@@ -55,7 +55,7 @@ const Reactions = () => {
             addReaction({
                 emoji: event.detail.emoji,
                 senderId: event.detail.senderId || "local",
-                senderName: event.detail.senderName || "Bạn",
+                senderName: event.detail.senderName || "You",
             });
         };
 
