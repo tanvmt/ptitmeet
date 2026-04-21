@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import axios from 'axios';
+import { authService } from '../services/authService';
 const ResetPassword = () => {
     const [formData, setFormData] = useState({ password: '', confirmPassword: '' });
     const [showPassword, setShowPassword] = useState(false);
@@ -21,9 +21,9 @@ const ResetPassword = () => {
         const token = searchParam.get('token');
         setStatus('loading');
         try {
-            const response = await axios.post('http://localhost:8080/api/auth/reset-password', { token, newPassword: formData.password });
+            const response = await authService.resetPassword(token, formData.password);
             console.log(response);
-            if (response.status === 200) {
+            if (response.code === 1000) {
                 setStatus('success');
             }
         } catch (error) {

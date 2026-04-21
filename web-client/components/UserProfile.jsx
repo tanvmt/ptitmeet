@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import axios from 'axios';
 import { Camera, Mail, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { userService } from '../services/userService';
 
 const UserProfile = () => {
   const { user, setUser } = useAuth()
@@ -33,13 +33,13 @@ const UserProfile = () => {
         avatarUrl: formData.avatarUrl
       };
 
-      const response = await axios.put('http://localhost:8080/api/users/profile', payload);
+      const response = await userService.updateProfile(payload);
 
-      if (response.data.code === 1000) {
+      if (response.code === 1000) {
         setSuccessMessage('Cập nhật thông tin thành công!');
-        setUser(response.data.data);
+        setUser(response.data);
       } else {
-        setErrorMessage(response.data.message || 'Cập nhật thất bại');
+        setErrorMessage(response.message || 'Cập nhật thất bại');
       }
     } catch (error) {
       console.error('Error updating profile:', error);

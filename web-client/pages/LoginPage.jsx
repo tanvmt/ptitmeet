@@ -1,8 +1,8 @@
-
-import axios from 'axios';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
+import { authService } from '../services/authService';
+
 const LoginPage = ({ setUser }) => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -14,10 +14,10 @@ const LoginPage = ({ setUser }) => {
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       const { credential } = credentialResponse;
-      const response = await axios.post('http://localhost:8080/api/auth/google', { idToken: credential });
+      const response = await authService.loginWithGoogle(credential);
 
-      if (response.data.code === 1000) {
-        setUser(response.data.data.user);
+      if (response.code === 1000) {
+        setUser(response.data.user);
         navigate('/');
       }
     } catch (error) {
@@ -30,13 +30,13 @@ const LoginPage = ({ setUser }) => {
     setError(null);
 
     try {
-      const loginRes = await axios.post("http://localhost:8080/api/auth/login", { email, password });
+      const loginRes = await authService.login(email, password);
 
-      if (loginRes.data.code === 1000) {
-        setUser(loginRes.data.data.user);
+      if (loginRes.code === 1000) {
+        setUser(loginRes.data.user);
         navigate('/');
       } else {
-        setError(loginRes.data.message || "Đăng nhập thất bại.");
+        setError(loginRes.message || "Đăng nhập thất bại.");
       }
     } catch (err) {
       if (err.response && err.response.data) {
@@ -114,7 +114,7 @@ const LoginPage = ({ setUser }) => {
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={() => {
-              setServerError("Đăng nhập Google thất bại");
+              setError("Đăng nhập Google thất bại");
             }}
             theme="outline"
             size="large"
