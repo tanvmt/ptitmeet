@@ -113,7 +113,7 @@ const ParticipantTile = ({ trackRef, isLarge = false }) => {
             {/* Overlay thông tin tên */}
             <div className="absolute bottom-3 left-3 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg flex items-center gap-2">
                 <span className="text-[11px] font-medium text-white">
-                    {name} {p.isLocal && "(Bạn)"} {isScreenShare && " đang trình bày"}
+                    {name} {p.isLocal && "(You)"} {isScreenShare && " presenting"}
                 </span>
 
                 {/* Icon Mic tắt */}

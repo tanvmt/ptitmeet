@@ -3,19 +3,44 @@ import { useNavigate } from "react-router-dom";
 import { useRoomContext, useLocalParticipant } from "@livekit/components-react";
 import LeaveModal from "./LeaveModal";
 import { meetingService } from "../../services/meetingService";
+import DevicePermissionModal from "./DevicePermissionModal";
+import {
+    getPermissionErrorMessage,
+    isPermissionDeniedError,
+    requestDeviceAccess,
+    stopMediaStream,
+} from "../../utils/mediaPermissions";
 
 const ControlBar = ({
-    sidebarOpen, setSidebarOpen, activeTab, setActiveTab, waitingCount, isHost, code, stompClient
+    sidebarOpen, setSidebarOpen, activeTab, setActiveTab, waitingCount, unreadCount, isHost, code, stompClient
 }) => {
     const navigate = useNavigate();
-    const room = useRoomContext(); // Lấy context phòng của LiveKit
+    const room = useRoomContext();
     const [isRecord, setIsRecord] = useState(false)
     const [egressId, setEgressId] = useState(null)
     const egressIdRef = useRef(null);
     const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
     const [showLeaveModal, setShowLeaveModal] = useState(false);
-    const [isHandRaised, setIsHandRaised] = useState(false); // State for raise hand
+    const [isHandRaised, setIsHandRaised] = useState(false);
     const [showReactions, setShowReactions] = useState(false);
+    const [permissionModal, setPermissionModal] = useState({ isOpen: false, device: null });
+    const [permissionError, setPermissionError] = useState("");
+    const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+
+    React.useEffect(() => {
+        const handleSystemAction = async (e) => {
+            if (!localParticipant) return;
+            const action = e.detail;
+            if ((action === 'MUTE_ALL' || action === 'MUTE_PARTICIPANT') && isMicrophoneEnabled) {
+                await localParticipant.setMicrophoneEnabled(false);
+            } else if ((action === 'STOP_CAMERA_ALL' || action === 'STOP_CAMERA_PARTICIPANT') && isCameraEnabled) {
+                await localParticipant.setCameraEnabled(false);
+            }
+        };
+
+        window.addEventListener('SYSTEM_ACTION', handleSystemAction);
+        return () => window.removeEventListener('SYSTEM_ACTION', handleSystemAction);
+    }, [localParticipant, isMicrophoneEnabled, isCameraEnabled]);
 
     const handleRecordMeeting = async () => {
         try {
@@ -35,8 +60,8 @@ const ControlBar = ({
             }
             setIsRecord(!isRecord);
         } catch (error) {
-            console.error("Lỗi ghi hình:", error);
-            alert("Lỗi ghi hình: " + (error.response?.data?.message || error.message));
+            console.error("Recording error:", error);
+            alert("Recording error: " + (error.response?.data?.message || error.message));
         }
     };
     
@@ -44,13 +69,15 @@ const ControlBar = ({
         if (localParticipant) {
             if (!isMicrophoneEnabled) {
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    stream.getTracks().forEach((track) => track.stop());
+                    await localParticipant.setMicrophoneEnabled(true);
                 } catch (error) {
-                    console.error("Microphone permission denied:", error);
-                    alert("Trình duyệt chưa cấp quyền microphone.");
-                    return;
+                    console.error("Unable to enable microphone:", error);
+                    if (isPermissionDeniedError(error)) {
+                        setPermissionError(getPermissionErrorMessage(error, "microphone"));
+                        setPermissionModal({ isOpen: true, device: "microphone" });
+                    }
                 }
+                return;
             }
             await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
         }
@@ -60,15 +87,50 @@ const ControlBar = ({
         if (localParticipant) {
             if (!isCameraEnabled) {
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    stream.getTracks().forEach((track) => track.stop());
+                    await localParticipant.setCameraEnabled(true);
                 } catch (error) {
-                    console.error("Camera permission denied:", error);
-                    alert("Trình duyệt chưa cấp quyền camera.");
-                    return;
+                    console.error("Unable to enable camera:", error);
+                    if (isPermissionDeniedError(error)) {
+                        setPermissionError(getPermissionErrorMessage(error, "camera"));
+                        setPermissionModal({ isOpen: true, device: "camera" });
+                    }
                 }
+                return;
             }
             await localParticipant.setCameraEnabled(!isCameraEnabled);
+        }
+    };
+
+    const handlePermissionRequest = async () => {
+        if (!localParticipant || !permissionModal.device) return;
+
+        const wantsMicrophone = permissionModal.device === "microphone";
+
+        try {
+            setIsRequestingPermission(true);
+            setPermissionError("");
+
+            const { stream } = await requestDeviceAccess({
+                audio: wantsMicrophone,
+                video: !wantsMicrophone,
+            });
+
+            stopMediaStream(stream);
+
+            if (wantsMicrophone) {
+                await localParticipant.setMicrophoneEnabled(true);
+            } else {
+                await localParticipant.setCameraEnabled(true);
+            }
+
+            setPermissionModal({ isOpen: false, device: null });
+        } catch (error) {
+            console.error("Device permission request failed:", error);
+            setPermissionError(
+                getPermissionErrorMessage(error, wantsMicrophone ? "microphone" : "camera")
+            );
+        } finally {
+            setIsRequestingPermission(false);
         }
     };
 
@@ -82,14 +144,12 @@ const ControlBar = ({
         const newHandRaisedState = !isHandRaised;
         setIsHandRaised(newHandRaisedState);
         
-        // Phát event locally cho chính mình
         if (localParticipant) {
             const event = new CustomEvent('hand_raise', { 
                 detail: { identity: localParticipant.identity, isRaised: newHandRaisedState }
             });
             window.dispatchEvent(event);
             
-            // Gửi cho người khác trong phòng qua DataChannel
             if (room) {
                 const encoder = new TextEncoder();
                 const data = JSON.stringify({ isRaised: newHandRaisedState });
@@ -106,7 +166,7 @@ const ControlBar = ({
             const reactionPayload = {
                 emoji,
                 senderId: localParticipant.identity,
-                senderName: localParticipant.name || localParticipant.identity || "Bạn",
+                senderName: localParticipant.name || localParticipant.identity || "You",
             };
 
             window.dispatchEvent(new CustomEvent("reaction", {
@@ -146,7 +206,7 @@ const ControlBar = ({
                 }
             });
         } catch (error) {
-            alert("Lỗi khi thoát phòng: " + error.message);
+            alert("Unable to leave the meeting: " + error.message);
         }
     };
 
@@ -160,6 +220,17 @@ const ControlBar = ({
 
     return (
         <>
+            <DevicePermissionModal
+                isOpen={permissionModal.isOpen}
+                device={permissionModal.device}
+                errorMessage={permissionError}
+                isRequesting={isRequestingPermission}
+                onClose={() => {
+                    setPermissionError("");
+                    setPermissionModal({ isOpen: false, device: null });
+                }}
+                onRequestAccess={handlePermissionRequest}
+            />
             <LeaveModal
                 isOpen={showLeaveModal}
                 onClose={() => setShowLeaveModal(false)}
@@ -169,7 +240,6 @@ const ControlBar = ({
             <footer className="h-24 w-full flex items-center justify-center px-6 relative z-40 bg-background shrink-0 border-t border-white/5">
                 <div className="flex items-center gap-3 bg-surface/90 backdrop-blur-xl p-2 rounded-full border border-white/10 shadow-2xl">
 
-                    {/* NÚT MIC */}
                     <button
                         onClick={toggleMic}
                         className={`size-12 rounded-full flex items-center justify-center transition-all ${
@@ -179,7 +249,6 @@ const ControlBar = ({
                         <span className="material-symbols-outlined">{isMicrophoneEnabled ? "mic" : "mic_off"}</span>
                     </button>
 
-                    {/* NÚT CAM */}
                     <button
                         onClick={toggleCam}
                         className={`size-12 rounded-full flex items-center justify-center transition-all ${
@@ -191,7 +260,6 @@ const ControlBar = ({
 
                     <div className="w-px h-8 bg-white/10 mx-1"></div>
 
-                    {/* NÚT SHARE SCREEN */}
                     <button
                         onClick={toggleScreenShare}
                         className={`size-12 rounded-full flex items-center justify-center transition-all ${
@@ -203,7 +271,6 @@ const ControlBar = ({
                         </span>
                     </button>
 
-                    {/* NÚT GIƠ TAY */}
                     <button
                         onClick={toggleHandRaise}
                         className={`size-12 rounded-full flex items-center justify-center transition-all ${
@@ -213,7 +280,6 @@ const ControlBar = ({
                         <span className="material-symbols-outlined text-[22px]">front_hand</span>
                     </button>
 
-                    {/* NÚT THẢ CẢM XÚC */}
                     <div className="relative">
                         <button 
                             onClick={() => setShowReactions(!showReactions)}
@@ -241,11 +307,16 @@ const ControlBar = ({
 
                     <button
                         onClick={() => { setSidebarOpen(sidebarOpen && activeTab === "chat" ? false : true); setActiveTab("chat"); }}
-                        className={`size-12 rounded-full flex items-center justify-center transition-all ${
+                        className={`relative size-12 rounded-full flex items-center justify-center transition-all ${
                             sidebarOpen && activeTab === "chat" ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/10 hover:bg-white/20 text-white"
                             }`}
                     >
                         <span className="material-symbols-outlined text-[22px]">chat_bubble</span>
+                        {unreadCount > 0 && (
+                            <span className="absolute -top-1 -right-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white border border-background">
+                                {unreadCount > 9 ? "9+" : unreadCount}
+                            </span>
+                        )}
                     </button>
 
                     <button
@@ -267,7 +338,6 @@ const ControlBar = ({
                     </button>
 
                     <div className="w-px h-8 bg-white/10 mx-1"></div>
-                        {/* nút ghi hình */}
                     <button
                         onClick={handleRecordMeeting}
                         className={`size-12 rounded-full flex items-center justify-center transition-all ${isRecord ? "bg-red-500 text-white shadow-lg shadow-red-500/20" : "bg-white/10 hover:bg-white/20 text-white"

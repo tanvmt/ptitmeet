@@ -53,7 +53,7 @@ const SummaryPage = () => {
   let pageTitle = "You left the meeting";
   if (leaveData.actionTaken === "END") pageTitle = "You ended the meeting";
   if (leaveData.actionTaken === "ENDED_BY_HOST") pageTitle = "The host has ended this meeting";
-  if (leaveData.actionTaken === "KICKED") pageTitle = "You were kicked from the meeting";
+  if (leaveData.actionTaken === "KICKED" || leaveData.actionTaken === "KICKED_BY_HOST") pageTitle = "You were kicked from the meeting";
 
 
   return (
@@ -96,7 +96,7 @@ const SummaryPage = () => {
         <div className="bg-surface rounded-2xl border border-white/5 overflow-hidden text-left shadow-2xl">
           <div className="p-6 border-b border-white/5 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest">
-              {leaveData.actionTaken === "LEAVE" || leaveData.actionTaken === "KICKED" ? "Your Personal Stats" : "Meeting Summary"}
+              {leaveData.actionTaken === "LEAVE" || leaveData.actionTaken === "KICKED" || leaveData.actionTaken === "KICKED_BY_HOST" ? "Your Personal Stats" : "Meeting Summary"}
             </h2>
             <span className="text-xs font-bold text-gray-400 bg-white/5 px-2 py-1 rounded">Archived</span>
           </div>

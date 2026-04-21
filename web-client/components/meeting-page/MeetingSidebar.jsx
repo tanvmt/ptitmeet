@@ -1,6 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useParticipants } from "@livekit/components-react";
 import { meetingService } from "../../services/meetingService.js"; // Đảm bảo import đúng đường dẫn
+import ActionConfirmModal from "./ActionConfirmModal";
+import {
+    SYSTEM_ACTION_TYPES,
+    createSystemActionPayload,
+} from "../../utils/meetingRealtime";
 
 const buildMessageKey = (msg) => {
     if (msg?.id) return `id:${msg.id}`;
@@ -10,17 +15,23 @@ const buildMessageKey = (msg) => {
 const MeetingSidebar = ({
                             sidebarOpen, activeTab, setActiveTab,
                             isHost, waitingList, isLoadingWaiting, handleApproval, fetchWaitingList,
-                            stompClient, isStompConnected, currentUser, meetingCode // Nhận props từ MeetingPage
+                        stompClient, isStompConnected, currentUser, meetingCode, onIncomingMessage
                         }) => {
     const chatEndRef = useRef(null);
     const participants = useParticipants();
+    const [confirmState, setConfirmState] = useState({
+        isOpen: false,
+        title: "",
+        description: "",
+        confirmLabel: "",
+        payload: null,
+    });
 
-    // --- LOGIC CHAT TỪ CODE CỦA BẠN BẠN ---
     const [messages, setMessages] = useState([]);
     const [inputMessage, setInputMessage] = useState("");
     const [isLoadingChat, setIsLoadingChat] = useState(false);
     const currentUserId = currentUser?.userId || currentUser?.id;
-    const currentUserName = currentUser?.fullName || currentUser?.name || "Bạn";
+    const currentUserName = currentUser?.fullName || currentUser?.name || "You";
 
     const upsertMessages = (incoming) => {
         const nextItems = Array.isArray(incoming) ? incoming : [incoming];
@@ -40,7 +51,6 @@ const MeetingSidebar = ({
         });
     };
 
-    // Lấy lịch sử chat khi mới vào
     useEffect(() => {
         if (meetingCode) {
             fetchHistory();
@@ -53,13 +63,12 @@ const MeetingSidebar = ({
             const data = await meetingService.getChatHistory(meetingCode);
             setMessages(data || []);
         } catch (error) {
-            console.error("Lỗi tải lịch sử chat:", error);
+            console.error("Unable to load chat history:", error);
         } finally {
             setIsLoadingChat(false);
         }
     };
 
-    // Lắng nghe tin nhắn mới qua WebSocket
     useEffect(() => {
         if (!stompClient || !isStompConnected || !meetingCode) return;
 
@@ -68,11 +77,12 @@ const MeetingSidebar = ({
             (message) => {
                 const newMsg = JSON.parse(message.body);
                 upsertMessages(newMsg);
+                onIncomingMessage?.(newMsg);
             }
         );
 
         return () => chatSubscription.unsubscribe();
-    }, [stompClient, isStompConnected, meetingCode]);
+    }, [meetingCode, onIncomingMessage, stompClient, isStompConnected]);
 
     useEffect(() => {
         if (isStompConnected && sidebarOpen && activeTab === "chat") {
@@ -90,7 +100,7 @@ const MeetingSidebar = ({
                 const data = await meetingService.getChatHistory(meetingCode);
                 upsertMessages(data || []);
             } catch (error) {
-                console.error("Lỗi đồng bộ chat:", error);
+                console.error("Unable to sync chat:", error);
             }
         };
 
@@ -100,12 +110,10 @@ const MeetingSidebar = ({
         return () => window.clearInterval(intervalId);
     }, [meetingCode]);
 
-    // Tự động cuộn xuống cuối
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, sidebarOpen, activeTab]);
 
-    // Gửi tin nhắn
     const handleSendMessage = (e) => {
         e.preventDefault();
         if (!inputMessage.trim() || !stompClient || !stompClient.active) return;
@@ -117,12 +125,6 @@ const MeetingSidebar = ({
             content
         };
 
-        upsertMessages({
-            ...chatMessage,
-            id: `local-${Date.now()}`,
-            timestamp: new Date().toISOString()
-        });
-
         stompClient.publish({
             destination: `/app/meeting/${meetingCode}/chat.sendMessage`,
             body: JSON.stringify(chatMessage)
@@ -131,16 +133,85 @@ const MeetingSidebar = ({
         setInputMessage("");
     };
 
+    const handleMuteAll = () => {
+        if (!stompClient || !stompClient.active) return;
+        stompClient.publish({
+            destination: `/app/meeting/${meetingCode}/system`,
+            body: createSystemActionPayload(SYSTEM_ACTION_TYPES.MUTE_ALL)
+        });
+    };
+
+    const handleStopCameraAll = () => {
+        if (!stompClient || !stompClient.active) return;
+        stompClient.publish({
+            destination: `/app/meeting/${meetingCode}/system`,
+            body: createSystemActionPayload(SYSTEM_ACTION_TYPES.STOP_CAMERA_ALL)
+        });
+    };
+
+    const publishSystemAction = (payload) => {
+        if (!stompClient || !stompClient.active) return;
+        stompClient.publish({
+            destination: `/app/meeting/${meetingCode}/system`,
+            body: payload,
+        });
+    };
+
+    const openKickConfirm = ({ isAll = false, participant }) => {
+        const participantName = participant?.name || participant?.identity || "this participant";
+        setConfirmState({
+            isOpen: true,
+            title: isAll ? "Kick everyone from this meeting?" : `Kick ${participantName}?`,
+            description: isAll
+                ? "Everyone in the meeting will be removed immediately and will need to join again to come back."
+                : `${participantName} will be removed from the meeting immediately and will need to rejoin to come back.`,
+            confirmLabel: isAll ? "Kick all participants" : "Kick participant",
+            payload: isAll
+                ? createSystemActionPayload(SYSTEM_ACTION_TYPES.KICK_ALL)
+                : createSystemActionPayload(SYSTEM_ACTION_TYPES.KICK_PARTICIPANT, {
+                    targetParticipantId: participant.identity,
+                    targetParticipantName: participantName,
+                }),
+        });
+    };
+
+    const handleParticipantAction = (participant, actionType) => {
+        if (!participant?.identity) return;
+
+        if (actionType === SYSTEM_ACTION_TYPES.KICK_PARTICIPANT) {
+            openKickConfirm({ participant });
+            return;
+        }
+
+        publishSystemAction(
+            createSystemActionPayload(actionType, {
+                targetParticipantId: participant.identity,
+                targetParticipantName: participant.name || participant.identity,
+            })
+        );
+    };
+
     const formatTime = (isoString) => {
         if (!isoString) return "";
         return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
-    // --------------------------------------
-
     return (
-        <aside className={`fixed top-16 right-0 bottom-24 w-80 bg-surface border-l border-white/5 z-20 transition-transform duration-300 shadow-2xl ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
+        <>
+            <ActionConfirmModal
+                isOpen={confirmState.isOpen}
+                title={confirmState.title}
+                description={confirmState.description}
+                confirmLabel={confirmState.confirmLabel}
+                onClose={() => setConfirmState({ isOpen: false, title: "", description: "", confirmLabel: "", payload: null })}
+                onConfirm={() => {
+                    if (confirmState.payload) {
+                        publishSystemAction(confirmState.payload);
+                    }
+                    setConfirmState({ isOpen: false, title: "", description: "", confirmLabel: "", payload: null });
+                }}
+            />
+            <aside className={`fixed top-16 right-0 bottom-24 w-80 bg-surface border-l border-white/5 z-20 transition-transform duration-300 shadow-2xl ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
             <div className="flex flex-col h-full">
-                {/* Tabs */}
                 <div className="flex p-2 gap-1 border-b border-white/5 bg-background/20">
                     <button onClick={() => setActiveTab("chat")} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === "chat" ? "bg-primary text-white" : "text-gray-500 hover:bg-white/5"}`}>
                         Messages
@@ -150,7 +221,6 @@ const MeetingSidebar = ({
                     </button>
                 </div>
 
-                {/* TAB CHAT ĐÃ ĐƯỢC THAY BẰNG LOGIC BACKEND */}
                 {activeTab === "chat" && (
                     <div className="flex flex-col h-full">
                         <div className="flex-grow overflow-y-auto p-4 space-y-4 no-scrollbar">
@@ -200,7 +270,6 @@ const MeetingSidebar = ({
                     </div>
                 )}
 
-                {/* TAB PEOPLE & PHÒNG CHỜ */}
                 {activeTab === "people" && (
                     <div className="flex-grow flex flex-col overflow-y-auto no-scrollbar">
 
@@ -210,7 +279,6 @@ const MeetingSidebar = ({
                             </button>
                         </div>
 
-                        {/* WAITING ROOM - Đã phục hồi HTML ban đầu */}
                         {isHost && waitingList.length > 0 && (
                             <div className="mb-2">
                                 <div className="px-4 py-2 bg-red-500/10 text-red-400 text-[10px] font-bold uppercase tracking-widest flex justify-between items-center border-y border-red-500/10">
@@ -221,7 +289,7 @@ const MeetingSidebar = ({
                                 </div>
                                 <div className="p-2 space-y-2">
                                     {isLoadingWaiting ? (
-                                        <div className="p-4 text-center text-sm text-gray-500">Đang tải...</div>
+                                        <div className="p-4 text-center text-sm text-gray-500">Loading...</div>
                                     ) : (
                                         waitingList.map((p) => (
                                             <div key={p.participantId} className="bg-white/5 p-2 rounded-xl border border-white/10 flex flex-col gap-2">
@@ -249,44 +317,77 @@ const MeetingSidebar = ({
                             </div>
                         )}
 
-                        {/* IN-CALL PARTICIPANTS */}
                         <div>
                             <div className="px-4 py-2 bg-white/5 text-gray-400 text-[10px] font-bold uppercase tracking-widest border-y border-white/5">
                                 In Call ({participants.length})
                             </div>
                             <div className="p-2 space-y-1">
                                 {participants.map((p) => (
-                                    <div key={p.sid} className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 transition-colors group">
-                                        <div className="flex items-center gap-3">
+                                    <div key={p.sid} className="rounded-xl p-2 transition-colors hover:bg-white/5 group">
+                                        <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-3 min-w-0">
                                             <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold border border-white/10">
                                                 {(p.name || p.identity || "U").charAt(0)}
                                             </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-semibold truncate max-w-[120px]">{p.name } {p.isLocal && "(You)"}</span>
+                                            <div className="flex min-w-0 flex-col">
+                                                <span className="max-w-[140px] truncate text-sm font-semibold">{p.name || p.identity} {p.isLocal && "(You)"}</span>
+                                                <span className="text-[10px] text-gray-500 truncate">{p.identity}</span>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                       <span className={`material-symbols-outlined text-[18px] ${!p.isMicrophoneEnabled ? "text-red-500" : "text-gray-400"}`}>
                         {!p.isMicrophoneEnabled ? "mic_off" : "mic"}
                       </span>
-                                            <button className="material-symbols-outlined text-[18px] text-gray-400 hover:text-white">more_vert</button>
+                                            <span className={`material-symbols-outlined text-[18px] ${!p.isCameraEnabled ? "text-red-500" : "text-gray-400"}`}>
+                        {!p.isCameraEnabled ? "videocam_off" : "videocam"}
+                      </span>
                                         </div>
+                                    </div>
+                                        {isHost && !p.isLocal && (
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <button
+                                                    onClick={() => handleParticipantAction(p, SYSTEM_ACTION_TYPES.MUTE_PARTICIPANT)}
+                                                    className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-bold text-gray-200 transition-colors hover:bg-white/10"
+                                                >
+                                                    Mute
+                                                </button>
+                                                <button
+                                                    onClick={() => handleParticipantAction(p, SYSTEM_ACTION_TYPES.STOP_CAMERA_PARTICIPANT)}
+                                                    className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-bold text-gray-200 transition-colors hover:bg-white/10"
+                                                >
+                                                    Stop cam
+                                                </button>
+                                                <button
+                                                    onClick={() => handleParticipantAction(p, SYSTEM_ACTION_TYPES.KICK_PARTICIPANT)}
+                                                    className="rounded-lg bg-red-500/20 px-3 py-2 text-[11px] font-bold text-red-300 transition-colors hover:bg-red-500 hover:text-white"
+                                                >
+                                                    Kick
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
                         </div>
 
                         {isHost && (
-                            <div className="p-4 border-t border-white/5 mt-auto">
-                                <button className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold transition-colors">
+                            <div className="p-4 border-t border-white/5 mt-auto flex flex-col gap-2">
+                                <button onClick={handleMuteAll} className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold transition-colors">
                                     Mute All Participants
+                                </button>
+                                <button onClick={handleStopCameraAll} className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold transition-colors">
+                                    Stop Camera All
+                                </button>
+                                <button onClick={() => openKickConfirm({ isAll: true })} className="w-full py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white text-xs font-bold transition-colors">
+                                    Kick All Participants
                                 </button>
                             </div>
                         )}
                     </div>
                 )}
             </div>
-        </aside>
+            </aside>
+        </>
     );
 };
 
