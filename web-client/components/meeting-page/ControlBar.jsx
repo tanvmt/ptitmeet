@@ -12,6 +12,11 @@ const ControlBar = ({
     const [isRecord, setIsRecord] = useState(false)
     const [egressId, setEgressId] = useState(null)
     const egressIdRef = useRef(null);
+    const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
+    const [showLeaveModal, setShowLeaveModal] = useState(false);
+    const [isHandRaised, setIsHandRaised] = useState(false); // State for raise hand
+    const [showReactions, setShowReactions] = useState(false);
+
     const handleRecordMeeting = async () => {
         try {
             if (!isRecord) {
@@ -34,29 +39,86 @@ const ControlBar = ({
             alert("Lỗi ghi hình: " + (error.response?.data?.message || error.message));
         }
     };
-    // LẤY QUYỀN ĐIỀU KHIỂN PHẦN CỨNG TỪ LIVEKIT
-    const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
-
-    const [showLeaveModal, setShowLeaveModal] = useState(false);
-
-    // 1. Hàm bật/tắt Mic phần cứng
+    
     const toggleMic = async () => {
         if (localParticipant) {
+            if (!isMicrophoneEnabled) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    stream.getTracks().forEach((track) => track.stop());
+                } catch (error) {
+                    console.error("Microphone permission denied:", error);
+                    alert("Trình duyệt chưa cấp quyền microphone.");
+                    return;
+                }
+            }
             await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
         }
     };
 
-    // 2. Hàm bật/tắt Cam phần cứng
     const toggleCam = async () => {
         if (localParticipant) {
+            if (!isCameraEnabled) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    stream.getTracks().forEach((track) => track.stop());
+                } catch (error) {
+                    console.error("Camera permission denied:", error);
+                    alert("Trình duyệt chưa cấp quyền camera.");
+                    return;
+                }
+            }
             await localParticipant.setCameraEnabled(!isCameraEnabled);
         }
     };
 
-    // 3. Hàm bật/tắt Chia sẻ màn hình
     const toggleScreenShare = async () => {
         if (localParticipant) {
             await localParticipant.setScreenShareEnabled(!isScreenShareEnabled);
+        }
+    };
+
+    const toggleHandRaise = async () => {
+        const newHandRaisedState = !isHandRaised;
+        setIsHandRaised(newHandRaisedState);
+        
+        // Phát event locally cho chính mình
+        if (localParticipant) {
+            const event = new CustomEvent('hand_raise', { 
+                detail: { identity: localParticipant.identity, isRaised: newHandRaisedState }
+            });
+            window.dispatchEvent(event);
+            
+            // Gửi cho người khác trong phòng qua DataChannel
+            if (room) {
+                const encoder = new TextEncoder();
+                const data = JSON.stringify({ isRaised: newHandRaisedState });
+                await room.localParticipant.publishData(encoder.encode(data), {
+                    reliable: true,
+                    topic: 'hand_raise'
+                });
+            }
+        }
+    };
+
+    const sendReaction = async (emoji) => {
+        if (room && localParticipant) {
+            const reactionPayload = {
+                emoji,
+                senderId: localParticipant.identity,
+                senderName: localParticipant.name || localParticipant.identity || "Bạn",
+            };
+
+            window.dispatchEvent(new CustomEvent("reaction", {
+                detail: reactionPayload,
+            }));
+
+            const encoder = new TextEncoder();
+            const data = JSON.stringify(reactionPayload);
+            await room.localParticipant.publishData(encoder.encode(data), {
+                reliable: true,
+                topic: 'reaction'
+            });
         }
     };
 
@@ -141,9 +203,41 @@ const ControlBar = ({
                         </span>
                     </button>
 
-                    <button className="size-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all">
-                        <span className="material-symbols-outlined text-[22px]">sentiment_satisfied</span>
+                    {/* NÚT GIƠ TAY */}
+                    <button
+                        onClick={toggleHandRaise}
+                        className={`size-12 rounded-full flex items-center justify-center transition-all ${
+                            isHandRaised ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/10 hover:bg-white/20 text-white"
+                        }`}
+                    >
+                        <span className="material-symbols-outlined text-[22px]">front_hand</span>
                     </button>
+
+                    {/* NÚT THẢ CẢM XÚC */}
+                    <div className="relative">
+                        <button 
+                            onClick={() => setShowReactions(!showReactions)}
+                            className={`size-12 rounded-full flex items-center justify-center transition-all ${
+                                showReactions ? "bg-white/30 text-white" : "bg-white/10 hover:bg-white/20 text-white"
+                            }`}
+                        >
+                            <span className="material-symbols-outlined text-[22px]">sentiment_satisfied</span>
+                        </button>
+                        
+                        {showReactions && (
+                            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex gap-2 bg-surface/90 backdrop-blur-xl p-2 rounded-full border border-white/10 shadow-2xl">
+                                {['👍', '❤️', '👏', '😂', '🎉', '😮'].map(emoji => (
+                                    <button
+                                        key={emoji}
+                                        onClick={() => sendReaction(emoji)}
+                                        className="text-2xl hover:scale-125 transition-transform p-2 rounded-full hover:bg-white/10"
+                                    >
+                                        {emoji}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
                     <button
                         onClick={() => { setSidebarOpen(sidebarOpen && activeTab === "chat" ? false : true); setActiveTab("chat"); }}

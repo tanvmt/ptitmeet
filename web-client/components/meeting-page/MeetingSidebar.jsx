@@ -2,6 +2,11 @@ import React, { useState, useRef, useEffect } from "react";
 import { useParticipants } from "@livekit/components-react";
 import { meetingService } from "../../services/meetingService.js"; // Đảm bảo import đúng đường dẫn
 
+const buildMessageKey = (msg) => {
+    if (msg?.id) return `id:${msg.id}`;
+    return `tmp:${msg?.senderId || "unknown"}:${msg?.content || ""}:${msg?.timestamp || ""}`;
+};
+
 const MeetingSidebar = ({
                             sidebarOpen, activeTab, setActiveTab,
                             isHost, waitingList, isLoadingWaiting, handleApproval, fetchWaitingList,
@@ -14,6 +19,26 @@ const MeetingSidebar = ({
     const [messages, setMessages] = useState([]);
     const [inputMessage, setInputMessage] = useState("");
     const [isLoadingChat, setIsLoadingChat] = useState(false);
+    const currentUserId = currentUser?.userId || currentUser?.id;
+    const currentUserName = currentUser?.fullName || currentUser?.name || "Bạn";
+
+    const upsertMessages = (incoming) => {
+        const nextItems = Array.isArray(incoming) ? incoming : [incoming];
+        setMessages((prev) => {
+            const merged = [...prev];
+            const existingKeys = new Set(prev.map(buildMessageKey));
+
+            nextItems.forEach((item) => {
+                const key = buildMessageKey(item);
+                if (!existingKeys.has(key)) {
+                    merged.push(item);
+                    existingKeys.add(key);
+                }
+            });
+
+            return merged.sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
+        });
+    };
 
     // Lấy lịch sử chat khi mới vào
     useEffect(() => {
@@ -42,12 +67,38 @@ const MeetingSidebar = ({
             `/topic/meeting/${meetingCode}/chat`,
             (message) => {
                 const newMsg = JSON.parse(message.body);
-                setMessages((prev) => [...prev, newMsg]);
+                upsertMessages(newMsg);
             }
         );
 
         return () => chatSubscription.unsubscribe();
     }, [stompClient, isStompConnected, meetingCode]);
+
+    useEffect(() => {
+        if (isStompConnected && sidebarOpen && activeTab === "chat") {
+            fetchHistory();
+        }
+    }, [isStompConnected, sidebarOpen, activeTab, meetingCode]);
+
+    useEffect(() => {
+        if (!meetingCode) {
+            return;
+        }
+
+        const syncHistory = async () => {
+            try {
+                const data = await meetingService.getChatHistory(meetingCode);
+                upsertMessages(data || []);
+            } catch (error) {
+                console.error("Lỗi đồng bộ chat:", error);
+            }
+        };
+
+        syncHistory();
+        const intervalId = window.setInterval(syncHistory, 2500);
+
+        return () => window.clearInterval(intervalId);
+    }, [meetingCode]);
 
     // Tự động cuộn xuống cuối
     useEffect(() => {
@@ -59,11 +110,18 @@ const MeetingSidebar = ({
         e.preventDefault();
         if (!inputMessage.trim() || !stompClient || !stompClient.active) return;
 
+        const content = inputMessage.trim();
         const chatMessage = {
-            senderId: currentUser.id || currentUser.userId, // Chỉnh lại theo đúng field name của object user
-            senderName: currentUser.fullName,
-            content: inputMessage.trim()
+            senderId: currentUserId,
+            senderName: currentUserName,
+            content
         };
+
+        upsertMessages({
+            ...chatMessage,
+            id: `local-${Date.now()}`,
+            timestamp: new Date().toISOString()
+        });
 
         stompClient.publish({
             destination: `/app/meeting/${meetingCode}/chat.sendMessage`,
@@ -104,7 +162,7 @@ const MeetingSidebar = ({
                                 <div className="text-center text-sm text-gray-500 mt-4">Loading messages...</div>
                             ) : (
                                 messages.map((msg, idx) => {
-                                    const isMe = msg.senderId === (currentUser.id || currentUser.userId);
+                                    const isMe = String(msg.senderId) === String(currentUserId);
                                     return (
                                         <div key={msg.id || idx} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
                                             <div className="flex items-center gap-2 mb-1 px-1">

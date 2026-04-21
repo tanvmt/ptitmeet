@@ -15,6 +15,17 @@ import MeetingHeader from "../components/meeting-page/MeetingHeader.jsx";
 import ParticipantGrid from "../components/meeting-page/ParticipantGrid.jsx";
 import MeetingSidebar from "../components/meeting-page/MeetingSidebar";
 import ControlBar from "../components/meeting-page/ControlBar";
+import Reactions from "../components/meeting-page/Reactions"; // Import Reactions component
+
+const getWebSocketUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+  const url = new URL(apiUrl);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.pathname = url.pathname.replace(/\/api\/?$/, "") + "/ws";
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+};
 
 const MeetingPage = () => {
   const { code } = useParams();
@@ -54,7 +65,7 @@ const MeetingPage = () => {
     if (isHost) fetchWaitingList();
 
     const client = new Client({
-      brokerURL: "ws://localhost:8080/ws",
+      brokerURL: getWebSocketUrl(),
       reconnectDelay: 5000,
       onConnect: () => {
         setIsStompConnected(true);
@@ -76,7 +87,15 @@ const MeetingPage = () => {
             }
         });
       },
-      onDisconnect: () => setIsStompConnected(false)
+      onDisconnect: () => setIsStompConnected(false),
+      onStompError: (frame) => {
+        console.error("STOMP error:", frame.headers["message"], frame.body);
+        setIsStompConnected(false);
+      },
+      onWebSocketError: (error) => {
+        console.error("WebSocket error:", error);
+        setIsStompConnected(false);
+      }
     });
 
     client.activate();
@@ -135,6 +154,7 @@ const MeetingPage = () => {
           </div>
           <ControlBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={setActiveTab} waitingCount={waitingList.length} isHost={isHost} code={code} stompClient={stompClient}/>
           <RoomAudioRenderer />
+          <Reactions /> {/* Add Reactions component here */}
         </div>
       </LiveKitRoom>
   );
