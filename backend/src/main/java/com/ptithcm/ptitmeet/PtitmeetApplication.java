@@ -8,8 +8,8 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @SpringBootApplication
 public class PtitmeetApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(PtitmeetApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(PtitmeetApplication.class, args);
+    }
 
 }

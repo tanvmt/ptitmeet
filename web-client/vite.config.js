@@ -22,6 +22,14 @@ export default defineConfig(({ mode }) => {
             alias: {
                 '@': path.resolve(__dirname, '.'),
             }
+        },
+        test: {
+            environment: 'jsdom',
+            globals: true,
+            setupFiles: './vitest.setup.js',
+            fileParallelism: false,
+            maxWorkers: 1,
+            minWorkers: 1,
         }
     };
 });
