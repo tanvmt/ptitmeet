@@ -30,6 +30,8 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/api/meetings/*/info",
                                 "/api/livekit/webhook",
+                                "/v3/api-docs",
+                                "/v3/api-docs.yaml",
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",

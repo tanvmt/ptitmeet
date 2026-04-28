@@ -188,66 +188,6 @@
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <jvmArguments>-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -Dspring.application.admin.enabled=true -Dspring.main.lazy-initialization=true</jvmArguments>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>pre-integration-test</id>
-                        <goals>
-                            <goal>start</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>post-integration-test</id>
-                        <goals>
-                            <goal>stop</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.springdoc</groupId>
-                <artifactId>springdoc-openapi-maven-plugin</artifactId>
-                <version>1.5</version>
-                <executions>
-                    <execution>
-                        <id>generate-openapi-json</id>
-                        <phase>integration-test</phase>
-                        <goals>
-                            <goal>generate</goal>
-                        </goals>
-                        <configuration>
-                            <apiDocsUrl>http://localhost:8080/v3/api-docs</apiDocsUrl>
-                            <outputFileName>openapi.json</outputFileName>
-                            <outputDir>../docs</outputDir>
-                            <failOnError>true</failOnError>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>generate-openapi-yaml</id>
-                        <phase>integration-test</phase>
-                        <goals>
-                            <goal>generate</goal>
-                        </goals>
-                        <configuration>
-                            <apiDocsUrl>http://localhost:8080/v3/api-docs.yaml</apiDocsUrl>
-                            <outputFileName>openapi.yaml</outputFileName>
-                            <outputDir>../docs</outputDir>
-                            <failOnError>true</failOnError>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>3.6.0</version>
@@ -288,5 +228,75 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>openapi</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <configuration>
+                            <jvmArguments>-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:ErrorFile=target/hs_err_pid%p.log -XX:ReplayDataFile=target/replay_pid%p.log -Dspring.application.admin.enabled=true -Dspring.main.lazy-initialization=true</jvmArguments>
+                            <excludes>
+                                <exclude>
+                                    <groupId>org.projectlombok</groupId>
+                                    <artifactId>lombok</artifactId>
+                                </exclude>
+                            </excludes>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>pre-integration-test</id>
+                                <goals>
+                                    <goal>start</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>post-integration-test</id>
+                                <goals>
+                                    <goal>stop</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.springdoc</groupId>
+                        <artifactId>springdoc-openapi-maven-plugin</artifactId>
+                        <version>1.5</version>
+                        <executions>
+                            <execution>
+                                <id>generate-openapi-json</id>
+                                <phase>integration-test</phase>
+                                <goals>
+                                    <goal>generate</goal>
+                                </goals>
+                                <configuration>
+                                    <apiDocsUrl>http://localhost:8080/v3/api-docs</apiDocsUrl>
+                                    <outputFileName>openapi.json</outputFileName>
+                                    <outputDir>../docs</outputDir>
+                                    <failOnError>true</failOnError>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>generate-openapi-yaml</id>
+                                <phase>integration-test</phase>
+                                <goals>
+                                    <goal>generate</goal>
+                                </goals>
+                                <configuration>
+                                    <apiDocsUrl>http://localhost:8080/v3/api-docs.yaml</apiDocsUrl>
+                                    <outputFileName>openapi.yaml</outputFileName>
+                                    <outputDir>../docs</outputDir>
+                                    <failOnError>true</failOnError>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>
