@@ -29,7 +29,7 @@ jobs:
         run: chmod +x mvnw
 
       - name: Run backend lint and tests
-        run: ./mvnw -B test
+        run: ./mvnw -B verify
 
   web-client:
     runs-on: ubuntu-latest

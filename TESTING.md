@@ -3,8 +3,14 @@
 ## Backend
 
 - Run tests: `cd backend && ./mvnw test`
+- Generate API docs into `docs/`: `cd backend && ./mvnw verify`
 - Checkstyle runs automatically during Maven validation.
 - JaCoCo report is generated during `test` at `backend/target/site/jacoco/index.html`.
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+- Generated static files after `verify`:
+  - `docs/openapi.json`
+  - `docs/openapi.yaml`
 
 Current coverage focus:
 - `AuthService`
@@ -41,5 +47,5 @@ Current coverage focus:
 ## CI
 
 GitHub Actions runs:
-- Backend lint + tests
+- Backend lint + tests + OpenAPI docs generation
 - Frontend lint + tests + build
