@@ -1,4 +1,4 @@
-package com.ptithcm.ptitmeet;
+package com.ptithcm.ptitmeet.activities;
 
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.ptithcm.ptitmeet.R;
 
 public class WaitingRoomActivity extends AppCompatActivity {
 
