@@ -1,4 +1,4 @@
-package com.ptithcm.ptitmeet;
+package com.ptithcm.ptitmeet.activities;
 
 import android.os.Bundle;
 import android.view.View;
@@ -7,6 +7,10 @@ import android.widget.ImageButton;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.ptithcm.ptitmeet.ParticipantAdapter;
+import com.ptithcm.ptitmeet.ParticipantData;
+import com.ptithcm.ptitmeet.R;
 
 import java.util.ArrayList;
 import java.util.List;

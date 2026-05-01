@@ -22,9 +22,10 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/tvWelcome"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Welcome back, Tai"
+                android:text="Welcome back"
                 android:textColor="@color/white"
                 android:textSize="22sp"
                 android:textStyle="bold" />
@@ -66,6 +67,7 @@
                 android:columnCount="2">
 
                 <LinearLayout
+                    android:id="@+id/btnNewMeeting"
                     android:layout_width="0dp"
                     android:layout_height="140dp"
                     android:layout_columnWeight="1"
@@ -91,6 +93,7 @@
                 </LinearLayout>
 
                 <LinearLayout
+                    android:id="@+id/btnJoinMeeting"
                     android:layout_width="0dp"
                     android:layout_height="140dp"
                     android:layout_columnWeight="1"
@@ -115,6 +118,18 @@
                         android:textStyle="bold" />
                 </LinearLayout>
             </GridLayout>
+
+            <!-- Thêm trường nhập mã phòng -->
+            <EditText
+                android:id="@+id/etMeetingCode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/bg_card_surface"
+                android:hint="Enter Meeting Code"
+                android:padding="12dp"
+                android:textColor="@color/white"
+                android:textColorHint="@color/text_secondary" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -154,6 +169,7 @@
                         android:textColor="@color/text_secondary" />
 
                     <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/btnJoinNow"
                         android:layout_width="match_parent"
                         android:layout_height="48dp"
                         android:layout_marginTop="16dp"
