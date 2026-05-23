@@ -15,7 +15,7 @@ const buildMessageKey = (msg) => {
 const MeetingSidebar = ({
                             sidebarOpen, activeTab, setActiveTab,
                             isHost, waitingList, isLoadingWaiting, handleApproval, fetchWaitingList,
-                        stompClient, isStompConnected, currentUser, meetingCode, onIncomingMessage
+                        stompClient, isStompConnected, currentUser, meetingCode, onIncomingMessage, meetingSettings
                         }) => {
     const chatEndRef = useRef(null);
     const participants = useParticipants();
@@ -254,13 +254,13 @@ const MeetingSidebar = ({
                                 <input
                                     value={inputMessage}
                                     onChange={(e) => setInputMessage(e.target.value)}
-                                    placeholder="Send a message..."
-                                    className="w-full bg-surface border border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                    disabled={!isStompConnected}
+                                    placeholder={isHost || meetingSettings?.chatEnabled !== false ? "Send a message..." : "Chat has been disabled by the host"}
+                                    className={`w-full bg-surface border border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50 ${(isHost || meetingSettings?.chatEnabled !== false) ? "" : "opacity-50 cursor-not-allowed"}`}
+                                    disabled={!isStompConnected || (!isHost && meetingSettings?.chatEnabled === false)}
                                 />
                                 <button
                                     type="submit"
-                                    disabled={!inputMessage.trim() || !isStompConnected}
+                                    disabled={!inputMessage.trim() || !isStompConnected || (!isHost && meetingSettings?.chatEnabled === false)}
                                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-primary hover:bg-primary/10 disabled:text-gray-600 rounded-lg transition-colors"
                                 >
                                     <span className="material-symbols-outlined">send</span>

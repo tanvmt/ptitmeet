@@ -296,6 +296,7 @@ public class MeetingService {
             return JoinMeetingResponse.builder()
                     .status("PENDING")
                     .message(message)
+                    .settings(meeting.getSettings())
                     .build();
         }
 
@@ -311,6 +312,7 @@ public class MeetingService {
                 .serverUrl(liveKitService.getLivekitUrl())
                 .role(role.name())
                 .status(participant.getApprovalStatus().name())
+                .settings(meeting.getSettings())
                 .build();
     }
 
@@ -557,6 +559,11 @@ public class MeetingService {
         return s + "s";
     }
 
+    private static final java.util.Set<String> PUBLIC_DOMAINS = java.util.Set.of(
+            "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com",
+            "aol.com", "zoho.com", "protonmail.com", "proton.me", "mail.com", "yandex.com"
+    );
+
     private ParticipantApprovalStatus determineParticipantStatus(Meeting meeting, User user) {
         boolean isWaitingRoom = isWaitingRoomEnabled(meeting.getSettings());
         MeetingAccessType type = meeting.getAccessType();
@@ -566,20 +573,19 @@ public class MeetingService {
                 return isWaitingRoom ? ParticipantApprovalStatus.PENDING : ParticipantApprovalStatus.APPROVED;
 
             case TRUSTED:
-                boolean isInternal = isUserInternal(user.getEmail(), meeting.getAllowedDomain());
-                if (isInternal) {
+                User host = userRepository.findById(meeting.getHostId()).orElse(null);
+                String hostEmail = (host != null) ? host.getEmail() : null;
+                boolean isInternal = isUserInternal(user.getEmail(), hostEmail, meeting.getAllowedDomain());
+                boolean isInvited = isUserInvited(meeting, user);
+                if (isInternal || isInvited) {
                     return ParticipantApprovalStatus.APPROVED;
                 } else {
-                    if (isWaitingRoom) {
-                        return ParticipantApprovalStatus.PENDING;
-                    } else {
-                        return ParticipantApprovalStatus.REJECTED;
-                    }
+                    return isWaitingRoom ? ParticipantApprovalStatus.PENDING : ParticipantApprovalStatus.REJECTED;
                 }
 
             case RESTRICTED:
-                boolean isInvited = isUserInvited(meeting, user);
-                if (!isInvited) {
+                boolean isInvitedRestricted = isUserInvited(meeting, user);
+                if (!isInvitedRestricted) {
                     return ParticipantApprovalStatus.REJECTED;
                 }
                 return isWaitingRoom ? ParticipantApprovalStatus.PENDING : ParticipantApprovalStatus.APPROVED;
@@ -589,10 +595,30 @@ public class MeetingService {
         }
     }
 
-    private boolean isUserInternal(String email, String allowedDomain) {
-        if (allowedDomain == null || allowedDomain.isEmpty())
+    private boolean isUserInternal(String guestEmail, String hostEmail, String allowedDomain) {
+        String domainToCheck = null;
+
+        if (allowedDomain != null && !allowedDomain.isBlank()) {
+            domainToCheck = allowedDomain;
+        } else if (hostEmail != null && hostEmail.contains("@")) {
+            String hostDomain = hostEmail.substring(hostEmail.indexOf("@") + 1).trim().toLowerCase();
+            if (!PUBLIC_DOMAINS.contains(hostDomain)) {
+                domainToCheck = hostDomain;
+            }
+        }
+
+        if (domainToCheck == null) {
             return false;
-        return email.endsWith(allowedDomain);
+        }
+
+        if (domainToCheck.startsWith("@")) {
+            domainToCheck = domainToCheck.substring(1);
+        }
+
+        String guestEmailLower = guestEmail.trim().toLowerCase();
+        domainToCheck = domainToCheck.trim().toLowerCase();
+
+        return guestEmailLower.endsWith("@" + domainToCheck) || guestEmailLower.endsWith("." + domainToCheck);
     }
 
     private boolean isUserInvited(Meeting meeting, User user) {
@@ -664,5 +690,57 @@ public class MeetingService {
                 .build();
 
         sessionRepository.save(newSession);
+    }
+
+    public String getMeetingSettings(String code) {
+        Meeting meeting = meetingRepository.findByMeetingCode(code)
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
+        return meeting.getSettings();
+    }
+
+    @Transactional
+    public Meeting updateMeetingSettings(String code, UUID hostId, String settingsJson) {
+        Meeting meeting = meetingRepository.findByMeetingCode(code)
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
+
+        if (!meeting.getHostId().equals(hostId)) {
+            throw new AppException(ErrorCode.HOST_ONLY_ACTION);
+        }
+
+        meeting.setSettings(settingsJson);
+        meeting = meetingRepository.save(meeting);
+
+        boolean isWaitingRoom = isWaitingRoomEnabled(settingsJson);
+        if (!isWaitingRoom) {
+            List<Participant> pendingList = participantRepository.findAllByMeetingAndApprovalStatus(
+                    meeting,
+                    ParticipantApprovalStatus.PENDING);
+
+            for (Participant participant : pendingList) {
+                participant.setApprovalStatus(ParticipantApprovalStatus.APPROVED);
+                participantRepository.save(participant);
+
+                createNewSession(participant);
+
+                User guestUser = participant.getUser();
+                String token = liveKitService.generateJoinToken(code, guestUser.getFullName(),
+                        guestUser.getUserId().toString());
+
+                JoinMeetingResponse approvalResponse = JoinMeetingResponse.builder()
+                        .status("APPROVED")
+                        .role("ATTENDEE")
+                        .token(token)
+                        .serverUrl(liveKitService.getLivekitUrl())
+                        .build();
+
+                messagingTemplate.convertAndSend(
+                        "/topic/meeting/" + code + "/user/" + guestUser.getUserId(),
+                        approvalResponse);
+            }
+
+            messagingTemplate.convertAndSend("/topic/meeting/" + code + "/waiting-room", "SETTINGS_CHANGED");
+        }
+
+        return meeting;
     }
 }

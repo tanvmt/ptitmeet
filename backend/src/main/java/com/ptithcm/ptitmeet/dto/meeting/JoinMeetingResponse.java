@@ -11,4 +11,5 @@ public class JoinMeetingResponse {
     private String status;           
     private String role;            
     private String message;
+    private String settings;
 }

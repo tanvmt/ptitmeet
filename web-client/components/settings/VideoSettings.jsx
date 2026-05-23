@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Select from '../Select';
 
-const VideoSettings = () => {
+const VideoSettings = ({ room }) => {
   const [mirrorVideo, setMirrorVideo] = useState(
     JSON.parse(localStorage.getItem('ptitmeet_mirrorVideo') || 'true')
   );
@@ -71,6 +71,9 @@ const VideoSettings = () => {
   const handleSelect = (setter, key, value) => {
     setter(value);
     localStorage.setItem(key, value);
+    if (room) {
+      room.switchActiveDevice('videoinput', value);
+    }
   };
 
   return (

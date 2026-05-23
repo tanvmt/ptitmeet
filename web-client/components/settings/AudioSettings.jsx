@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Select from '../Select';
 
-const AudioSettings = () => {
+const AudioSettings = ({ room }) => {
   const [noiseCancellation, setNoiseCancellation] = useState(
     JSON.parse(localStorage.getItem('ptitmeet_noiseCancellation') || 'true')
   );
@@ -56,6 +56,13 @@ const AudioSettings = () => {
   const handleSelect = (setter, key, value) => {
     setter(value);
     localStorage.setItem(key, value);
+    if (room) {
+      if (key === 'ptitmeet_selectedMic') {
+        room.switchActiveDevice('audioinput', value);
+      } else if (key === 'ptitmeet_selectedSpeaker') {
+        room.switchActiveDevice('audiooutput', value);
+      }
+    }
   };
 
   return (
