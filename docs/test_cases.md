@@ -10,10 +10,10 @@ Tài liệu này chứa toàn bộ các kịch bản kiểm thử (Test Cases) d
 
 | Tester | Phạm vi phụ trách (Modules) | Số lượng TC | Chi tiết kịch bản cần test |
 | :--- | :--- | :---: | :--- |
-| **Tester 1** | **Module 1**: Xác thực & Hồ sơ cá nhân<br>**Module 7**: Cài đặt hệ thống | **20 TCs** | Kiểm thử đăng ký, đăng nhập (Google/Thường), quên/đặt lại mật khẩu, đăng xuất, cập nhật thông tin cá nhân và thay đổi cấu hình thiết bị đầu vào/đầu ra. |
-| **Tester 2** | **Module 2**: Dashboard & Tiện ích<br>**Module 3**: Lên lịch cuộc họp | **15 TCs** | Kiểm thử giao diện chính, tạo phòng tức thì, lên lịch cuộc họp tương lai, điền thông tin người tham gia qua email, cấu hình quyền phòng họp và hủy lịch họp. |
-| **Tester 3** | **Module 4**: Phòng chờ (Waiting Room)<br>**Module 6**: Tóm tắt & Lịch sử cuộc họp | **16 TCs** | Kiểm thử tiền kiểm tra thiết bị, phân quyền Mic/Cam trình duyệt, trạng thái xin phép & WebSocket chờ phê duyệt; kiểm thử hiển thị thống kê cuộc họp, phản hồi đánh giá và phân trang lịch sử. |
-| **Tester 4** | **Module 5**: Phòng họp trực tuyến (Core Room) | **18 TCs** | Kiểm thử luồng gọi video LiveKit, bật/tắt Mic/Cam, chia sẻ màn hình, nhắn tin chat, hiển thị Reactions, ghi âm/hình (Recording) và các quyền quản trị của Host (Mute all, Kick, End for all). |
+| **Đạt** | **Module 1**: Xác thực & Hồ sơ cá nhân| **18 TCs** | Kiểm thử đăng ký, đăng nhập (Google/Thường), quên/đặt lại mật khẩu, đăng xuất, cập nhật thông tin cá nhân. |
+| **Tài** | **Module 2**: Dashboard & Tiện ích<br>**Module 3**: Lên lịch cuộc họp | **15 TCs** | Kiểm thử giao diện chính, tạo phòng tức thì, lên lịch cuộc họp tương lai, điền thông tin người tham gia qua email, cấu hình quyền phòng họp và hủy lịch họp. |
+| **Tấn** | **Module 4**: Phòng chờ (Waiting Room)<br>**Module 6**: Tóm tắt & Lịch sử cuộc họp <br>**Module 7**: Cài đặt hệ thống | **18 TCs** | Kiểm thử tiền kiểm tra thiết bị, phân quyền Mic/Cam trình duyệt, trạng thái xin phép & WebSocket chờ phê duyệt; kiểm thử hiển thị thống kê cuộc họp, phản hồi đánh giá và phân trang lịch sử, và thay đổi cấu hình thiết bị đầu vào/đầu ra.  |
+| **Sang** | **Module 5**: Phòng họp trực tuyến (Core Room) | **18 TCs** | Kiểm thử luồng gọi video LiveKit, bật/tắt Mic/Cam, chia sẻ màn hình, nhắn tin chat, hiển thị Reactions, ghi âm/hình (Recording) và các quyền quản trị của Host (Mute all, Kick, End for all). |
 
 ---
 
