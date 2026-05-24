@@ -72,7 +72,10 @@ const DashboardLayout = ({ children }) => {
 
           {/* User Info */}
           <div className="p-4 border-t border-slate-200 dark:border-slate-800/50">
-            <button className="flex w-full items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <button 
+              onClick={() => navigate('/settings', { state: { tab: 'profile' } })}
+              className="flex w-full items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
               <div className="relative">
                 <div className="size-10 rounded-full bg-slate-700 bg-cover border-2 border-slate-700" style={{ backgroundImage: `url(${user?.avatarUrl || 'https://picsum.photos/100'})` }}></div>
                 <span className="absolute bottom-0 right-0 size-3 bg-green-500 border-2 border-white dark:border-[#111418] rounded-full"></span>

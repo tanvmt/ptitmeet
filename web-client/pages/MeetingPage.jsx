@@ -35,6 +35,22 @@ const MeetingPage = () => {
 
   const [activeTab, setActiveTab] = useState("chat");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [meetingSettings, setMeetingSettings] = useState(() => {
+    try {
+      if (joinData.settings) {
+        return typeof joinData.settings === "string" ? JSON.parse(joinData.settings) : joinData.settings;
+      }
+    } catch (e) {
+      console.error("Error parsing settings", e);
+    }
+    return {
+      waitingRoom: true,
+      muteAudioOnEntry: false,
+      muteVideoOnEntry: false,
+      chatEnabled: true,
+      screenShareEnabled: true,
+    };
+  });
 
   const [waitingList, setWaitingList] = useState([]);
   const [isLoadingWaiting, setIsLoadingWaiting] = useState(false);
@@ -89,7 +105,9 @@ const MeetingPage = () => {
               !action.targetParticipantId ||
               String(action.targetParticipantId) === currentUserId;
 
-            if (action.type === SYSTEM_ACTION_TYPES.MEETING_ENDED) {
+            if (action.type === "SETTINGS_UPDATED") {
+              setMeetingSettings(action.settings);
+            } else if (action.type === SYSTEM_ACTION_TYPES.MEETING_ENDED) {
                if (!isHost) {
                    navigate("/summary", { 
                        state: { meetingCode: code, actionTaken: "ENDED_BY_HOST" } 
@@ -207,9 +225,10 @@ const MeetingPage = () => {
                 currentUser={user}
                 meetingCode={code}
                 onIncomingMessage={handleIncomingMessage}
+                meetingSettings={meetingSettings}
             />
           </div>
-          <ControlBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={setActiveTab} waitingCount={waitingList.length} unreadCount={unreadMessages} isHost={isHost} code={code} stompClient={stompClient}/>
+          <ControlBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={setActiveTab} waitingCount={waitingList.length} unreadCount={unreadMessages} isHost={isHost} code={code} stompClient={stompClient} meetingSettings={meetingSettings}/>
           <RoomAudioRenderer />
           <Reactions /> {/* Add Reactions component here */}
         </div>

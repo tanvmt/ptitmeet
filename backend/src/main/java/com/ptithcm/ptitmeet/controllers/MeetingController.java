@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.ptithcm.ptitmeet.dto.ApiResponse;
 import com.ptithcm.ptitmeet.dto.meeting.ApprovalRequest;
@@ -42,6 +44,8 @@ public class MeetingController {
     private final MeetingService meetingService;
 
     private final ChatMessageRepository chatMessageRepository;
+
+    private final ObjectMapper objectMapper;
 
     private UUID getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -167,5 +171,24 @@ public class MeetingController {
             @RequestBody FeedbackRequest request) {
         meetingService.submitFeedback(code, getCurrentUserId(), request.getRating());
         return ResponseEntity.ok(ApiResponse.success(null, "Cảm ơn bạn đã đánh giá"));
+    }
+
+    @GetMapping("/{code}/settings")
+    public ResponseEntity<ApiResponse<String>> getSettings(@PathVariable String code) {
+        String settings = meetingService.getMeetingSettings(code);
+        return ResponseEntity.ok(ApiResponse.success(settings, "Lấy cài đặt cuộc họp thành công"));
+    }
+
+    @PutMapping("/{code}/settings")
+    public ResponseEntity<ApiResponse<Meeting>> updateSettings(
+            @PathVariable String code,
+            @RequestBody java.util.Map<String, Object> settings) {
+        try {
+            String settingsJson = objectMapper.writeValueAsString(settings);
+            Meeting meeting = meetingService.updateMeetingSettings(code, getCurrentUserId(), settingsJson);
+            return ResponseEntity.ok(ApiResponse.success(meeting, "Cập nhật cài đặt cuộc họp thành công"));
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi định dạng cấu hình", e);
+        }
     }
 }

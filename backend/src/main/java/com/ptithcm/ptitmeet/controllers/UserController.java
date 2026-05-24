@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -54,5 +55,18 @@ public class UserController {
 
         return ResponseEntity.ok(
                 ApiResponse.success(user, "Cập nhật thông tin thành công"));
+    }
+
+    @PostMapping("/avatar")
+    public ResponseEntity<ApiResponse<UserResponse>> uploadAvatar(
+            Authentication authentication,
+            @RequestParam("file") MultipartFile file) {
+
+        UUID userId = UUID.fromString(authentication.getName());
+
+        UserResponse user = userService.uploadAvatar(userId, file);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(user, "Cập nhật ảnh đại diện thành công"));
     }
 }

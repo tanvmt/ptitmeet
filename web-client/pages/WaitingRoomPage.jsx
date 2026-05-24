@@ -183,13 +183,14 @@ const WaitingRoomPage = () => {
     }
   };
 
-  const goToMeetingRoom = ({ token, role, serverUrl }) => {
+  const goToMeetingRoom = (res) => {
     stopMediaStream(previewStreamRef.current);
     navigate(`/meeting/${code}`, {
       state: {
-        token,
-        role,
-        serverUrl,
+        token: res.token,
+        role: res.role,
+        serverUrl: res.serverUrl,
+        settings: res.settings,
         micOn: mediaPreferenceRef.current.micOn,
         camOn: mediaPreferenceRef.current.videoOn,
       },
@@ -246,8 +247,10 @@ const WaitingRoomPage = () => {
         });
 
         client.subscribe(`/topic/meeting/${code}/waiting-room`, async (msg) => {
-          if (msg.body === "HOST_JOINED") {
-            setWaitingMessage("The meeting has started. Please wait for the host to let you in.");
+          if (msg.body === "HOST_JOINED" || msg.body === "SETTINGS_CHANGED") {
+            if (msg.body === "HOST_JOINED") {
+              setWaitingMessage("The meeting has started. Please wait for the host to let you in.");
+            }
 
             try {
               const checkRes = await meetingService.joinMeeting(code);

@@ -44,3 +44,6 @@ Thumbs.db
 .vscode/
 *.iml
 *.iws
+
+web-client/.env
+web-client/.env

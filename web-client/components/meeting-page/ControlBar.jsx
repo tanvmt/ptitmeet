@@ -4,6 +4,7 @@ import { useRoomContext, useLocalParticipant } from "@livekit/components-react";
 import LeaveModal from "./LeaveModal";
 import { meetingService } from "../../services/meetingService";
 import DevicePermissionModal from "./DevicePermissionModal";
+import InMeetingSettingsModal from "./InMeetingSettingsModal";
 import {
     getPermissionErrorMessage,
     isPermissionDeniedError,
@@ -12,7 +13,7 @@ import {
 } from "../../utils/mediaPermissions";
 
 const ControlBar = ({
-    sidebarOpen, setSidebarOpen, activeTab, setActiveTab, waitingCount, unreadCount, isHost, code, stompClient
+    sidebarOpen, setSidebarOpen, activeTab, setActiveTab, waitingCount, unreadCount, isHost, code, stompClient, meetingSettings
 }) => {
     const navigate = useNavigate();
     const room = useRoomContext();
@@ -26,6 +27,8 @@ const ControlBar = ({
     const [permissionModal, setPermissionModal] = useState({ isOpen: false, device: null });
     const [permissionError, setPermissionError] = useState("");
     const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
+    const [showMoreMenu, setShowMoreMenu] = useState(false);
 
     React.useEffect(() => {
         const handleSystemAction = async (e) => {
@@ -261,10 +264,18 @@ const ControlBar = ({
                     <div className="w-px h-8 bg-white/10 mx-1"></div>
 
                     <button
-                        onClick={toggleScreenShare}
+                        onClick={() => {
+                            const isScreenShareAllowed = isHost || meetingSettings?.screenShareEnabled !== false;
+                            if (!isScreenShareAllowed) {
+                                alert("Screen sharing has been disabled by the host.");
+                                return;
+                            }
+                            toggleScreenShare();
+                        }}
                         className={`size-12 rounded-full flex items-center justify-center transition-all ${
                             isScreenShareEnabled ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/10 hover:bg-white/20 text-white"
-                            }`}
+                            } ${(!isHost && meetingSettings?.screenShareEnabled === false) ? "opacity-40 cursor-not-allowed" : ""}`}
+                        title={(!isHost && meetingSettings?.screenShareEnabled === false) ? "Screen sharing has been disabled by the host" : "Share screen"}
                     >
                         <span className="material-symbols-outlined text-[22px]">
                             {isScreenShareEnabled ? "stop_screen_share" : "present_to_all"}
@@ -333,9 +344,31 @@ const ControlBar = ({
                         )}
                     </button>
 
-                    <button className="size-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all">
-                        <span className="material-symbols-outlined text-[22px]">more_vert</span>
-                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowMoreMenu(!showMoreMenu)}
+                            className={`size-12 rounded-full flex items-center justify-center transition-all ${
+                                showMoreMenu ? "bg-white/30 text-white" : "bg-white/10 hover:bg-white/20 text-white"
+                            }`}
+                        >
+                            <span className="material-symbols-outlined text-[22px]">more_vert</span>
+                        </button>
+                        
+                        {showMoreMenu && (
+                            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-surface/95 border border-white/10 p-2 rounded-xl shadow-2xl backdrop-blur min-w-44 flex flex-col gap-1 z-[60]">
+                                <button
+                                    onClick={() => {
+                                        setShowSettings(true);
+                                        setShowMoreMenu(false);
+                                    }}
+                                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 text-gray-200 hover:text-white transition-colors text-left"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">settings</span>
+                                    <span className="text-xs font-semibold">Cài đặt</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
                     <div className="w-px h-8 bg-white/10 mx-1"></div>
                     <button
@@ -355,6 +388,13 @@ const ControlBar = ({
                     </button>
                 </div>
             </footer>
+            <InMeetingSettingsModal
+                isOpen={showSettings}
+                onClose={() => setShowSettings(false)}
+                isHost={isHost}
+                code={code}
+                room={room}
+            />
         </>
     );
 };

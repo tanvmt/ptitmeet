@@ -74,4 +74,14 @@ export const meetingService = {
         const response = await api.post(`/meetings/${code}/feedback`, { rating });
         return response.data;
     },
+
+    getMeetingSettings: async (code) => {
+        const response = await api.get(`/meetings/${code}/settings`);
+        return typeof response.data.data === 'string' ? JSON.parse(response.data.data) : response.data.data;
+    },
+
+    updateMeetingSettings: async (code, settings) => {
+        const response = await api.put(`/meetings/${code}/settings`, settings);
+        return response.data.data;
+    },
 };
