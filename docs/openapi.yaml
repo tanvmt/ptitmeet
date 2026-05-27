@@ -38,6 +38,71 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseUserResponse"
+  /api/meetings/{code}/settings:
+    get:
+      tags:
+      - meeting-controller
+      operationId: getSettings
+      parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseString"
+    put:
+      tags:
+      - meeting-controller
+      operationId: updateSettings
+      parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseMeeting"
+  /api/users/avatar:
+    post:
+      tags:
+      - user-controller
+      operationId: uploadAvatar
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+              - file
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseUserResponse"
   /api/meetings/{code}/leave:
     post:
       tags:
@@ -578,84 +643,6 @@ components:
           type: string
         authProvider:
           type: string
-    ApiResponseVoid:
-      type: object
-      properties:
-        code:
-          type: integer
-          format: int32
-        message:
-          type: string
-        data: {}
-    JoinMeetingRequest:
-      type: object
-      properties:
-        password:
-          type: string
-        displayName:
-          type: string
-    ApiResponseJoinMeetingResponse:
-      type: object
-      properties:
-        code:
-          type: integer
-          format: int32
-        message:
-          type: string
-        data:
-          $ref: "#/components/schemas/JoinMeetingResponse"
-    JoinMeetingResponse:
-      type: object
-      properties:
-        token:
-          type: string
-        serverUrl:
-          type: string
-        status:
-          type: string
-        role:
-          type: string
-        message:
-          type: string
-    FeedbackRequest:
-      type: object
-      properties:
-        rating:
-          type: integer
-          format: int32
-    ApprovalRequest:
-      type: object
-      properties:
-        participantId:
-          type: string
-          format: uuid
-        action:
-          type: string
-    CreateMeetingRequest:
-      type: object
-      properties:
-        title:
-          type: string
-        password:
-          type: string
-        settings:
-          type: string
-        start_time:
-          type: string
-          format: date-time
-        end_time:
-          type: string
-          format: date-time
-        access_type:
-          type: string
-          enum:
-          - OPEN
-          - TRUSTED
-          - RESTRICTED
-        participant_emails:
-          type: array
-          items:
-            type: string
     ApiResponseMeeting:
       type: object
       properties:
@@ -709,6 +696,86 @@ components:
           format: date-time
         instant:
           type: boolean
+    ApiResponseVoid:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data: {}
+    JoinMeetingRequest:
+      type: object
+      properties:
+        password:
+          type: string
+        displayName:
+          type: string
+    ApiResponseJoinMeetingResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          $ref: "#/components/schemas/JoinMeetingResponse"
+    JoinMeetingResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        serverUrl:
+          type: string
+        status:
+          type: string
+        role:
+          type: string
+        message:
+          type: string
+        settings:
+          type: string
+    FeedbackRequest:
+      type: object
+      properties:
+        rating:
+          type: integer
+          format: int32
+    ApprovalRequest:
+      type: object
+      properties:
+        participantId:
+          type: string
+          format: uuid
+        action:
+          type: string
+    CreateMeetingRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        password:
+          type: string
+        settings:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        access_type:
+          type: string
+          enum:
+          - OPEN
+          - TRUSTED
+          - RESTRICTED
+        participant_emails:
+          type: array
+          items:
+            type: string
     ApiResponseMeetingRecording:
       type: object
       properties:
@@ -869,6 +936,16 @@ components:
         messages:
           type: integer
           format: int32
+    ApiResponseString:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          type: string
     ApiResponseMeetingInfoResponse:
       type: object
       properties:
@@ -981,12 +1058,12 @@ components:
     PageMeetingHistoryResponse:
       type: object
       properties:
-        totalPages:
-          type: integer
-          format: int32
         totalElements:
           type: integer
           format: int64
+        totalPages:
+          type: integer
+          format: int32
         size:
           type: integer
           format: int32
@@ -999,8 +1076,6 @@ components:
           format: int32
         sort:
           $ref: "#/components/schemas/SortObject"
-        pageable:
-          $ref: "#/components/schemas/PageableObject"
         numberOfElements:
           type: integer
           format: int32
@@ -1008,6 +1083,8 @@ components:
           type: boolean
         last:
           type: boolean
+        pageable:
+          $ref: "#/components/schemas/PageableObject"
         empty:
           type: boolean
     PageableObject:
@@ -1018,22 +1095,22 @@ components:
           format: int64
         sort:
           $ref: "#/components/schemas/SortObject"
-        unpaged:
-          type: boolean
-        pageNumber:
-          type: integer
-          format: int32
         pageSize:
           type: integer
           format: int32
+        pageNumber:
+          type: integer
+          format: int32
         paged:
+          type: boolean
+        unpaged:
           type: boolean
     SortObject:
       type: object
       properties:
         empty:
           type: boolean
-        unsorted:
-          type: boolean
         sorted:
+          type: boolean
+        unsorted:
           type: boolean

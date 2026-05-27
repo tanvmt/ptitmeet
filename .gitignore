@@ -47,3 +47,4 @@ Thumbs.db
 
 web-client/.env
 web-client/.env
+deploy/ec2/.env.prod
