@@ -13,7 +13,7 @@ import {
 } from "../../utils/mediaPermissions";
 
 const ControlBar = ({
-    sidebarOpen, setSidebarOpen, activeTab, setActiveTab, waitingCount, unreadCount, isHost, code, stompClient, meetingSettings
+    sidebarOpen, setSidebarOpen, activeTab, setActiveTab, waitingCount, unreadCount, isHost, isCoHost, code, stompClient, meetingSettings
 }) => {
     const navigate = useNavigate();
     const room = useRoomContext();
@@ -67,7 +67,7 @@ const ControlBar = ({
             alert("Recording error: " + (error.response?.data?.message || error.message));
         }
     };
-    
+
     const toggleMic = async () => {
         if (localParticipant) {
             if (!isMicrophoneEnabled) {
@@ -146,13 +146,13 @@ const ControlBar = ({
     const toggleHandRaise = async () => {
         const newHandRaisedState = !isHandRaised;
         setIsHandRaised(newHandRaisedState);
-        
+
         if (localParticipant) {
-            const event = new CustomEvent('hand_raise', { 
+            const event = new CustomEvent('hand_raise', {
                 detail: { identity: localParticipant.identity, isRaised: newHandRaisedState }
             });
             window.dispatchEvent(event);
-            
+
             if (room) {
                 const encoder = new TextEncoder();
                 const data = JSON.stringify({ isRaised: newHandRaisedState });
@@ -185,11 +185,14 @@ const ControlBar = ({
         }
     };
 
-    const handleProcessLeave = async (action) => {
+    const handleProcessLeave = async (action, successorId) => {
         try {
             if (action === "END") {
                 await meetingService.endMeetingForAll(code);
             } else {
+                if (successorId) {
+                    await meetingService.transferHost(code, successorId);
+                }
                 await meetingService.leaveMeeting(code);
             }
 
@@ -239,14 +242,14 @@ const ControlBar = ({
                 onClose={() => setShowLeaveModal(false)}
                 onConfirm={handleProcessLeave}
                 isHost={isHost}
+                otherParticipants={room ? Array.from(room.participants.values()) : []}
             />
             <footer className="h-24 w-full flex items-center justify-center px-6 relative z-40 bg-background shrink-0 border-t border-white/5">
                 <div className="flex items-center gap-3 bg-surface/90 backdrop-blur-xl p-2 rounded-full border border-white/10 shadow-2xl">
 
                     <button
                         onClick={toggleMic}
-                        className={`size-12 rounded-full flex items-center justify-center transition-all ${
-                            isMicrophoneEnabled ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500 text-white shadow-lg shadow-red-500/20"
+                        className={`size-12 rounded-full flex items-center justify-center transition-all ${isMicrophoneEnabled ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500 text-white shadow-lg shadow-red-500/20"
                             }`}
                     >
                         <span className="material-symbols-outlined">{isMicrophoneEnabled ? "mic" : "mic_off"}</span>
@@ -254,8 +257,7 @@ const ControlBar = ({
 
                     <button
                         onClick={toggleCam}
-                        className={`size-12 rounded-full flex items-center justify-center transition-all ${
-                            isCameraEnabled ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500 text-white shadow-lg shadow-red-500/20"
+                        className={`size-12 rounded-full flex items-center justify-center transition-all ${isCameraEnabled ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500 text-white shadow-lg shadow-red-500/20"
                             }`}
                     >
                         <span className="material-symbols-outlined">{isCameraEnabled ? "videocam" : "videocam_off"}</span>
@@ -265,17 +267,16 @@ const ControlBar = ({
 
                     <button
                         onClick={() => {
-                            const isScreenShareAllowed = isHost || meetingSettings?.screenShareEnabled !== false;
+                            const isScreenShareAllowed = isHost || isCoHost || meetingSettings?.screenShareEnabled !== false;
                             if (!isScreenShareAllowed) {
                                 alert("Screen sharing has been disabled by the host.");
                                 return;
                             }
                             toggleScreenShare();
                         }}
-                        className={`size-12 rounded-full flex items-center justify-center transition-all ${
-                            isScreenShareEnabled ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/10 hover:bg-white/20 text-white"
-                            } ${(!isHost && meetingSettings?.screenShareEnabled === false) ? "opacity-40 cursor-not-allowed" : ""}`}
-                        title={(!isHost && meetingSettings?.screenShareEnabled === false) ? "Screen sharing has been disabled by the host" : "Share screen"}
+                        className={`size-12 rounded-full flex items-center justify-center transition-all ${isScreenShareEnabled ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/10 hover:bg-white/20 text-white"
+                            } ${(!isHost && !isCoHost && meetingSettings?.screenShareEnabled === false) ? "opacity-40 cursor-not-allowed" : ""}`}
+                        title={(!isHost && !isCoHost && meetingSettings?.screenShareEnabled === false) ? "Screen sharing has been disabled by the host" : "Share screen"}
                     >
                         <span className="material-symbols-outlined text-[22px]">
                             {isScreenShareEnabled ? "stop_screen_share" : "present_to_all"}
@@ -284,23 +285,21 @@ const ControlBar = ({
 
                     <button
                         onClick={toggleHandRaise}
-                        className={`size-12 rounded-full flex items-center justify-center transition-all ${
-                            isHandRaised ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/10 hover:bg-white/20 text-white"
-                        }`}
+                        className={`size-12 rounded-full flex items-center justify-center transition-all ${isHandRaised ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/10 hover:bg-white/20 text-white"
+                            }`}
                     >
                         <span className="material-symbols-outlined text-[22px]">front_hand</span>
                     </button>
 
                     <div className="relative">
-                        <button 
+                        <button
                             onClick={() => setShowReactions(!showReactions)}
-                            className={`size-12 rounded-full flex items-center justify-center transition-all ${
-                                showReactions ? "bg-white/30 text-white" : "bg-white/10 hover:bg-white/20 text-white"
-                            }`}
+                            className={`size-12 rounded-full flex items-center justify-center transition-all ${showReactions ? "bg-white/30 text-white" : "bg-white/10 hover:bg-white/20 text-white"
+                                }`}
                         >
                             <span className="material-symbols-outlined text-[22px]">sentiment_satisfied</span>
                         </button>
-                        
+
                         {showReactions && (
                             <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex gap-2 bg-surface/90 backdrop-blur-xl p-2 rounded-full border border-white/10 shadow-2xl">
                                 {['👍', '❤️', '👏', '😂', '🎉', '😮'].map(emoji => (
@@ -318,8 +317,7 @@ const ControlBar = ({
 
                     <button
                         onClick={() => { setSidebarOpen(sidebarOpen && activeTab === "chat" ? false : true); setActiveTab("chat"); }}
-                        className={`relative size-12 rounded-full flex items-center justify-center transition-all ${
-                            sidebarOpen && activeTab === "chat" ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/10 hover:bg-white/20 text-white"
+                        className={`relative size-12 rounded-full flex items-center justify-center transition-all ${sidebarOpen && activeTab === "chat" ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/10 hover:bg-white/20 text-white"
                             }`}
                     >
                         <span className="material-symbols-outlined text-[22px]">chat_bubble</span>
@@ -332,12 +330,11 @@ const ControlBar = ({
 
                     <button
                         onClick={() => { setSidebarOpen(sidebarOpen && activeTab === "people" ? false : true); setActiveTab("people"); }}
-                        className={`relative size-12 rounded-full flex items-center justify-center transition-all ${
-                            sidebarOpen && activeTab === "people" ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/10 hover:bg-white/20 text-white"
+                        className={`relative size-12 rounded-full flex items-center justify-center transition-all ${sidebarOpen && activeTab === "people" ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/10 hover:bg-white/20 text-white"
                             }`}
                     >
                         <span className="material-symbols-outlined text-[22px]">group</span>
-                        {isHost && waitingCount > 0 && (
+                        {(isHost || isCoHost) && waitingCount > 0 && (
                             <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold border border-background animate-bounce">
                                 {waitingCount}
                             </span>
@@ -347,13 +344,12 @@ const ControlBar = ({
                     <div className="relative">
                         <button
                             onClick={() => setShowMoreMenu(!showMoreMenu)}
-                            className={`size-12 rounded-full flex items-center justify-center transition-all ${
-                                showMoreMenu ? "bg-white/30 text-white" : "bg-white/10 hover:bg-white/20 text-white"
-                            }`}
+                            className={`size-12 rounded-full flex items-center justify-center transition-all ${showMoreMenu ? "bg-white/30 text-white" : "bg-white/10 hover:bg-white/20 text-white"
+                                }`}
                         >
                             <span className="material-symbols-outlined text-[22px]">more_vert</span>
                         </button>
-                        
+
                         {showMoreMenu && (
                             <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-surface/95 border border-white/10 p-2 rounded-xl shadow-2xl backdrop-blur min-w-44 flex flex-col gap-1 z-[60]">
                                 <button
@@ -364,7 +360,7 @@ const ControlBar = ({
                                     className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 text-gray-200 hover:text-white transition-colors text-left"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">settings</span>
-                                    <span className="text-xs font-semibold">Cài đặt</span>
+                                    <span className="text-xs font-semibold">Settings</span>
                                 </button>
                             </div>
                         )}
@@ -391,7 +387,7 @@ const ControlBar = ({
             <InMeetingSettingsModal
                 isOpen={showSettings}
                 onClose={() => setShowSettings(false)}
-                isHost={isHost}
+                isHost={isHost || isCoHost}
                 code={code}
                 room={room}
             />

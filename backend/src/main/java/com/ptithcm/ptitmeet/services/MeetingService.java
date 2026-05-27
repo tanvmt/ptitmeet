@@ -231,8 +231,16 @@ public class MeetingService {
             throw new AppException(ErrorCode.MEETING_CANCELED);
         }
 
+        Participant participant = participantRepository.findByMeetingAndUser(meeting, user).orElse(null);
         boolean isHost = meeting.getHostId().equals(user.getUserId());
-        ParticipantRole role = isHost ? ParticipantRole.HOST : ParticipantRole.ATTENDEE;
+        ParticipantRole role;
+        if (isHost) {
+            role = ParticipantRole.HOST;
+        } else if (participant != null && participant.getRole() == ParticipantRole.CO_HOST) {
+            role = ParticipantRole.CO_HOST;
+        } else {
+            role = ParticipantRole.ATTENDEE;
+        }
 
         if (!isHost && meeting.getPassword() != null && !meeting.getPassword().isEmpty()) {
             if (request.getPassword() == null || !request.getPassword().equals(meeting.getPassword())) {
@@ -259,17 +267,15 @@ public class MeetingService {
             }
         }
 
-        Participant participant = participantRepository.findByMeetingAndUser(meeting, user)
-                .orElseGet(() -> {
-                    Participant newP = new Participant();
-                    newP.setMeeting(meeting);
-                    newP.setUser(user);
-                    String displayName = (request.getDisplayName() != null && !request.getDisplayName().isEmpty())
-                            ? request.getDisplayName()
-                            : user.getFullName();
-                    newP.setDisplayName(displayName);
-                    return newP;
-                });
+        if (participant == null) {
+            participant = new Participant();
+            participant.setMeeting(meeting);
+            participant.setUser(user);
+            String displayName = (request.getDisplayName() != null && !request.getDisplayName().isEmpty())
+                    ? request.getDisplayName()
+                    : user.getFullName();
+            participant.setDisplayName(displayName);
+        }
 
         participant.setRole(role);
 
@@ -323,7 +329,7 @@ public class MeetingService {
         User host = userRepository.findByUserId(hostId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        if (!meeting.getHostId().equals(host.getUserId())) {
+        if (!isHostOrCoHost(meeting, host)) {
             throw new AppException(ErrorCode.HOST_ONLY_ACTION);
         }
 
@@ -338,6 +344,7 @@ public class MeetingService {
                 .email(p.getUser().getEmail())
                 .avatarUrl(p.getUser().getAvatarUrl())
                 .status(p.getApprovalStatus().name())
+                .role(p.getRole().name())
                 .requestTime(p.getCreatedAt() != null ? p.getCreatedAt().toString() : "")
                 .build()).collect(Collectors.toList());
     }
@@ -349,7 +356,7 @@ public class MeetingService {
         User host = userRepository.findByUserId(hostId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        if (!meeting.getHostId().equals(host.getUserId())) {
+        if (!isHostOrCoHost(meeting, host)) {
             throw new AppException(ErrorCode.HOST_ONLY_ACTION);
         }
 
@@ -466,6 +473,10 @@ public class MeetingService {
             activeSession.setLeftAt(LocalDateTime.now());
             activeSession.setStatus(SessionStatus.LEFT);
             sessionRepository.save(activeSession);
+        }
+
+        if (meeting.getHostId().equals(userId)) {
+            transferHostOnLeave(meeting, user);
         }
     }
 
@@ -703,7 +714,10 @@ public class MeetingService {
         Meeting meeting = meetingRepository.findByMeetingCode(code)
                 .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
 
-        if (!meeting.getHostId().equals(hostId)) {
+        User host = userRepository.findByUserId(hostId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (!isHostOrCoHost(meeting, host)) {
             throw new AppException(ErrorCode.HOST_ONLY_ACTION);
         }
 
@@ -742,5 +756,149 @@ public class MeetingService {
         }
 
         return meeting;
+    }
+
+    public boolean isHostOrCoHost(Meeting meeting, User user) {
+        if (meeting.getHostId().equals(user.getUserId())) {
+            return true;
+        }
+        return participantRepository.findByMeetingAndUser(meeting, user)
+                .map(p -> p.getRole() == ParticipantRole.HOST || p.getRole() == ParticipantRole.CO_HOST)
+                .orElse(false);
+    }
+
+    public List<ParticipantResponse> getMeetingParticipants(String code) {
+        Meeting meeting = meetingRepository.findByMeetingCode(code)
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
+
+        List<Participant> approvedList = participantRepository.findAllByMeetingAndApprovalStatus(
+                meeting,
+                ParticipantApprovalStatus.APPROVED);
+
+        return approvedList.stream().map(p -> ParticipantResponse.builder()
+                .participantId(p.getParticipantId())
+                .userId(p.getUser().getUserId())
+                .displayName(p.getDisplayName())
+                .email(p.getUser().getEmail())
+                .avatarUrl(p.getUser().getAvatarUrl())
+                .status(p.getApprovalStatus().name())
+                .role(p.getRole().name())
+                .requestTime(p.getCreatedAt() != null ? p.getCreatedAt().toString() : "")
+                .build()).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void assignCoHost(String code, UUID hostUserId, UUID targetUserId, boolean assign) {
+        Meeting meeting = meetingRepository.findByMeetingCode(code)
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
+
+        if (!meeting.getHostId().equals(hostUserId)) {
+            throw new AppException(ErrorCode.HOST_ONLY_ACTION);
+        }
+
+        User targetUser = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        Participant participant = participantRepository.findByMeetingAndUser(meeting, targetUser)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_PARTICIPANT));
+
+        ParticipantRole newRole = assign ? ParticipantRole.CO_HOST : ParticipantRole.ATTENDEE;
+        participant.setRole(newRole);
+        participantRepository.save(participant);
+
+        String systemMsg = "{\"type\":\"ROLE_CHANGED\",\"targetUserId\":\"" + targetUserId + "\",\"role\":\"" + newRole.name() + "\"}";
+        messagingTemplate.convertAndSend("/topic/meeting/" + code + "/system", systemMsg);
+    }
+
+    @Transactional
+    public void manualTransferHost(String code, UUID currentHostId, UUID newHostUserId) {
+        Meeting meeting = meetingRepository.findByMeetingCode(code)
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
+
+        if (!meeting.getHostId().equals(currentHostId)) {
+            throw new AppException(ErrorCode.HOST_ONLY_ACTION);
+        }
+
+        User currentHost = userRepository.findById(currentHostId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        User newHost = userRepository.findById(newHostUserId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        performHostTransfer(meeting, currentHost, newHost);
+    }
+
+    private void performHostTransfer(Meeting meeting, User currentHost, User newHost) {
+        meeting.setHostId(newHost.getUserId());
+        meetingRepository.save(meeting);
+
+        Participant newHostParticipant = participantRepository.findByMeetingAndUser(meeting, newHost).orElse(null);
+        if (newHostParticipant != null) {
+            newHostParticipant.setRole(ParticipantRole.HOST);
+            participantRepository.save(newHostParticipant);
+        }
+
+        Participant oldHostParticipant = participantRepository.findByMeetingAndUser(meeting, currentHost).orElse(null);
+        if (oldHostParticipant != null) {
+            oldHostParticipant.setRole(ParticipantRole.ATTENDEE);
+            participantRepository.save(oldHostParticipant);
+        }
+
+        String systemMsg = "{\"type\":\"HOST_CHANGED\",\"newHostId\":\"" + newHost.getUserId() + "\",\"newHostName\":\"" + newHost.getFullName() + "\"}";
+        messagingTemplate.convertAndSend("/topic/meeting/" + meeting.getMeetingCode() + "/system", systemMsg);
+    }
+
+    private void transferHostOnLeave(Meeting meeting, User hostUser) {
+        List<ParticipantSession> activeSessions = sessionRepository.findActiveSessionsByMeetingCode(meeting.getMeetingCode());
+
+        List<Participant> activeParticipants = activeSessions.stream()
+                .map(ParticipantSession::getParticipant)
+                .filter(p -> p.getUser() != null && !p.getUser().getUserId().equals(hostUser.getUserId()))
+                .distinct()
+                .toList();
+
+        if (activeParticipants.isEmpty()) {
+            meeting.setStatus(MeetingStatus.FINISHED);
+            meeting.setEndTime(LocalDateTime.now());
+            meetingRepository.save(meeting);
+            messagingTemplate.convertAndSend("/topic/meeting/" + meeting.getMeetingCode() + "/system", "{\"type\":\"MEETING_ENDED\"}");
+            return;
+        }
+
+        Participant successor = activeParticipants.stream()
+                .filter(p -> p.getRole() == ParticipantRole.CO_HOST)
+                .findFirst()
+                .orElse(null);
+
+        if (successor == null) {
+            successor = activeParticipants.stream()
+                    .filter(p -> p.getRole() == ParticipantRole.ATTENDEE)
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        if (successor != null) {
+            performHostTransfer(meeting, hostUser, successor.getUser());
+        }
+    }
+
+    @Transactional
+    public void completeMeetingAutomatically(String code) {
+        Meeting meeting = meetingRepository.findByMeetingCode(code).orElse(null);
+        if (meeting != null && meeting.getStatus() != MeetingStatus.FINISHED) {
+            meeting.setStatus(MeetingStatus.FINISHED);
+            meeting.setEndTime(LocalDateTime.now());
+            meetingRepository.save(meeting);
+
+            List<ParticipantSession> activeSessions = sessionRepository.findActiveSessionsByMeetingCode(code);
+            LocalDateTime now = LocalDateTime.now();
+            for (ParticipantSession session : activeSessions) {
+                session.setLeftAt(now);
+                session.setStatus(SessionStatus.LEFT);
+            }
+            sessionRepository.saveAll(activeSessions);
+
+            messagingTemplate.convertAndSend("/topic/meeting/" + code + "/system", "{\"type\":\"MEETING_ENDED\"}");
+        }
     }
 }

@@ -14,4 +14,5 @@ public class ParticipantResponse {
     private String avatarUrl;        
     private String status;           
     private String requestTime;     
+    private String role;
 }

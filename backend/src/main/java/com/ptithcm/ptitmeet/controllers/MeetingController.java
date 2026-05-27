@@ -191,4 +191,30 @@ public class MeetingController {
             throw new RuntimeException("Lỗi định dạng cấu hình", e);
         }
     }
+
+    @GetMapping("/{code}/participants")
+    public ResponseEntity<ApiResponse<List<ParticipantResponse>>> getParticipants(@PathVariable String code) {
+        List<ParticipantResponse> list = meetingService.getMeetingParticipants(code);
+        return ResponseEntity.ok(ApiResponse.success(list, "Lấy danh sách thành viên thành công"));
+    }
+
+    @PostMapping("/{code}/cohost")
+    public ResponseEntity<ApiResponse<Void>> cohost(
+            @PathVariable String code,
+            @RequestBody java.util.Map<String, Object> body) {
+        UUID targetUserId = UUID.fromString((String) body.get("targetUserId"));
+        boolean assign = (Boolean) body.get("assign");
+        meetingService.assignCoHost(code, getCurrentUserId(), targetUserId, assign);
+        String msg = assign ? "Đã cấp quyền co-host" : "Đã hủy quyền co-host";
+        return ResponseEntity.ok(ApiResponse.success(null, msg));
+    }
+
+    @PostMapping("/{code}/transfer-host")
+    public ResponseEntity<ApiResponse<Void>> transferHost(
+            @PathVariable String code,
+            @RequestBody java.util.Map<String, Object> body) {
+        UUID targetUserId = UUID.fromString((String) body.get("targetUserId"));
+        meetingService.manualTransferHost(code, getCurrentUserId(), targetUserId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã chuyển quyền host thành công"));
+    }
 }

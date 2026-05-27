@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ptithcm.ptitmeet.services.LiveKitService;
+import com.ptithcm.ptitmeet.services.MeetingService;
 
 import io.livekit.server.WebhookReceiver;
 import livekit.LivekitWebhook.WebhookEvent;
@@ -20,13 +21,16 @@ import lombok.extern.slf4j.Slf4j;
 public class LiveKitWebhookController {
 
     private final LiveKitService liveKitService;
+    private final MeetingService meetingService;
     private final WebhookReceiver webhookReceiver;
 
     public LiveKitWebhookController(
             LiveKitService liveKitService,
+            MeetingService meetingService,
             @Value("${livekit.api.key}") String apiKey,
             @Value("${livekit.api.secret}") String apiSecret) {
         this.liveKitService = liveKitService;
+        this.meetingService = meetingService;
         this.webhookReceiver = new WebhookReceiver(apiKey, apiSecret);
     }
 
@@ -48,6 +52,12 @@ public class LiveKitWebhookController {
                 handleEgressEnded(event);
             } else if ("egress_started".equals(eventType)) {
                 log.info("Egress started: {}", event.getEgressInfo().getEgressId());
+            } else if ("room_finished".equals(eventType)) {
+                if (event.hasRoom()) {
+                    String meetingCode = event.getRoom().getName();
+                    log.info("Room finished: {}", meetingCode);
+                    meetingService.completeMeetingAutomatically(meetingCode);
+                }
             }
 
             return ResponseEntity.ok("OK");

@@ -16,14 +16,18 @@ class LiveKitWebhookControllerTest {
     @Mock
     private LiveKitService liveKitService;
 
+    @Mock
+    private com.ptithcm.ptitmeet.services.MeetingService meetingService;
+
     @Test
     void handleWebhookShouldReturnOkEvenForInvalidPayload() {
-        LiveKitWebhookController controller = new LiveKitWebhookController(liveKitService, "api-key", "api-secret");
+        LiveKitWebhookController controller = new LiveKitWebhookController(liveKitService, meetingService, "api-key", "api-secret");
 
         var response = controller.handleWebhook(null, "{}");
 
         assertEquals(200, response.getStatusCode().value());
         assertEquals("OK", response.getBody());
         verifyNoInteractions(liveKitService);
+        verifyNoInteractions(meetingService);
     }
 }

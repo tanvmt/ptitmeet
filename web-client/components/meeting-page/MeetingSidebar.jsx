@@ -14,7 +14,7 @@ const buildMessageKey = (msg) => {
 
 const MeetingSidebar = ({
                             sidebarOpen, activeTab, setActiveTab,
-                            isHost, waitingList, isLoadingWaiting, handleApproval, fetchWaitingList,
+                            isHost, isCoHost, userRole, waitingList, isLoadingWaiting, handleApproval, fetchWaitingList,
                         stompClient, isStompConnected, currentUser, meetingCode, onIncomingMessage, meetingSettings
                         }) => {
     const chatEndRef = useRef(null);
@@ -30,8 +30,53 @@ const MeetingSidebar = ({
     const [messages, setMessages] = useState([]);
     const [inputMessage, setInputMessage] = useState("");
     const [isLoadingChat, setIsLoadingChat] = useState(false);
+    const [dbParticipants, setDbParticipants] = useState([]);
     const currentUserId = currentUser?.userId || currentUser?.id;
     const currentUserName = currentUser?.fullName || currentUser?.name || "You";
+
+    const fetchDbParticipants = async () => {
+        if (!meetingCode) return;
+        try {
+            const data = await meetingService.getParticipants(meetingCode);
+            setDbParticipants(data || []);
+        } catch (error) {
+            console.error("Unable to load DB participants:", error);
+        }
+    };
+
+    useEffect(() => {
+        if (meetingCode && activeTab === "people") {
+            fetchDbParticipants();
+        }
+    }, [meetingCode, activeTab, participants.length]);
+
+    useEffect(() => {
+        const handleSync = () => {
+            fetchDbParticipants();
+        };
+        window.addEventListener('PARTICIPANTS_CHANGED', handleSync);
+        return () => window.removeEventListener('PARTICIPANTS_CHANGED', handleSync);
+    }, [meetingCode]);
+
+    const handleToggleCoHost = async (targetUserId, assign) => {
+        try {
+            await meetingService.assignCoHost(meetingCode, targetUserId, assign);
+            fetchDbParticipants();
+        } catch (error) {
+            alert("Error toggling Co-host role: " + (error.response?.data?.message || error.message));
+        }
+    };
+
+    const handleTransferHostClick = async (targetUserId, targetName) => {
+        if (window.confirm(`Are you sure you want to transfer host permissions to ${targetName}? You will lose host rights.`)) {
+            try {
+                await meetingService.transferHost(meetingCode, targetUserId);
+                fetchDbParticipants();
+            } catch (error) {
+                alert("Error transferring host: " + (error.response?.data?.message || error.message));
+            }
+        }
+    };
 
     const upsertMessages = (incoming) => {
         const nextItems = Array.isArray(incoming) ? incoming : [incoming];
@@ -254,13 +299,13 @@ const MeetingSidebar = ({
                                 <input
                                     value={inputMessage}
                                     onChange={(e) => setInputMessage(e.target.value)}
-                                    placeholder={isHost || meetingSettings?.chatEnabled !== false ? "Send a message..." : "Chat has been disabled by the host"}
-                                    className={`w-full bg-surface border border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50 ${(isHost || meetingSettings?.chatEnabled !== false) ? "" : "opacity-50 cursor-not-allowed"}`}
-                                    disabled={!isStompConnected || (!isHost && meetingSettings?.chatEnabled === false)}
+                                    placeholder={isHost || isCoHost || meetingSettings?.chatEnabled !== false ? "Send a message..." : "Chat has been disabled by the host"}
+                                    className={`w-full bg-surface border border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50 ${(isHost || isCoHost || meetingSettings?.chatEnabled !== false) ? "" : "opacity-50 cursor-not-allowed"}`}
+                                    disabled={!isStompConnected || (!(isHost || isCoHost) && meetingSettings?.chatEnabled === false)}
                                 />
                                 <button
                                     type="submit"
-                                    disabled={!inputMessage.trim() || !isStompConnected || (!isHost && meetingSettings?.chatEnabled === false)}
+                                    disabled={!inputMessage.trim() || !isStompConnected || (!(isHost || isCoHost) && meetingSettings?.chatEnabled === false)}
                                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-primary hover:bg-primary/10 disabled:text-gray-600 rounded-lg transition-colors"
                                 >
                                     <span className="material-symbols-outlined">send</span>
@@ -279,7 +324,7 @@ const MeetingSidebar = ({
                             </button>
                         </div>
 
-                        {isHost && waitingList.length > 0 && (
+                        {(isHost || isCoHost) && waitingList.length > 0 && (
                             <div className="mb-2">
                                 <div className="px-4 py-2 bg-red-500/10 text-red-400 text-[10px] font-bold uppercase tracking-widest flex justify-between items-center border-y border-red-500/10">
                                     <span>Waiting Room ({waitingList.length})</span>
@@ -322,55 +367,85 @@ const MeetingSidebar = ({
                                 In Call ({participants.length})
                             </div>
                             <div className="p-2 space-y-1">
-                                {participants.map((p) => (
-                                    <div key={p.sid} className="rounded-xl p-2 transition-colors hover:bg-white/5 group">
-                                        <div className="flex items-center justify-between gap-2">
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold border border-white/10">
-                                                {(p.name || p.identity || "U").charAt(0)}
+                                {participants.map((p) => {
+                                    const dbPart = dbParticipants.find(dp => String(dp.userId) === String(p.identity));
+                                    const role = dbPart?.role || (meetingSettings?.hostId === p.identity ? "HOST" : "ATTENDEE");
+                                    return (
+                                        <div key={p.sid} className="rounded-xl p-2 transition-colors hover:bg-white/5 group">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold border border-white/10">
+                                                        {(p.name || p.identity || "U").charAt(0)}
+                                                    </div>
+                                                    <div className="flex min-w-0 flex-col">
+                                                        <div className="flex items-center gap-1.5 min-w-0">
+                                                            <span className="max-w-[100px] truncate text-sm font-semibold">{p.name || p.identity} {p.isLocal && "(You)"}</span>
+                                                            {role === "HOST" && (
+                                                                <span className="text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-extrabold uppercase scale-90 origin-left">Host</span>
+                                                            )}
+                                                            {role === "CO_HOST" && (
+                                                                <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-extrabold uppercase scale-90 origin-left">Co-host</span>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-[10px] text-gray-500 truncate">{p.identity}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                    <span className={`material-symbols-outlined text-[18px] ${!p.isMicrophoneEnabled ? "text-red-500" : "text-gray-400"}`}>
+                                                        {!p.isMicrophoneEnabled ? "mic_off" : "mic"}
+                                                    </span>
+                                                    <span className={`material-symbols-outlined text-[18px] ${!p.isCameraEnabled ? "text-red-500" : "text-gray-400"}`}>
+                                                        {!p.isCameraEnabled ? "videocam_off" : "videocam"}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div className="flex min-w-0 flex-col">
-                                                <span className="max-w-[140px] truncate text-sm font-semibold">{p.name || p.identity} {p.isLocal && "(You)"}</span>
-                                                <span className="text-[10px] text-gray-500 truncate">{p.identity}</span>
-                                            </div>
+                                            {(isHost || isCoHost) && !p.isLocal && (
+                                                <div className="mt-2 flex flex-col gap-2">
+                                                    <div className="flex gap-2 w-full">
+                                                        <button
+                                                            onClick={() => handleParticipantAction(p, SYSTEM_ACTION_TYPES.MUTE_PARTICIPANT)}
+                                                            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-bold text-gray-200 transition-colors hover:bg-white/10"
+                                                        >
+                                                            Mute
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleParticipantAction(p, SYSTEM_ACTION_TYPES.STOP_CAMERA_PARTICIPANT)}
+                                                            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-bold text-gray-200 transition-colors hover:bg-white/10"
+                                                        >
+                                                            Stop cam
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleParticipantAction(p, SYSTEM_ACTION_TYPES.KICK_PARTICIPANT)}
+                                                            className="rounded-lg bg-red-500/20 px-2.5 py-1 text-[11px] font-bold text-red-300 transition-colors hover:bg-red-500 hover:text-white"
+                                                        >
+                                                            Kick
+                                                        </button>
+                                                    </div>
+                                                    {isHost && (
+                                                        <div className="flex gap-2 w-full">
+                                                            <button
+                                                                onClick={() => handleToggleCoHost(p.identity, role !== "CO_HOST")}
+                                                                className="flex-1 rounded-lg border border-primary/20 bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary transition-colors hover:bg-primary/25"
+                                                            >
+                                                                {role === "CO_HOST" ? "Remove Co-host" : "Make Co-host"}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleTransferHostClick(p.identity, p.name || p.identity)}
+                                                                className="flex-1 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[11px] font-bold text-amber-400 transition-colors hover:bg-amber-500/20"
+                                                            >
+                                                                Make Host
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                      <span className={`material-symbols-outlined text-[18px] ${!p.isMicrophoneEnabled ? "text-red-500" : "text-gray-400"}`}>
-                        {!p.isMicrophoneEnabled ? "mic_off" : "mic"}
-                      </span>
-                                            <span className={`material-symbols-outlined text-[18px] ${!p.isCameraEnabled ? "text-red-500" : "text-gray-400"}`}>
-                        {!p.isCameraEnabled ? "videocam_off" : "videocam"}
-                      </span>
-                                        </div>
-                                    </div>
-                                        {isHost && !p.isLocal && (
-                                            <div className="mt-2 flex items-center gap-2">
-                                                <button
-                                                    onClick={() => handleParticipantAction(p, SYSTEM_ACTION_TYPES.MUTE_PARTICIPANT)}
-                                                    className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-bold text-gray-200 transition-colors hover:bg-white/10"
-                                                >
-                                                    Mute
-                                                </button>
-                                                <button
-                                                    onClick={() => handleParticipantAction(p, SYSTEM_ACTION_TYPES.STOP_CAMERA_PARTICIPANT)}
-                                                    className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-bold text-gray-200 transition-colors hover:bg-white/10"
-                                                >
-                                                    Stop cam
-                                                </button>
-                                                <button
-                                                    onClick={() => handleParticipantAction(p, SYSTEM_ACTION_TYPES.KICK_PARTICIPANT)}
-                                                    className="rounded-lg bg-red-500/20 px-3 py-2 text-[11px] font-bold text-red-300 transition-colors hover:bg-red-500 hover:text-white"
-                                                >
-                                                    Kick
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
 
-                        {isHost && (
+                        {(isHost || isCoHost) && (
                             <div className="p-4 border-t border-white/5 mt-auto flex flex-col gap-2">
                                 <button onClick={handleMuteAll} className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold transition-colors">
                                     Mute All Participants
@@ -378,9 +453,11 @@ const MeetingSidebar = ({
                                 <button onClick={handleStopCameraAll} className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold transition-colors">
                                     Stop Camera All
                                 </button>
-                                <button onClick={() => openKickConfirm({ isAll: true })} className="w-full py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white text-xs font-bold transition-colors">
-                                    Kick All Participants
-                                </button>
+                                {isHost && (
+                                    <button onClick={() => openKickConfirm({ isAll: true })} className="w-full py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white text-xs font-bold transition-colors">
+                                        Kick All Participants
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>

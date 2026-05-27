@@ -84,4 +84,19 @@ export const meetingService = {
         const response = await api.put(`/meetings/${code}/settings`, settings);
         return response.data.data;
     },
+
+    getParticipants: async (code) => {
+        const response = await api.get(`/meetings/${code}/participants`);
+        return response.data.data;
+    },
+
+    assignCoHost: async (code, targetUserId, assign) => {
+        const response = await api.post(`/meetings/${code}/cohost`, { targetUserId, assign });
+        return response.data;
+    },
+
+    transferHost: async (code, targetUserId) => {
+        const response = await api.post(`/meetings/${code}/transfer-host`, { targetUserId });
+        return response.data;
+    },
 };
