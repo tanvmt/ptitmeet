@@ -112,7 +112,7 @@ class AuthControllerTest {
 
         assertEquals(HttpStatus.OK, httpResponse.getStatusCode());
         assertEquals(1000, httpResponse.getBody().getCode());
-        assertEquals("ÄÄƒng xuáº¥t thĂ nh cĂ´ng", httpResponse.getBody().getMessage());
+        assertEquals("Đăng xuất thành công", httpResponse.getBody().getMessage());
         verify(authService).logout(response);
     }
 
@@ -126,7 +126,7 @@ class AuthControllerTest {
 
         assertEquals(HttpStatus.OK, httpResponse.getStatusCode());
         assertEquals(1000, httpResponse.getBody().getCode());
-        assertEquals("Email khĂ´i phá»¥c Ä‘Ă£ Ä‘Æ°á»£c gá»­i", httpResponse.getBody().getMessage());
+        assertEquals("Email khôi phục đã được gửi", httpResponse.getBody().getMessage());
         verify(authService).forgotPassword(request);
     }
 
@@ -141,7 +141,7 @@ class AuthControllerTest {
 
         assertEquals(HttpStatus.OK, httpResponse.getStatusCode());
         assertEquals(1000, httpResponse.getBody().getCode());
-        assertEquals("Máº­t kháº©u Ä‘Ă£ Ä‘Æ°á»£c cáº­p nháº­t", httpResponse.getBody().getMessage());
+        assertEquals("Mật khẩu đã được cập nhật", httpResponse.getBody().getMessage());
         verify(authService).resetPassword(request);
     }
 }
