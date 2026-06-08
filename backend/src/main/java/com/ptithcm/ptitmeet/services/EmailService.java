@@ -35,7 +35,7 @@ public class EmailService {
             message.setTo(toEmail);
             message.setSubject("PTITMEET - Khôi phục mật khẩu");
 
-            String resetLink = frontendUrl + "/reset-password?token=" + resetToken;
+            String resetLink = buildFrontendUrl("/reset-password?token=" + resetToken);
 
             String emailBody = String.format(
                     "Xin chào %s,\n\n" +
@@ -67,7 +67,7 @@ public class EmailService {
 
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm - dd/MM/yyyy");
             String formattedTime = startTime.format(formatter);
-            String joinLink = "http://localhost:5173/waiting-room/" + meetingCode;
+            String joinLink = buildFrontendUrl("/waiting-room/" + meetingCode);
 
             String htmlContent = String.format(
                 "<div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;'>" +
@@ -91,5 +91,12 @@ public class EmailService {
         } catch (MessagingException e) {
             System.err.println("Lỗi gửi email đến " + toEmail + ": " + e.getMessage());
         }
+    }
+
+    private String buildFrontendUrl(String path) {
+        String normalizedFrontendUrl = frontendUrl.endsWith("/")
+                ? frontendUrl.substring(0, frontendUrl.length() - 1)
+                : frontendUrl;
+        return normalizedFrontendUrl + path;
     }
 }
