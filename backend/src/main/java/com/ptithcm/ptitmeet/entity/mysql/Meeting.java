@@ -22,6 +22,9 @@ public class Meeting {
     @Column(name = "host_id", nullable = false)
     private UUID hostId;
 
+    @Column(name = "owner_id")
+    private UUID ownerId;
+
     @Column(name = "meeting_code", unique = true, nullable = false, length = 20)
     private String meetingCode;
 

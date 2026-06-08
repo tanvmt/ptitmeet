@@ -55,6 +55,16 @@ const LoginPage = ({ setUser }) => {
   return (
     <div className="min-h-screen flex items-center justify-center px-6">
       <div className="max-w-md w-full">
+        <div className="mb-8 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-gray-400 transition-colors hover:text-white"
+          >
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            Back to home
+          </button>
+        </div>
         <div className="text-center mb-10">
           <div className="size-16 bg-primary rounded-2xl flex items-center justify-center text-white shadow-xl shadow-primary/20 mx-auto mb-6">
             <span className="material-symbols-outlined text-4xl">videocam</span>

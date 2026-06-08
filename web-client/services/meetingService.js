@@ -49,6 +49,11 @@ export const meetingService = {
         return response.data.data;
     },
 
+    getMyRecordings: async () => {
+        const response = await api.get('/livekit/recordings/my');
+        return response.data.data;
+    },
+
     leaveMeeting: async (code) => {
         return await api.post(`/meetings/${code}/leave`);
     },

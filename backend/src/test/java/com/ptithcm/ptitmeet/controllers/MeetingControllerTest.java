@@ -17,13 +17,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ptithcm.ptitmeet.dto.meeting.ApprovalRequest;
 import com.ptithcm.ptitmeet.dto.meeting.CreateMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingResponse;
 import com.ptithcm.ptitmeet.entity.mongodb.ChatMessage;
 import com.ptithcm.ptitmeet.entity.mysql.Meeting;
-import com.ptithcm.ptitmeet.repositories.ChatMessageRepository;
 import com.ptithcm.ptitmeet.services.MeetingService;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,7 +33,7 @@ class MeetingControllerTest {
     private MeetingService meetingService;
 
     @Mock
-    private ChatMessageRepository chatMessageRepository;
+    private ObjectMapper objectMapper;
 
     @InjectMocks
     private MeetingController meetingController;
@@ -97,18 +97,21 @@ class MeetingControllerTest {
 
     @Test
     void getChatHistoryShouldReturnRepositoryData() {
+        UUID userId = UUID.randomUUID();
+        setAuthenticatedUser(userId);
         ChatMessage chatMessage = ChatMessage.builder()
                 .id("msg-1")
                 .meetingCode("room-123")
                 .content("hello")
                 .build();
-        when(chatMessageRepository.findByMeetingCodeOrderByTimestampAsc("room-123"))
+        when(meetingService.getChatHistory("room-123", userId))
                 .thenReturn(List.of(chatMessage));
 
         var response = meetingController.getChatHistory("room-123");
 
         assertEquals(1, response.getBody().getData().size());
         assertEquals("hello", response.getBody().getData().get(0).getContent());
+        verify(meetingService).getChatHistory("room-123", userId);
     }
 
     private void setAuthenticatedUser(UUID userId) {

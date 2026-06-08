@@ -13,4 +13,7 @@ public class MeetingHistoryResponse {
     private LocalDateTime endTime;
     private String status;
     private boolean isHost;
+    private boolean isOwner;
+    private boolean canViewChatHistory;
+    private boolean canViewRecordings;
 }

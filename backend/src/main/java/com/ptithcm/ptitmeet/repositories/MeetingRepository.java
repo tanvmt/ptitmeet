@@ -22,13 +22,16 @@ public interface MeetingRepository extends JpaRepository<Meeting, UUID> {
     boolean existsByMeetingCode(String meetingCode);
     
     List<Meeting> findByHostIdOrderByStartTimeDesc(UUID hostId);
+
+    @Query("SELECT m FROM Meeting m WHERE COALESCE(m.ownerId, m.hostId) = :ownerId ORDER BY m.startTime DESC")
+    List<Meeting> findOwnedMeetingsOrderByStartTimeDesc(@Param("ownerId") UUID ownerId);
     
     List<Meeting> findByStatusAndEndTimeBefore(MeetingStatus status, LocalDateTime now);
 
     @Query("SELECT DISTINCT m FROM Meeting m LEFT JOIN Participant p ON m.meetingId = p.meeting.meetingId " +
-           "WHERE (m.hostId = :userId OR p.user.userId = :userId) " +
+           "WHERE (COALESCE(m.ownerId, m.hostId) = :userId OR p.user.userId = :userId) " +
            "AND (:status IS NULL OR m.status = :status) " +
-           "AND (:role = 'ALL' OR (:role = 'HOST' AND m.hostId = :userId) OR (:role = 'GUEST' AND m.hostId <> :userId AND p.user.userId = :userId))")
+           "AND (:role = 'ALL' OR (:role = 'HOST' AND COALESCE(m.ownerId, m.hostId) = :userId) OR (:role = 'GUEST' AND COALESCE(m.ownerId, m.hostId) <> :userId AND p.user.userId = :userId))")
     Page<Meeting> findMeetingHistoryWithFilters(
             @Param("userId") UUID userId,
             @Param("role") String role,
@@ -36,7 +39,7 @@ public interface MeetingRepository extends JpaRepository<Meeting, UUID> {
             Pageable pageable);
 
     @Query("SELECT DISTINCT m FROM Meeting m LEFT JOIN Participant p ON m.meetingId = p.meeting.meetingId " +
-           "WHERE (m.hostId = :userId OR p.user.userId = :userId) " +
+           "WHERE (COALESCE(m.ownerId, m.hostId) = :userId OR p.user.userId = :userId) " +
            "AND m.status IN :statuses " +
            "ORDER BY m.startTime ASC")
     Page<Meeting> findUpNextMeeting(

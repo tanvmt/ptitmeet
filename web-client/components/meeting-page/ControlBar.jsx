@@ -13,7 +13,7 @@ import {
 } from "../../utils/mediaPermissions";
 
 const ControlBar = ({
-    sidebarOpen, setSidebarOpen, activeTab, setActiveTab, waitingCount, unreadCount, isHost, code, stompClient, meetingSettings
+    sidebarOpen, setSidebarOpen, activeTab, setActiveTab, waitingCount, unreadCount, isHost, isOwner, code, stompClient, meetingSettings
 }) => {
     const navigate = useNavigate();
     const room = useRoomContext();
@@ -46,6 +46,9 @@ const ControlBar = ({
     }, [localParticipant, isMicrophoneEnabled, isCameraEnabled]);
 
     const handleRecordMeeting = async () => {
+        if (!isOwner) {
+            return;
+        }
         try {
             if (!isRecord) {
                 const recordRes = await meetingService.startRecordMeeting(code);
@@ -373,11 +376,17 @@ const ControlBar = ({
                     <div className="w-px h-8 bg-white/10 mx-1"></div>
                     <button
                         onClick={handleRecordMeeting}
-                        className={`size-12 rounded-full flex items-center justify-center transition-all ${isRecord ? "bg-red-500 text-white shadow-lg shadow-red-500/20" : "bg-white/10 hover:bg-white/20 text-white"
-                            }`}
+                        disabled={!isOwner}
+                        className={`size-12 rounded-full flex items-center justify-center transition-all ${
+                            isRecord
+                                ? "bg-red-500 text-white shadow-lg shadow-red-500/20"
+                                : "bg-white/10 text-white"
+                        } ${isOwner ? "hover:bg-white/20" : "cursor-not-allowed opacity-40"}`}
+                        title={isOwner ? "Record meeting" : "Only the meeting owner can record"}
                     >
-
-                        <span className="material-symbols-outlined text-[22px]">{isRecord ? "screen_record" : "fiber_manual_record"}</span>
+                        <span className="material-symbols-outlined text-[22px]">
+                            {isRecord ? "screen_record" : "fiber_manual_record"}
+                        </span>
                     </button>
 
                     <button

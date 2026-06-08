@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { meetingService } from "../services/meetingService";
@@ -25,7 +25,11 @@ const MeetingPage = () => {
   const { user } = useAuth();
 
   const joinData = location.state || {};
-  const isHost = joinData.role === "HOST";
+  const [isHost, setIsHost] = useState(joinData.role === "HOST");
+  const [isOwner] = useState(Boolean(joinData.isOwner));
+  const [currentHostId, setCurrentHostId] = useState(
+    String(joinData.currentHostId || user?.userId || user?.id || "")
+  );
   const token = joinData.token;
   const serverUrl = joinData.serverUrl;
 
@@ -59,6 +63,12 @@ const MeetingPage = () => {
 
   const [stompClient, setStompClient] = useState(null);
   const [isStompConnected, setIsStompConnected] = useState(false);
+  const adminSubscriptionRef = useRef(null);
+  const isHostRef = useRef(isHost);
+
+  useEffect(() => {
+    isHostRef.current = isHost;
+  }, [isHost]);
 
   useEffect(() => {
     if (!token || !serverUrl) {
@@ -83,19 +93,11 @@ const MeetingPage = () => {
   useEffect(() => {
     if (!code) return;
 
-    if (isHost) fetchWaitingList();
-
     const client = new Client({
       brokerURL: getWebSocketUrl(),
       reconnectDelay: 5000,
       onConnect: () => {
         setIsStompConnected(true);
-
-        if (isHost) {
-          client.subscribe(`/topic/meeting/${code}/admin`, () => {
-            fetchWaitingList();
-          });
-        }
 
         client.subscribe(`/topic/meeting/${code}/system`, (message) => {
             const action = parseSystemAction(message.body);
@@ -107,26 +109,33 @@ const MeetingPage = () => {
 
             if (action.type === "SETTINGS_UPDATED") {
               setMeetingSettings(action.settings);
+            } else if (action.type === SYSTEM_ACTION_TYPES.HOST_TRANSFERRED) {
+              setCurrentHostId(String(action.newHostId || ""));
+              const becameHost = String(action.newHostId || "") === currentUserId;
+              setIsHost(becameHost);
+              if (becameHost) {
+                fetchWaitingList();
+              }
             } else if (action.type === SYSTEM_ACTION_TYPES.MEETING_ENDED) {
-               if (!isHost) {
+               if (!isHostRef.current) {
                    navigate("/summary", { 
                        state: { meetingCode: code, actionTaken: "ENDED_BY_HOST" } 
                    });
                }
             } else if (
-              !isHost &&
+              !isHostRef.current &&
               (action.type === SYSTEM_ACTION_TYPES.MUTE_ALL ||
                 (action.type === SYSTEM_ACTION_TYPES.MUTE_PARTICIPANT && isTargetedAtCurrentUser))
             ) {
                window.dispatchEvent(new CustomEvent('SYSTEM_ACTION', { detail: action.type }));
             } else if (
-              !isHost &&
+              !isHostRef.current &&
               (action.type === SYSTEM_ACTION_TYPES.STOP_CAMERA_ALL ||
                 (action.type === SYSTEM_ACTION_TYPES.STOP_CAMERA_PARTICIPANT && isTargetedAtCurrentUser))
             ) {
                window.dispatchEvent(new CustomEvent('SYSTEM_ACTION', { detail: action.type }));
              } else if (
-              !isHost &&
+              !isHostRef.current &&
               (action.type === SYSTEM_ACTION_TYPES.KICK_ALL ||
                 (action.type === SYSTEM_ACTION_TYPES.KICK_PARTICIPANT && isTargetedAtCurrentUser))
             ) {
@@ -151,9 +160,36 @@ const MeetingPage = () => {
     setStompClient(client);
 
     return () => {
+      if (adminSubscriptionRef.current) {
+        adminSubscriptionRef.current.unsubscribe();
+        adminSubscriptionRef.current = null;
+      }
       if (client.active) client.deactivate();
     };
-  }, [code, currentUserId, isHost, navigate]);
+  }, [code, currentUserId, navigate]);
+
+  useEffect(() => {
+    if (adminSubscriptionRef.current) {
+      adminSubscriptionRef.current.unsubscribe();
+      adminSubscriptionRef.current = null;
+    }
+
+    if (!stompClient || !isStompConnected || !isHost) {
+      return;
+    }
+
+    fetchWaitingList();
+    adminSubscriptionRef.current = stompClient.subscribe(`/topic/meeting/${code}/admin`, () => {
+      fetchWaitingList();
+    });
+
+    return () => {
+      if (adminSubscriptionRef.current) {
+        adminSubscriptionRef.current.unsubscribe();
+        adminSubscriptionRef.current = null;
+      }
+    };
+  }, [code, isHost, isStompConnected, stompClient]);
 
   const fetchWaitingList = async () => {
     try {
@@ -208,14 +244,15 @@ const MeetingPage = () => {
               <p className="mt-1 line-clamp-2 text-sm text-gray-300">{chatToast.content}</p>
             </div>
           )}
-          <MeetingHeader code={code} />
-          <div className="flex-grow flex relative overflow-hidden w-full">
-            <ParticipantGrid sidebarOpen={sidebarOpen} />
+          <MeetingHeader code={code} isHost={isHost} isOwner={isOwner} />
+          <div className="relative flex min-h-0 flex-grow overflow-hidden w-full">
+            <ParticipantGrid sidebarOpen={sidebarOpen} currentHostId={currentHostId} />
             <MeetingSidebar
                 sidebarOpen={sidebarOpen}
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 isHost={isHost}
+                currentHostId={currentHostId}
                 waitingList={waitingList}
                 isLoadingWaiting={isLoadingWaiting}
                 handleApproval={handleApproval}
@@ -228,7 +265,7 @@ const MeetingPage = () => {
                 meetingSettings={meetingSettings}
             />
           </div>
-          <ControlBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={setActiveTab} waitingCount={waitingList.length} unreadCount={unreadMessages} isHost={isHost} code={code} stompClient={stompClient} meetingSettings={meetingSettings}/>
+          <ControlBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={setActiveTab} waitingCount={waitingList.length} unreadCount={unreadMessages} isHost={isHost} isOwner={isOwner} code={code} stompClient={stompClient} meetingSettings={meetingSettings}/>
           <RoomAudioRenderer />
           <Reactions /> {/* Add Reactions component here */}
         </div>

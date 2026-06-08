@@ -7,7 +7,7 @@ info:
   version: v1
 servers:
 - description: PTITMeet backend server
-  url: http://mymeeting.ddns.net/api
+  url: http://localhost:8080/api
 paths:
   /api/auth/forgot-password:
     post:
@@ -123,6 +123,18 @@ paths:
           description: OK
       tags:
       - auth-controller
+  /api/livekit/recordings/my:
+    get:
+      operationId: getMyRecordings
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListMeetingRecording"
+          description: OK
+      tags:
+      - recording-controller
   /api/livekit/recordings/start:
     post:
       operationId: startRecording
@@ -654,6 +666,18 @@ components:
             $ref: "#/components/schemas/Meeting"
         message:
           type: string
+    ApiResponseListMeetingRecording:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingRecording"
+        message:
+          type: string
     ApiResponseListParticipantResponse:
       type: object
       properties:
@@ -848,8 +872,14 @@ components:
     JoinMeetingResponse:
       type: object
       properties:
+        currentHostId:
+          type: string
+        isOwner:
+          type: boolean
         message:
           type: string
+        owner:
+          type: boolean
         role:
           type: string
         serverUrl:
@@ -901,6 +931,9 @@ components:
         meetingId:
           type: string
           format: uuid
+        ownerId:
+          type: string
+          format: uuid
         password:
           type: string
         settings:
@@ -920,6 +953,10 @@ components:
     MeetingHistoryResponse:
       type: object
       properties:
+        canViewChatHistory:
+          type: boolean
+        canViewRecordings:
+          type: boolean
         endTime:
           type: string
           format: date-time
@@ -927,6 +964,8 @@ components:
           type: boolean
         meetingCode:
           type: string
+        owner:
+          type: boolean
         startTime:
           type: string
           format: date-time
@@ -968,6 +1007,12 @@ components:
         id:
           type: integer
           format: int64
+        meetingId:
+          type: string
+          format: uuid
+        ownerId:
+          type: string
+          format: uuid
         roomName:
           type: string
         status:

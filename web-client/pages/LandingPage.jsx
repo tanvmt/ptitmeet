@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const [meetingCode, setMeetingCode] = useState("");
 
   return (
     <div className="relative overflow-hidden bg-background">
@@ -18,16 +19,10 @@ const LandingPage = () => {
           <span className="text-xl font-black tracking-tight">PTIT-Meet</span>
         </div>
 
-        <nav className="hidden md:flex items-center gap-8">
-          <a href="#" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Product</a>
-          <a href="#" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Solutions</a>
-          <a href="#" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Pricing</a>
-        </nav>
-
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/login')}
-            className="text-sm font-semibold text-gray-400 hover:text-white mr-4"
+            className="text-sm font-semibold text-gray-400 hover:text-white"
           >
             Sign In
           </button>
@@ -35,7 +30,7 @@ const LandingPage = () => {
             onClick={() => navigate('/signup')}
             className="bg-primary hover:bg-blue-600 px-6 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105"
           >
-            Start Free
+            Create account
           </button>
         </div>
       </header>
@@ -52,7 +47,7 @@ const LandingPage = () => {
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">Modern Teams</span>
           </h1>
           <p className="text-lg lg:text-xl text-gray-400 mb-10 max-w-xl mx-auto lg:mx-0">
-            Collaborate from anywhere with enterprise-grade security, HD audio/video, and seamless real-time tools.
+            Create meetings, admit participants, record sessions, and review your owned meeting history from one workspace.
           </p>
           <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
             <button
@@ -66,10 +61,17 @@ const LandingPage = () => {
               <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-primary transition-colors">keyboard</span>
               <input
                 type="text"
+                value={meetingCode}
+                onChange={(event) => setMeetingCode(event.target.value)}
                 placeholder="Enter code"
                 className="w-full h-14 pl-12 pr-20 rounded-full bg-surface border border-white/10 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
               />
-              <button className="absolute right-2 top-2 bottom-2 px-4 rounded-full text-primary hover:bg-primary/10 font-bold text-sm transition-colors">Join</button>
+              <button
+                onClick={() => navigate('/login', { state: { pendingMeetingCode: meetingCode.trim() } })}
+                className="absolute right-2 top-2 bottom-2 px-4 rounded-full text-primary hover:bg-primary/10 font-bold text-sm transition-colors"
+              >
+                Sign in to join
+              </button>
             </div>
           </div>
         </div>
@@ -84,12 +86,21 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Logo các đối tác (Trust Logos) */}
-      <div className="max-w-7xl mx-auto px-6 py-12 border-t border-white/5 opacity-50 flex flex-wrap justify-center gap-12 lg:gap-24 grayscale">
-        <div className="flex items-center gap-2 font-black text-xl"><span className="material-symbols-outlined">hexagon</span> ACME</div>
-        <div className="flex items-center gap-2 font-black text-xl"><span className="material-symbols-outlined">token</span> GLOBAL</div>
-        <div className="flex items-center gap-2 font-black text-xl"><span className="material-symbols-outlined">bolt</span> FASTLY</div>
-        <div className="flex items-center gap-2 font-black text-xl"><span className="material-symbols-outlined">diamond</span> SPARK</div>
+      <div className="max-w-7xl mx-auto px-6 py-12 border-t border-white/5 opacity-70">
+        <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
+          <div className="rounded-2xl border border-white/5 bg-white/5 p-5">
+            <p className="text-sm font-bold text-primary">Owner-first data</p>
+            <p className="mt-2 text-sm text-gray-400">Chat history and recordings stay with the original meeting owner.</p>
+          </div>
+          <div className="rounded-2xl border border-white/5 bg-white/5 p-5">
+            <p className="text-sm font-bold text-primary">Live moderation</p>
+            <p className="mt-2 text-sm text-gray-400">Waiting room, approvals, and runtime host controls are built in.</p>
+          </div>
+          <div className="rounded-2xl border border-white/5 bg-white/5 p-5">
+            <p className="text-sm font-bold text-primary">Recording workflow</p>
+            <p className="mt-2 text-sm text-gray-400">Start recording inside the meeting and review completed files later.</p>
+          </div>
+        </div>
       </div>
     </div>
   );

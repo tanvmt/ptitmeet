@@ -189,6 +189,8 @@ const WaitingRoomPage = () => {
       state: {
         token: res.token,
         role: res.role,
+        isOwner: Boolean(res.isOwner),
+        currentHostId: res.currentHostId,
         serverUrl: res.serverUrl,
         settings: res.settings,
         micOn: mediaPreferenceRef.current.micOn,

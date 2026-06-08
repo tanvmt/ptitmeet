@@ -7,6 +7,8 @@ import com.ptithcm.ptitmeet.services.LiveKitService;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,11 +23,16 @@ public class RecordingController {
     @Autowired
     private LiveKitService recordingService;
 
+    private java.util.UUID getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return java.util.UUID.fromString(authentication.getName());
+    }
+
     // API: Bắt đầu ghi hình
     @PostMapping("/start")
     public ResponseEntity<ApiResponse<MeetingRecording>> startRecording(@RequestParam String meetingCode) {
         try {
-            MeetingRecording recording = recordingService.startRoomRecording(meetingCode);
+            MeetingRecording recording = recordingService.startRoomRecording(meetingCode, getCurrentUserId());
 
             return ResponseEntity.ok(ApiResponse.success(recording, "")); // Trả về object có chứa egressId cho React
         } catch (Exception e) {
@@ -38,7 +45,7 @@ public class RecordingController {
     @PostMapping("/stop")
     public ResponseEntity<?> stopRecording(@RequestParam String egressId) {
         try {
-            MeetingRecording recording = recordingService.stopRecording(egressId);
+            MeetingRecording recording = recordingService.stopRecording(egressId, getCurrentUserId());
             return ResponseEntity.ok(recording);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -49,10 +56,16 @@ public class RecordingController {
     @GetMapping("/status")
     public ResponseEntity<?> getRecordingStatus(@RequestParam String egressId) {
         try {
-            MeetingRecording recording = recordingService.getRecordingByEgressId(egressId);
+            MeetingRecording recording = recordingService.getRecordingByEgressId(egressId, getCurrentUserId());
             return ResponseEntity.ok(recording);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    @GetMapping("/my")
+    public ResponseEntity<ApiResponse<java.util.List<MeetingRecording>>> getMyRecordings() {
+        java.util.List<MeetingRecording> recordings = recordingService.getRecordingsByOwnerId(getCurrentUserId());
+        return ResponseEntity.ok(ApiResponse.success(recordings, "Lấy danh sách recordings thành công"));
     }
 }

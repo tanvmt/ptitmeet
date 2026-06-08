@@ -4,6 +4,7 @@ package com.ptithcm.ptitmeet.entity.mysql;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "meeting_recordings")
@@ -18,6 +19,12 @@ public class MeetingRecording {
 
     @Column(nullable = false, unique = true)
     private String egressId; 
+
+    @Column(name = "meeting_id")
+    private UUID meetingId;
+
+    @Column(name = "owner_id")
+    private UUID ownerId;
 
     private String status; // Các trạng thái: STARTING, RECORDING, STOPPING, COMPLETED, FAILED
 
