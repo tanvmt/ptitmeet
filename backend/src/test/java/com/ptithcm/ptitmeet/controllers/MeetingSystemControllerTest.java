@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ptithcm.ptitmeet.services.MeetingService;
 
 @ExtendWith(MockitoExtension.class)
 class MeetingSystemControllerTest {
@@ -19,17 +20,21 @@ class MeetingSystemControllerTest {
     @Mock
     private SimpMessagingTemplate messagingTemplate;
 
+    @Mock
+    private MeetingService meetingService;
+
     private MeetingSystemController meetingSystemController;
 
     @BeforeEach
     void setUp() {
-        meetingSystemController = new MeetingSystemController(messagingTemplate, new ObjectMapper());
+        meetingSystemController = new MeetingSystemController(messagingTemplate, new ObjectMapper(), meetingService);
     }
 
     @Test
     void shouldBroadcastSupportedPlainAction() {
         meetingSystemController.broadcastSystemAction("room-123", "MUTE_ALL");
 
+        verify(meetingService).handleSystemAction("room-123", "MUTE_ALL");
         verify(messagingTemplate).convertAndSend("/topic/meeting/room-123/system", "MUTE_ALL");
     }
 
@@ -39,6 +44,7 @@ class MeetingSystemControllerTest {
 
         meetingSystemController.broadcastSystemAction("room-123", payload);
 
+        verify(meetingService).handleSystemAction("room-123", payload);
         verify(messagingTemplate).convertAndSend("/topic/meeting/room-123/system", payload);
     }
 
@@ -49,5 +55,8 @@ class MeetingSystemControllerTest {
         verify(messagingTemplate, never()).convertAndSend(
                 ArgumentMatchers.anyString(),
                 ArgumentMatchers.<Object>any());
+        verify(meetingService, never()).handleSystemAction(
+                ArgumentMatchers.anyString(),
+                ArgumentMatchers.anyString());
     }
 }

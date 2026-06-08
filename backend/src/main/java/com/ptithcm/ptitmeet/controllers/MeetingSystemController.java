@@ -10,6 +10,7 @@ import org.springframework.stereotype.Controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ptithcm.ptitmeet.services.MeetingService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,6 +28,7 @@ public class MeetingSystemController {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
+    private final MeetingService meetingService;
 
     @MessageMapping("/meeting/{code}/system")
     public void broadcastSystemAction(@DestinationVariable String code, @Payload String payload) {
@@ -43,6 +45,7 @@ public class MeetingSystemController {
             return;
         }
 
+        meetingService.handleSystemAction(code, normalizedPayload);
         messagingTemplate.convertAndSend("/topic/meeting/" + code + "/system", normalizedPayload);
     }
 

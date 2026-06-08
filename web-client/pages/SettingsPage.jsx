@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import UserProfile from '../components/UserProfile';
-import AudioSettings from '../components/settings/AudioSettings';
-import VideoSettings from '../components/settings/VideoSettings';
-import BackgroundSettings from '../components/settings/BackgroundSettings';
 import NotificationSettings from '../components/settings/NotificationSettings';
-import SecuritySettings from '../components/settings/SecuritySettings';
 import { useAuth } from '../contexts/AuthContext';
 
 const getInitials = (name) => {
@@ -20,7 +16,7 @@ const SettingsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState(location.state?.tab || 'audio');
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'profile');
 
   useEffect(() => {
     if (location.state?.tab) {
@@ -29,33 +25,16 @@ const SettingsPage = () => {
   }, [location.state]);
 
   const navItems = [
-    { id: 'audio', label: 'Audio', icon: 'mic' },
-    { id: 'video', label: 'Video', icon: 'videocam' },
-    { id: 'background', label: 'Background', icon: 'wallpaper' },
-    { id: 'notifications', label: 'Notifications', icon: 'notifications' },
     { id: 'profile', label: 'Profile', icon: 'person' },
-    { id: 'security', label: 'Security', icon: 'security' },
+    { id: 'notifications', label: 'Notifications', icon: 'notifications' },
   ];
-
-  const handleSave = () => {
-    alert('Settings saved successfully!');
-    navigate('/dashboard');
-  };
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'audio':
-        return <AudioSettings />;
-      case 'video':
-        return <VideoSettings />;
-      case 'background':
-        return <BackgroundSettings />;
-      case 'notifications':
-        return <NotificationSettings />;
       case 'profile':
         return <UserProfile />;
-      case 'security':
-        return <SecuritySettings />;
+      case 'notifications':
+        return <NotificationSettings />;
       default:
         return null;
     }
@@ -66,6 +45,13 @@ const SettingsPage = () => {
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-[#0a0c0f] flex flex-col border-b md:border-b-0 md:border-r border-white/5 shrink-0">
         <div className="p-6">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-gray-400 transition-colors hover:text-white"
+          >
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            Back to dashboard
+          </button>
           <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
             <span className="material-symbols-outlined text-primary text-[24px]">settings</span>
             Settings
@@ -118,12 +104,8 @@ const SettingsPage = () => {
             <div>
               <h1 className="text-3xl font-bold text-white capitalize tracking-tight">{activeTab}</h1>
               <p className="text-gray-400 text-sm mt-2 font-medium">
-                {activeTab === 'audio' && 'Manage input and output devices.'}
-                {activeTab === 'video' && 'Configure your camera and quality settings.'}
                 {activeTab === 'profile' && 'Update your personal information.'}
-                {activeTab === 'background' && 'Choose your virtual background.'}
                 {activeTab === 'notifications' && 'Adjust your notification preferences.'}
-                {activeTab === 'security' && 'Manage your account and meeting security.'}
               </p>
             </div>
             <button

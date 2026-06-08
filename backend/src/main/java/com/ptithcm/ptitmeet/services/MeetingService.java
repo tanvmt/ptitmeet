@@ -2,6 +2,7 @@ package com.ptithcm.ptitmeet.services;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Comparator;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -83,6 +84,7 @@ public class MeetingService {
 
         Meeting meeting = Meeting.builder()
                 .hostId(hostId)
+                .ownerId(hostId)
                 .meetingCode(meetingCode)
                 .title(title)
                 .isInstant(true)
@@ -124,6 +126,7 @@ public class MeetingService {
 
         Meeting newMeeting = Meeting.builder()
                 .hostId(hostId)
+                .ownerId(hostId)
                 .meetingCode(meetingCode)
                 .title(request.getTitle())
                 .password(request.getPassword())
@@ -201,7 +204,7 @@ public class MeetingService {
     }
 
     public List<Meeting> getMyMeetings(UUID userId) {
-        return meetingRepository.findByHostIdOrderByStartTimeDesc(userId);
+        return meetingRepository.findOwnedMeetingsOrderByStartTimeDesc(userId);
     }
 
     public void cancelMeeting(UUID userId, String code) {
@@ -231,10 +234,11 @@ public class MeetingService {
             throw new AppException(ErrorCode.MEETING_CANCELED);
         }
 
-        boolean isHost = meeting.getHostId().equals(user.getUserId());
-        ParticipantRole role = isHost ? ParticipantRole.HOST : ParticipantRole.ATTENDEE;
+        boolean isRuntimeHost = meeting.getHostId().equals(user.getUserId());
+        boolean isOwner = getMeetingOwnerId(meeting).equals(user.getUserId());
+        ParticipantRole role = isRuntimeHost ? ParticipantRole.HOST : ParticipantRole.ATTENDEE;
 
-        if (!isHost && meeting.getPassword() != null && !meeting.getPassword().isEmpty()) {
+        if (!isRuntimeHost && !isOwner && meeting.getPassword() != null && !meeting.getPassword().isEmpty()) {
             if (request.getPassword() == null || !request.getPassword().equals(meeting.getPassword())) {
                 throw new AppException(ErrorCode.INVALID_MEETING_PASSWORD);
             }
@@ -242,7 +246,7 @@ public class MeetingService {
 
         ParticipantApprovalStatus targetStatus;
 
-        if (isHost) {
+        if (isRuntimeHost || isOwner) {
             targetStatus = ParticipantApprovalStatus.APPROVED;
 
             if (meeting.getStatus() == MeetingStatus.SCHEDULED) {
@@ -272,12 +276,17 @@ public class MeetingService {
                 });
 
         participant.setRole(role);
+        participant = participantRepository.save(participant);
 
-        if (participant.getApprovalStatus() != ParticipantApprovalStatus.APPROVED) {
-            participant.setApprovalStatus(targetStatus);
+        SessionStatus latestSessionStatus = getLatestSessionStatus(participant);
+        if (!isRuntimeHost && !isOwner && latestSessionStatus == SessionStatus.KICKED) {
+            targetStatus = ParticipantApprovalStatus.PENDING;
         }
 
-        participant = participantRepository.save(participant);
+        if (participant.getApprovalStatus() != ParticipantApprovalStatus.APPROVED || latestSessionStatus == SessionStatus.KICKED) {
+            participant.setApprovalStatus(targetStatus);
+            participant = participantRepository.save(participant);
+        }
 
         if (participant.getApprovalStatus() == ParticipantApprovalStatus.PENDING) {
             ParticipantResponse notiData = ParticipantResponse.builder()
@@ -297,6 +306,8 @@ public class MeetingService {
                     .status("PENDING")
                     .message(message)
                     .settings(meeting.getSettings())
+                    .isOwner(isOwner)
+                    .currentHostId(meeting.getHostId() != null ? meeting.getHostId().toString() : null)
                     .build();
         }
 
@@ -313,6 +324,8 @@ public class MeetingService {
                 .role(role.name())
                 .status(participant.getApprovalStatus().name())
                 .settings(meeting.getSettings())
+                .isOwner(isOwner)
+                .currentHostId(meeting.getHostId() != null ? meeting.getHostId().toString() : null)
                 .build();
     }
 
@@ -375,6 +388,9 @@ public class MeetingService {
                     .role("ATTENDEE")
                     .token(token)
                     .serverUrl(liveKitService.getLivekitUrl())
+                    .settings(meeting.getSettings())
+                    .isOwner(false)
+                    .currentHostId(meeting.getHostId() != null ? meeting.getHostId().toString() : null)
                     .build();
 
             messagingTemplate.convertAndSend(
@@ -387,6 +403,8 @@ public class MeetingService {
             JoinMeetingResponse rejectResponse = JoinMeetingResponse.builder()
                     .status("REJECTED")
                     .message("Chủ phòng đã từ chối yêu cầu tham gia.")
+                    .isOwner(false)
+                    .currentHostId(meeting.getHostId() != null ? meeting.getHostId().toString() : null)
                     .build();
 
             messagingTemplate.convertAndSend(
@@ -411,14 +429,17 @@ public class MeetingService {
         Page<Meeting> meetingPage = meetingRepository.findMeetingHistoryWithFilters(userId, role, statusEnum, pageable);
 
         return meetingPage.map(meeting -> {
-            boolean isHost = meeting.getHostId().equals(userId);
+            boolean isOwner = getMeetingOwnerId(meeting).equals(userId);
             return MeetingHistoryResponse.builder()
                     .meetingCode(meeting.getMeetingCode())
                     .title(meeting.getTitle())
                     .startTime(meeting.getStartTime())
                     .endTime(meeting.getEndTime())
                     .status(meeting.getStatus().name())
-                    .isHost(isHost)
+                    .isHost(isOwner)
+                    .isOwner(isOwner)
+                    .canViewChatHistory(isOwner)
+                    .canViewRecordings(isOwner)
                     .build();
         });
     }
@@ -435,7 +456,7 @@ public class MeetingService {
         }
 
         Meeting meeting = pageResult.getContent().get(0);
-        boolean isHost = meeting.getHostId().equals(userId);
+        boolean isOwner = getMeetingOwnerId(meeting).equals(userId);
 
         return MeetingHistoryResponse.builder()
                 .meetingCode(meeting.getMeetingCode())
@@ -443,7 +464,10 @@ public class MeetingService {
                 .startTime(meeting.getStartTime())
                 .endTime(meeting.getEndTime())
                 .status(meeting.getStatus().name())
-                .isHost(isHost)
+                .isHost(isOwner)
+                .isOwner(isOwner)
+                .canViewChatHistory(isOwner)
+                .canViewRecordings(isOwner)
                 .build();
     }
 
@@ -466,6 +490,18 @@ public class MeetingService {
             activeSession.setLeftAt(LocalDateTime.now());
             activeSession.setStatus(SessionStatus.LEFT);
             sessionRepository.save(activeSession);
+        }
+
+        List<ParticipantSession> remainingActiveSessions = sessionRepository.findActiveSessionsByMeetingCode(code);
+        if (remainingActiveSessions.isEmpty()) {
+            finishMeetingBecauseRoomIsEmpty(meeting);
+            return;
+        }
+
+        if (meeting.getHostId().equals(userId)) {
+            participant.setRole(ParticipantRole.ATTENDEE);
+            participantRepository.save(participant);
+            transferHostToNextActiveParticipant(meeting, userId);
         }
     }
 
@@ -528,6 +564,29 @@ public class MeetingService {
         }
 
         return summary;
+    }
+
+    public List<com.ptithcm.ptitmeet.entity.mongodb.ChatMessage> getChatHistory(String code, UUID userId) {
+        Meeting meeting = meetingRepository.findByMeetingCode(code)
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
+
+        if (getMeetingOwnerId(meeting).equals(userId)) {
+            return chatMessageRepository.findByMeetingCodeOrderByTimestampAsc(code);
+        }
+
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        Participant participant = participantRepository.findByMeetingAndUser(meeting, user)
+                .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
+
+        boolean hasActiveSession = sessionRepository
+                .findFirstByParticipantAndStatusOrderByJoinedAtDesc(participant, SessionStatus.ACTIVE)
+                .isPresent();
+        if (!hasActiveSession) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        return chatMessageRepository.findByMeetingCodeOrderByTimestampAsc(code);
     }
 
     @Transactional
@@ -690,6 +749,125 @@ public class MeetingService {
                 .build();
 
         sessionRepository.save(newSession);
+    }
+
+    private SessionStatus getLatestSessionStatus(Participant participant) {
+        if (participant.getParticipantId() == null) {
+            return null;
+        }
+        return sessionRepository.findByParticipant(participant).stream()
+                .max(Comparator.comparing(ParticipantSession::getJoinedAt))
+                .map(ParticipantSession::getStatus)
+                .orElse(null);
+    }
+
+    private UUID getMeetingOwnerId(Meeting meeting) {
+        return meeting.getOwnerId() != null ? meeting.getOwnerId() : meeting.getHostId();
+    }
+
+    private void finishMeetingBecauseRoomIsEmpty(Meeting meeting) {
+        if (meeting.getStatus() != MeetingStatus.FINISHED) {
+            meeting.setStatus(MeetingStatus.FINISHED);
+        }
+        if (meeting.getEndTime() == null) {
+            meeting.setEndTime(LocalDateTime.now());
+        }
+        meetingRepository.save(meeting);
+    }
+
+    private void transferHostToNextActiveParticipant(Meeting meeting, UUID previousHostId) {
+        List<ParticipantSession> remainingSessions = sessionRepository.findActiveSessionsByMeetingCode(meeting.getMeetingCode())
+                .stream()
+                .filter(session -> session.getParticipant().getUser() != null)
+                .filter(session -> !previousHostId.equals(session.getParticipant().getUser().getUserId()))
+                .sorted(Comparator.comparing(ParticipantSession::getJoinedAt))
+                .toList();
+
+        if (remainingSessions.isEmpty()) {
+            return;
+        }
+
+        ParticipantSession nextHostSession = remainingSessions.get(0);
+        Participant nextHostParticipant = nextHostSession.getParticipant();
+
+        meeting.setHostId(nextHostParticipant.getUser().getUserId());
+        meetingRepository.save(meeting);
+
+        nextHostParticipant.setRole(ParticipantRole.HOST);
+        participantRepository.save(nextHostParticipant);
+
+        messagingTemplate.convertAndSend(
+                "/topic/meeting/" + meeting.getMeetingCode() + "/system",
+                String.format("{\"type\":\"HOST_TRANSFERRED\",\"newHostId\":\"%s\"}", nextHostParticipant.getUser().getUserId()));
+    }
+
+    @Transactional
+    public void handleSystemAction(String code, String payload) {
+        try {
+            JsonNode actionNode = objectMapper.readTree(payload);
+            String type = actionNode.path("type").asText();
+            if (type == null || type.isBlank()) {
+                return;
+            }
+
+            Meeting meeting = meetingRepository.findByMeetingCode(code)
+                    .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
+
+            switch (type) {
+                case "KICK_ALL" -> kickAllParticipants(meeting);
+                case "KICK_PARTICIPANT" -> {
+                    String targetParticipantId = actionNode.path("targetParticipantId").asText();
+                    if (targetParticipantId != null && !targetParticipantId.isBlank()) {
+                        kickSingleParticipant(meeting, UUID.fromString(targetParticipantId));
+                    }
+                }
+                default -> {
+                }
+            }
+        } catch (Exception ignored) {
+            // Ignore malformed or unsupported payloads; websocket broadcast still proceeds.
+        }
+    }
+
+    private void kickAllParticipants(Meeting meeting) {
+        LocalDateTime now = LocalDateTime.now();
+        List<ParticipantSession> sessions = sessionRepository.findActiveSessionsByMeetingCode(meeting.getMeetingCode());
+        for (ParticipantSession session : sessions) {
+            Participant participant = session.getParticipant();
+            if (participant.getUser() == null) {
+                continue;
+            }
+            if (meeting.getHostId().equals(participant.getUser().getUserId())) {
+                continue;
+            }
+            participant.setApprovalStatus(ParticipantApprovalStatus.PENDING);
+            participantRepository.save(participant);
+
+            session.setLeftAt(now);
+            session.setStatus(SessionStatus.KICKED);
+        }
+        sessionRepository.saveAll(sessions);
+    }
+
+    private void kickSingleParticipant(Meeting meeting, UUID targetUserId) {
+        Participant participant = participantRepository.findByMeeting_MeetingCodeAndUser_UserId(meeting.getMeetingCode(), targetUserId)
+                .orElse(null);
+        if (participant == null) {
+            return;
+        }
+
+        participant.setApprovalStatus(ParticipantApprovalStatus.PENDING);
+        participantRepository.save(participant);
+
+        List<ParticipantSession> sessions = sessionRepository.findByParticipant(participant).stream()
+                .filter(session -> session.getStatus() == SessionStatus.ACTIVE)
+                .toList();
+        LocalDateTime now = LocalDateTime.now();
+        for (ParticipantSession session : sessions) {
+            session.setLeftAt(now);
+            session.setStatus(SessionStatus.KICKED);
+        }
+        sessionRepository.saveAll(sessions);
     }
 
     public String getMeetingSettings(String code) {

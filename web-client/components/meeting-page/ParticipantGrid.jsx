@@ -3,7 +3,7 @@ import { useTracks, VideoTrack } from "@livekit/components-react";
 import { isTrackReference } from "@livekit/components-core";
 import { Track } from "livekit-client";
 
-const ParticipantGrid = ({ sidebarOpen }) => {
+const ParticipantGrid = ({ sidebarOpen, currentHostId }) => {
     // Lấy tất cả tracks từ phòng họp
     const tracks = useTracks([
         { source: Track.Source.Camera, withPlaceholder: true },
@@ -34,11 +34,11 @@ const ParticipantGrid = ({ sidebarOpen }) => {
                 {/* VÙNG HIỂN THỊ CHÍNH (SPOTLIGHT) */}
                 <div className={`flex-grow flex items-center justify-center bg-black/20 rounded-3xl overflow-hidden min-h-[50vh] transition-all ${screenShareTrack ? 'lg:w-3/4' : 'w-full'}`}>
                     {screenShareTrack ? (
-                        <ParticipantTile trackRef={screenShareTrack} isLarge />
+                        <ParticipantTile trackRef={screenShareTrack} isLarge currentHostId={currentHostId} />
                     ) : (
                         <div className={`grid gap-4 w-full h-full auto-rows-fr ${getGridClass(cameraTracks.length)}`}>
                             {cameraTracks.map((t) => (
-                                <ParticipantTile key={`${t.participant.sid}-${t.source}`} trackRef={t} />
+                                <ParticipantTile key={`${t.participant.sid}-${t.source}`} trackRef={t} currentHostId={currentHostId} />
                             ))}
                         </div>
                     )}
@@ -49,7 +49,7 @@ const ParticipantGrid = ({ sidebarOpen }) => {
                     <div className="lg:w-1/4 flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto pb-2 lg:pb-0 scrollbar-hide">
                         {cameraTracks.map((t) => (
                             <div key={`${t.participant.sid}-${t.source}`} className="min-w-[200px] lg:min-w-full aspect-video">
-                                <ParticipantTile trackRef={t} />
+                                <ParticipantTile trackRef={t} currentHostId={currentHostId} />
                             </div>
                         ))}
                     </div>
@@ -70,12 +70,13 @@ const ParticipantGrid = ({ sidebarOpen }) => {
 };
 
 // Component hiển thị từng Participant
-const ParticipantTile = ({ trackRef, isLarge = false }) => {
+const ParticipantTile = ({ trackRef, isLarge = false, currentHostId }) => {
     // Lấy thông tin participant trực tiếp từ trackRef (Thay thế cho useParticipant)
     const p = trackRef.participant;
     const isScreenShare = trackRef.source === Track.Source.ScreenShare;
     const hasVideoTrack = isTrackReference(trackRef);
     const name = p.name || p.identity || "Unknown";
+    const isHost = String(p.identity || "") === String(currentHostId || "");
 
     const [isHandRaised, setIsHandRaised] = useState(false);
 
@@ -115,6 +116,11 @@ const ParticipantTile = ({ trackRef, isLarge = false }) => {
                 <span className="text-[11px] font-medium text-white">
                     {name} {p.isLocal && "(You)"} {isScreenShare && " presenting"}
                 </span>
+                {isHost && (
+                    <span className="rounded-full bg-primary/90 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
+                        Host
+                    </span>
+                )}
 
                 {/* Icon Mic tắt */}
                 {!p.isMicrophoneEnabled && !isScreenShare && (

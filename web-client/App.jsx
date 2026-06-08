@@ -12,6 +12,7 @@ import SettingsPage from './pages/SettingsPage';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import HistoryPage from './pages/HistoryPage';
+import RecordingsPage from './pages/RecordingsPage';
 import { useAuth } from './contexts/AuthContext';
 const App = () => {
     const { user, setUser, logout } = useAuth();
@@ -44,7 +45,12 @@ const App = () => {
                         path="/schedule"
                         element={user ? <SchedulePage /> : <Navigate to="/login" />}
                     />
-                    <Route path="/history" element={<HistoryPage />} />
+                    <Route path="/history" element={user ? <HistoryPage /> : <Navigate to="/login" />} />
+
+                    <Route
+                        path="/recordings"
+                        element={user ? <RecordingsPage /> : <Navigate to="/login" />}
+                    />
 
                     <Route path="/settings" element={user ? <SettingsPage /> : <Navigate to="/login" />} />
 

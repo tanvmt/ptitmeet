@@ -8,7 +8,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ptithcm.ptitmeet.entity.mysql.Meeting;
 import com.ptithcm.ptitmeet.entity.mysql.MeetingRecording;
+import com.ptithcm.ptitmeet.exception.AppException;
+import com.ptithcm.ptitmeet.exception.ErrorCode;
+import com.ptithcm.ptitmeet.repositories.MeetingRepository;
 import com.ptithcm.ptitmeet.repositories.MeetingRecordingRepository;
 
 import io.livekit.server.AccessToken;
@@ -63,6 +67,9 @@ public class LiveKitService {
     @Autowired
     private MeetingRecordingRepository recordingRepository;
 
+    @Autowired
+    private MeetingRepository meetingRepository;
+
     private EgressServiceClient egressClient;
     
 
@@ -73,7 +80,15 @@ public class LiveKitService {
     }
 
     @Transactional
-    public MeetingRecording startRoomRecording(String roomName) {
+    public MeetingRecording startRoomRecording(String roomName, java.util.UUID userId) {
+        Meeting meeting = meetingRepository.findByMeetingCode(roomName)
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
+
+        java.util.UUID ownerId = meeting.getOwnerId() != null ? meeting.getOwnerId() : meeting.getHostId();
+        if (!ownerId.equals(userId)) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
         // 1. Cấu hình upload lên Cloudflare R2 (S3-compatible)
         String fileName = "recordings/record_" + roomName + "_" + System.currentTimeMillis() + ".mp4";
 
@@ -105,6 +120,8 @@ public class LiveKitService {
                 MeetingRecording recording = new MeetingRecording();
                 recording.setRoomName(roomName);
                 recording.setEgressId(egressId);
+                recording.setMeetingId(meeting.getMeetingId());
+                recording.setOwnerId(ownerId);
                 recording.setStatus("RECORDING");
                 recording.setCreatedAt(LocalDateTime.now());
                 recording.setFileUrl(fileRes);
@@ -122,7 +139,7 @@ public class LiveKitService {
     }
 
     @Transactional
-    public MeetingRecording stopRecording(String egressId) {
+    public MeetingRecording stopRecording(String egressId, java.util.UUID ownerId) {
 
         boolean isStopSuccess = false;
         try {
@@ -135,7 +152,7 @@ public class LiveKitService {
             log.error("Lỗi khi gửi lệnh dừng phòng họp tại egressId: {}", egressId, e);
         }
 
-        MeetingRecording recording = recordingRepository.findByEgressId(egressId)
+        MeetingRecording recording = recordingRepository.findByEgressIdAndOwnerId(egressId, ownerId)
                 .orElseThrow(() -> new RuntimeException(
                         "Không tìm thấy thông tin ghi hình trong Database với ID: " + egressId));
 
@@ -183,10 +200,14 @@ public class LiveKitService {
     /**
      * Lấy thông tin recording theo egressId.
      */
-    public MeetingRecording getRecordingByEgressId(String egressId) {
-        return recordingRepository.findByEgressId(egressId)
+    public MeetingRecording getRecordingByEgressId(String egressId, java.util.UUID ownerId) {
+        return recordingRepository.findByEgressIdAndOwnerId(egressId, ownerId)
                 .orElseThrow(() -> new RuntimeException(
                         "Không tìm thấy recording với egressId: " + egressId));
+    }
+
+    public java.util.List<MeetingRecording> getRecordingsByOwnerId(java.util.UUID ownerId) {
+        return recordingRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId);
     }
 
     public String generateJoinToken(String roomName, String participantName, String participantId) {

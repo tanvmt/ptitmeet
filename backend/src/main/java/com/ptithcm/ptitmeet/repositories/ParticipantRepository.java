@@ -14,6 +14,7 @@ import java.util.UUID;
 @Repository
 public interface ParticipantRepository extends JpaRepository<Participant, UUID> {
     Optional<Participant> findByMeetingAndUser(Meeting meeting, User user);
+    Optional<Participant> findByMeeting_MeetingCodeAndUser_UserId(String meetingCode, UUID userId);
     List<Participant> findAllByMeetingAndApprovalStatus(Meeting meeting, ParticipantApprovalStatus status);
     long countByMeeting(Meeting meeting);
 }

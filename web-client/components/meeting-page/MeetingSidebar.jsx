@@ -14,7 +14,7 @@ const buildMessageKey = (msg) => {
 
 const MeetingSidebar = ({
                             sidebarOpen, activeTab, setActiveTab,
-                            isHost, waitingList, isLoadingWaiting, handleApproval, fetchWaitingList,
+                            isHost, currentHostId, waitingList, isLoadingWaiting, handleApproval, fetchWaitingList,
                         stompClient, isStompConnected, currentUser, meetingCode, onIncomingMessage, meetingSettings
                         }) => {
     const chatEndRef = useRef(null);
@@ -210,8 +210,8 @@ const MeetingSidebar = ({
                     setConfirmState({ isOpen: false, title: "", description: "", confirmLabel: "", payload: null });
                 }}
             />
-            <aside className={`fixed top-16 right-0 bottom-24 w-80 bg-surface border-l border-white/5 z-20 transition-transform duration-300 shadow-2xl ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
-            <div className="flex flex-col h-full">
+            <aside className={`fixed top-16 right-0 bottom-24 z-20 w-full max-w-80 border-l border-white/5 bg-surface shadow-2xl transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
+            <div className="flex h-full min-h-0 flex-col">
                 <div className="flex p-2 gap-1 border-b border-white/5 bg-background/20">
                     <button onClick={() => setActiveTab("chat")} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === "chat" ? "bg-primary text-white" : "text-gray-500 hover:bg-white/5"}`}>
                         Messages
@@ -222,8 +222,8 @@ const MeetingSidebar = ({
                 </div>
 
                 {activeTab === "chat" && (
-                    <div className="flex flex-col h-full">
-                        <div className="flex-grow overflow-y-auto p-4 space-y-4 no-scrollbar">
+                    <div className="flex min-h-0 flex-1 flex-col">
+                        <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
                             <p className="text-[10px] text-center text-gray-500 font-bold uppercase tracking-widest bg-white/5 py-2 rounded-lg">
                                 Messages are saved to history
                             </p>
@@ -249,7 +249,7 @@ const MeetingSidebar = ({
                             <div ref={chatEndRef} />
                         </div>
 
-                        <form onSubmit={handleSendMessage} className="p-4 border-t border-white/5 bg-background/40">
+                        <form onSubmit={handleSendMessage} className="shrink-0 border-t border-white/5 bg-background/40 p-4">
                             <div className="relative">
                                 <input
                                     value={inputMessage}
@@ -271,7 +271,7 @@ const MeetingSidebar = ({
                 )}
 
                 {activeTab === "people" && (
-                    <div className="flex-grow flex flex-col overflow-y-auto no-scrollbar">
+                    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto no-scrollbar">
 
                         <div className="p-4 border-b border-white/5">
                             <button className="w-full py-2.5 rounded-xl border border-primary/30 text-primary text-xs font-bold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2">
@@ -324,6 +324,11 @@ const MeetingSidebar = ({
                             <div className="p-2 space-y-1">
                                 {participants.map((p) => (
                                     <div key={p.sid} className="rounded-xl p-2 transition-colors hover:bg-white/5 group">
+                                        {String(p.identity || "") === String(currentHostId || "") && (
+                                            <div className="mb-2 inline-flex rounded-full bg-primary/15 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-primary">
+                                                Host
+                                            </div>
+                                        )}
                                         <div className="flex items-center justify-between gap-2">
                                         <div className="flex items-center gap-3 min-w-0">
                                             <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold border border-white/10">

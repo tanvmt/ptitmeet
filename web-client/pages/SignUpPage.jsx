@@ -59,12 +59,22 @@ const SignUpPage = () => {
       <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-secondary/10 rounded-full blur-[120px] pointer-events-none"></div>
 
       <div className="max-w-md w-full relative">
+        <div className="mb-8 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-gray-400 transition-colors hover:text-white"
+          >
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            Back to home
+          </button>
+        </div>
         <div className="text-center mb-8">
           <div className="size-16 bg-primary rounded-2xl flex items-center justify-center text-white shadow-xl shadow-primary/20 mx-auto mb-6">
             <span className="material-symbols-outlined text-4xl">person_add</span>
           </div>
           <h2 className="text-3xl font-black mb-2 tracking-tight">Create your account</h2>
-          <p className="text-gray-400">Join 10,000+ teams collaborating daily.</p>
+          <p className="text-gray-400">Create an account to host meetings and keep ownership of your meeting data.</p>
         </div>
 
         <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSignUp(); }}>

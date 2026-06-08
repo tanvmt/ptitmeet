@@ -28,9 +28,7 @@ import com.ptithcm.ptitmeet.dto.meeting.MeetingSummaryResponse;
 import com.ptithcm.ptitmeet.dto.meeting.MeetingHistoryResponse;
 import com.ptithcm.ptitmeet.dto.meeting.MeetingInfoResponse;
 import com.ptithcm.ptitmeet.dto.meeting.ParticipantResponse;
-import com.ptithcm.ptitmeet.entity.mongodb.ChatMessage;
 import com.ptithcm.ptitmeet.entity.mysql.Meeting;
-import com.ptithcm.ptitmeet.repositories.ChatMessageRepository;
 import com.ptithcm.ptitmeet.services.MeetingService;
 
 import jakarta.validation.Valid;
@@ -42,8 +40,6 @@ import lombok.RequiredArgsConstructor;
 public class MeetingController {
 
     private final MeetingService meetingService;
-
-    private final ChatMessageRepository chatMessageRepository;
 
     private final ObjectMapper objectMapper;
 
@@ -140,8 +136,8 @@ public class MeetingController {
     }
 
     @GetMapping("/{code}/chat/history")
-    public ResponseEntity<ApiResponse<List<ChatMessage>>> getChatHistory(@PathVariable String code) {
-        List<ChatMessage> history = chatMessageRepository.findByMeetingCodeOrderByTimestampAsc(code);
+    public ResponseEntity<ApiResponse<List<com.ptithcm.ptitmeet.entity.mongodb.ChatMessage>>> getChatHistory(@PathVariable String code) {
+        List<com.ptithcm.ptitmeet.entity.mongodb.ChatMessage> history = meetingService.getChatHistory(code, getCurrentUserId());
         return ResponseEntity.ok(ApiResponse.success(history, "Lấy lịch sử chat thành công"));
     }
 

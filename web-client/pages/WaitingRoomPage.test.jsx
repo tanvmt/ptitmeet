@@ -123,7 +123,10 @@ describe('WaitingRoomPage', () => {
                 state: {
                     token: 'join-token',
                     role: 'ATTENDEE',
+                    isOwner: false,
+                    currentHostId: undefined,
                     serverUrl: 'wss://livekit.example',
+                    settings: undefined,
                     micOn: true,
                     camOn: true,
                 },
