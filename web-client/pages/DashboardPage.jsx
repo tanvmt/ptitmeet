@@ -17,28 +17,13 @@ const DashboardPage = () => {
   );
 
   const [recentActivities, setRecentActivities] = useState([]);
-  const [upcomingMeeting, setUpcomingMeeting] = useState(null);
-
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setIsFetchingData(true);
 
-        const [historyData, upNextData] = await Promise.all([
-          meetingService.getHistory(1, 5, "ALL", "ALL"),
-          meetingService.getUpNext(),
-        ]);
-
-        setUpcomingMeeting(upNextData);
-
-        let recent = historyData.content || [];
-        if (upNextData) {
-          recent = recent.filter(
-            (m) => m.meetingCode !== upNextData.meetingCode
-          );
-        }
-
-        setRecentActivities(recent);
+        const historyData = await meetingService.getHistory(1, 5, "ALL", "ALL");
+        setRecentActivities(historyData.content || []);
       } catch (error) {
         console.error("Lỗi tải dữ liệu Dashboard:", error);
       } finally {
@@ -125,16 +110,6 @@ const DashboardPage = () => {
         })
       : "TBD";
     return `${start} - ${end}`;
-  };
-
-  const getStartsInText = (startStr) => {
-    if (!startStr) return "";
-    const diffMs = new Date(startStr) - new Date();
-    if (diffMs <= 0) return "Started";
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 60) return `${diffMins}m`;
-    const diffHours = Math.floor(diffMins / 60);
-    return `${diffHours}h ${diffMins % 60}m`;
   };
 
   const getIconData = (isHost) => {
@@ -248,10 +223,7 @@ const DashboardPage = () => {
             </button>
           </div>
 
-          {/* Main Content Split */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* Left Column: Recent Activity */}
-            <div className="xl:col-span-2 flex flex-col gap-4">
+          <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-bold">Recent Activity</h3>
                 <button
@@ -262,7 +234,7 @@ const DashboardPage = () => {
                 </button>
               </div>
               <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                <div className="overflow-x-auto min-h-[300px]">
+                <div className="min-h-[300px]">
                   {isFetchingData ? (
                     <div className="flex justify-center items-center h-full py-20">
                       <div className="size-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
@@ -272,184 +244,144 @@ const DashboardPage = () => {
                       No recent activities found.
                     </div>
                   ) : (
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs uppercase text-slate-500 font-semibold tracking-wider">
-                          <th className="px-6 py-4">Meeting Details</th>
-                          <th className="px-6 py-4">Date & Time</th>
-                          <th className="px-6 py-4">Status</th>
-                          <th className="px-6 py-4 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                    <>
+                      <div className="grid gap-3 p-3 md:hidden">
                         {recentActivities.map((activity) => {
                           const iconData = getIconData(activity.host);
                           return (
-                            <tr
+                            <div
                               key={activity.meetingCode}
-                              className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                              className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-900/40"
                             >
-                              <td className="px-6 py-4">
-                                <div className="flex items-center gap-3">
-                                  <div
-                                    className={`p-2 rounded-lg ${iconData.color}`}
-                                  >
-                                    <span className="material-symbols-outlined text-xl">
-                                      {iconData.icon}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-semibold">
+                              <div className="flex items-start gap-3">
+                                <div className={`rounded-xl p-2 ${iconData.color}`}>
+                                  <span className="material-symbols-outlined text-xl">{iconData.icon}</span>
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="truncate text-sm font-semibold">
                                       {activity.title || "Untitled Meeting"}
                                     </p>
-                                    <p className="text-xs text-slate-500">
-                                      ID: {activity.meetingCode}
-                                    </p>
+                                    <span
+                                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider ${getStatusBadge(
+                                        activity.status
+                                      )}`}
+                                    >
+                                      {activity.status}
+                                    </span>
                                   </div>
+                                  <p className="mt-1 text-xs text-slate-500">ID: {activity.meetingCode}</p>
+                                  <p className="mt-3 text-sm">{formatDate(activity.startTime)}</p>
+                                  <p className="text-xs text-slate-500">
+                                    {formatTimeRange(activity.startTime, activity.endTime)}
+                                  </p>
+                                  <button
+                                    onClick={() =>
+                                      navigate(
+                                        activity.status === "ACTIVE" || activity.status === "SCHEDULED"
+                                          ? `/waiting-room/${activity.meetingCode}`
+                                          : `/history`
+                                      )
+                                    }
+                                    className={`mt-4 w-full rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                                      activity.status === "FINISHED" || activity.status === "CANCELED"
+                                        ? "bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600"
+                                        : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                                    }`}
+                                  >
+                                    {activity.status === "FINISHED"
+                                      ? "Details"
+                                      : activity.status === "CANCELED"
+                                      ? "View"
+                                      : "Rejoin"}
+                                  </button>
                                 </div>
-                              </td>
-                              <td className="px-6 py-4 text-sm">
-                                <p>{formatDate(activity.startTime)}</p>
-                                <p className="text-xs text-slate-500">
-                                  {formatTimeRange(
-                                    activity.startTime,
-                                    activity.endTime
-                                  )}
-                                </p>
-                              </td>
-                              <td className="px-6 py-4">
-                                <span
-                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wider ${getStatusBadge(
-                                    activity.status
-                                  )}`}
-                                >
-                                  {activity.status}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 text-right">
-                                <button
-                                  onClick={() =>
-                                    navigate(
-                                      activity.status === "ACTIVE" ||
-                                        activity.status === "SCHEDULED"
-                                        ? `/waiting-room/${activity.meetingCode}`
-                                        : `/history`
-                                    )
-                                  }
-                                  className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                                    activity.status === "FINISHED" ||
-                                    activity.status === "CANCELED"
-                                      ? "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
-                                      : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
-                                  }`}
-                                >
-                                  {activity.status === "FINISHED"
-                                    ? "Details"
-                                    : activity.status === "CANCELED"
-                                    ? "View"
-                                    : "Rejoin"}
-                                </button>
-                              </td>
-                            </tr>
+                              </div>
+                            </div>
                           );
                         })}
-                      </tbody>
-                    </table>
+                      </div>
+
+                      <div className="hidden overflow-x-auto md:block">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs uppercase text-slate-500 font-semibold tracking-wider">
+                              <th className="px-6 py-4">Meeting Details</th>
+                              <th className="px-6 py-4">Date & Time</th>
+                              <th className="px-6 py-4">Status</th>
+                              <th className="px-6 py-4 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                            {recentActivities.map((activity) => {
+                              const iconData = getIconData(activity.host);
+                              return (
+                                <tr
+                                  key={activity.meetingCode}
+                                  className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                                >
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className={`p-2 rounded-lg ${iconData.color}`}>
+                                        <span className="material-symbols-outlined text-xl">
+                                          {iconData.icon}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-semibold">
+                                          {activity.title || "Untitled Meeting"}
+                                        </p>
+                                        <p className="text-xs text-slate-500">ID: {activity.meetingCode}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 text-sm">
+                                    <p>{formatDate(activity.startTime)}</p>
+                                    <p className="text-xs text-slate-500">
+                                      {formatTimeRange(activity.startTime, activity.endTime)}
+                                    </p>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span
+                                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wider ${getStatusBadge(
+                                        activity.status
+                                      )}`}
+                                    >
+                                      {activity.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <button
+                                      onClick={() =>
+                                        navigate(
+                                          activity.status === "ACTIVE" || activity.status === "SCHEDULED"
+                                            ? `/waiting-room/${activity.meetingCode}`
+                                            : `/history`
+                                        )
+                                      }
+                                      className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                                        activity.status === "FINISHED" || activity.status === "CANCELED"
+                                          ? "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+                                          : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                                      }`}
+                                    >
+                                      {activity.status === "FINISHED"
+                                        ? "Details"
+                                        : activity.status === "CANCELED"
+                                        ? "View"
+                                        : "Rejoin"}
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
-            </div>
-
-            {/* Right Column: Up Next */}
-            <div className="xl:col-span-1 flex flex-col gap-4">
-              <h3 className="text-xl font-bold">Up Next</h3>
-
-              {isFetchingData ? (
-                <div className="bg-[#1c2127] dark:bg-slate-800 rounded-xl border border-slate-700/50 shadow-lg relative overflow-hidden flex flex-col items-center justify-center min-h-[300px]">
-                  <div className="size-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
-                </div>
-              ) : upcomingMeeting ? (
-                <div className="bg-[#1c2127] dark:bg-slate-800 rounded-xl border border-slate-700/50 shadow-lg relative overflow-hidden flex flex-col h-full min-h-[300px]">
-                  <div
-                    className="h-32 bg-cover bg-center relative"
-                    style={{
-                      backgroundImage:
-                        "url('https://picsum.photos/400/200?random=5')",
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#1c2127] dark:from-slate-800 to-transparent"></div>
-                    <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium text-white flex items-center gap-1 border border-white/10">
-                      <span className="block size-2 rounded-full bg-red-500 animate-pulse"></span>
-                      {upcomingMeeting.status === "ACTIVE"
-                        ? "Live Now"
-                        : `Starts in ${getStartsInText(
-                            upcomingMeeting.startTime
-                          )}`}
-                    </div>
-                  </div>
-                  <div className="p-5 flex flex-col flex-1">
-                    <div className="flex-1">
-                      <h4 className="text-2xl font-bold text-white mb-1">
-                        {upcomingMeeting.title || "Untitled Meeting"}
-                      </h4>
-                      <p className="text-slate-400 text-sm mb-4">
-                        {upcomingMeeting.host
-                          ? "You are the Host"
-                          : "You are a Guest"}
-                      </p>
-                      <div className="flex items-center gap-2 mb-2 text-slate-300 text-sm">
-                        <span className="material-symbols-outlined text-[18px]">
-                          schedule
-                        </span>
-                        <span>
-                          {formatTimeRange(
-                            upcomingMeeting.startTime,
-                            upcomingMeeting.endTime
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mb-6 text-slate-300 text-sm">
-                        <span className="material-symbols-outlined text-[18px]">
-                          videocam
-                        </span>
-                        <span>ID: {upcomingMeeting.meetingCode}</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() =>
-                        handleJoinMeeting(upcomingMeeting.meetingCode)
-                      }
-                      disabled={isLoading}
-                      className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
-                    >
-                      <span className="material-symbols-outlined">login</span>
-                      Join Meeting Now
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-[#1c2127] dark:bg-slate-800 rounded-xl border border-slate-700/50 shadow-lg relative overflow-hidden flex flex-col items-center justify-center text-center p-8 h-full min-h-[300px]">
-                  <div className="size-16 rounded-full bg-slate-700/50 flex items-center justify-center mb-4 text-slate-400">
-                    <span className="material-symbols-outlined text-3xl">
-                      free_cancellation
-                    </span>
-                  </div>
-                  <h4 className="text-lg font-bold text-white mb-2">
-                    No Upcoming Meetings
-                  </h4>
-                  <p className="text-sm text-slate-400 mb-6">
-                    You're all clear! Enjoy your free time or start a new
-                    meeting.
-                  </p>
-                  <button
-                    onClick={handleCreateMeeting}
-                    className="text-sm font-bold text-primary hover:underline"
-                  >
-                    + Start an instant meeting
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </div>

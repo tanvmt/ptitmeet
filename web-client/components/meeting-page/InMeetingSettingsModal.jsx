@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from "react";
-import AudioSettings from "../settings/AudioSettings";
-import VideoSettings from "../settings/VideoSettings";
-import BackgroundSettings from "../settings/BackgroundSettings";
 import { meetingService } from "../../services/meetingService";
 
 const InMeetingSettingsModal = ({ isOpen, onClose, isHost, code, room }) => {
-  const [activeTab, setActiveTab] = useState("audio");
+  const [activeTab, setActiveTab] = useState("host");
   const [hostSettings, setHostSettings] = useState({
     waitingRoom: true,
     muteAudioOnEntry: false,
@@ -31,6 +28,12 @@ const InMeetingSettingsModal = ({ isOpen, onClose, isHost, code, room }) => {
     }
   }, [isOpen, code]);
 
+  useEffect(() => {
+    if (isHost) {
+      setActiveTab("host");
+    }
+  }, [isHost, isOpen]);
+
   if (!isOpen) return null;
 
   const handleToggleHostSetting = async (key) => {
@@ -51,20 +54,11 @@ const InMeetingSettingsModal = ({ isOpen, onClose, isHost, code, room }) => {
   };
 
   const navItems = [
-    { id: "audio", label: "Audio", icon: "mic" },
-    { id: "video", label: "Video", icon: "videocam" },
-    { id: "background", label: "Background", icon: "wallpaper" },
     ...(isHost ? [{ id: "host", label: "Host Controls", icon: "admin_panel_settings" }] : []),
   ];
 
   const renderContent = () => {
     switch (activeTab) {
-      case "audio":
-        return <AudioSettings room={room} />;
-      case "video":
-        return <VideoSettings room={room} />;
-      case "background":
-        return <BackgroundSettings />;
       case "host":
         return (
           <div className="space-y-4 animate-in fade-in duration-200">
@@ -184,13 +178,17 @@ const InMeetingSettingsModal = ({ isOpen, onClose, isHost, code, room }) => {
           </div>
         );
       default:
-        return null;
+        return (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-gray-300">
+            This meeting does not have any additional in-call settings for attendees yet.
+          </div>
+        );
     }
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-[#111418] text-white rounded-2xl w-full max-w-3xl h-[550px] flex flex-col md:flex-row border border-white/5 overflow-hidden shadow-2xl">
+      <div className="bg-[#111418] text-white rounded-2xl w-full max-w-3xl h-[560px] flex flex-col md:flex-row border border-white/5 overflow-hidden shadow-2xl">
         {/* Modal Sidebar */}
         <aside className="w-full md:w-56 bg-[#0a0c0f] flex flex-col border-b md:border-b-0 md:border-r border-white/5 shrink-0 p-4 gap-4">
           <div>
@@ -200,24 +198,30 @@ const InMeetingSettingsModal = ({ isOpen, onClose, isHost, code, room }) => {
             </h2>
           </div>
 
-          <nav className="flex flex-col gap-1 flex-grow">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all w-full text-left group ${
-                  activeTab === item.id
-                    ? "bg-primary text-white font-semibold"
-                    : "text-gray-400 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <span className={`material-symbols-outlined text-[18px] ${activeTab === item.id ? "text-white" : "text-gray-400 group-hover:text-white"}`}>
-                  {item.icon}
-                </span>
-                <span className="text-xs">{item.label}</span>
-              </button>
-            ))}
-          </nav>
+          {navItems.length > 0 ? (
+            <nav className="flex flex-col gap-1 flex-grow">
+              {navItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all w-full text-left group ${
+                    activeTab === item.id
+                      ? "bg-primary text-white font-semibold"
+                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  <span className={`material-symbols-outlined text-[18px] ${activeTab === item.id ? "text-white" : "text-gray-400 group-hover:text-white"}`}>
+                    {item.icon}
+                  </span>
+                  <span className="text-xs">{item.label}</span>
+                </button>
+              ))}
+            </nav>
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-gray-400">
+              No extra in-meeting settings are available for attendees.
+            </div>
+          )}
         </aside>
 
         {/* Modal Main Content */}
