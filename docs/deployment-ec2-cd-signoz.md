@@ -12,9 +12,9 @@ Tai lieu nay dung cho lan deploy dau tien cua `ptitmeet` len AWS EC2 voi cac dic
 Flow de xuat:
 
 1. Developer push len `dev` hoac `main`.
-2. GitHub Actions CI chay test/lint nhu hien tai.
-3. Neu CI xanh, GitHub Actions CD build Docker image va day len GHCR.
-4. GitHub Actions SSH vao EC2, cap nhat file `.env.prod`, `docker compose pull`, sau do `up -d`.
+2. GitHub Actions chay test/lint.
+3. Neu cac job check xanh, workflow tiep tuc build Docker image va day len GHCR.
+4. Sau do workflow SSH vao EC2, cap nhat file `.env.prod`, `docker compose pull`, sau do `up -d`.
 5. Backend gui trace metric ve SigNoz bang OpenTelemetry Java agent.
 
 ## 2. Kien truc de xuat
@@ -131,19 +131,18 @@ Tao cac secret sau trong repository:
 
 Neu repo private, EC2 can dang nhap duoc vao GHCR de pull image.
 
-## 8. CD workflow dang hoat dong ra sao
+## 8. Workflow deploy dang hoat dong ra sao
 
-Workflow moi nam o `.github/workflows/cd.yml`.
+Workflow nam o `.github/workflows/ci.yml`.
 
 No hoat dong nhu sau:
 
-1. Lang nghe khi workflow `CI` hoan thanh.
-2. Chi deploy khi `CI` thanh cong va branch la `dev`, `main` hoac `master`.
-3. Checkout dung commit vua qua CI.
-4. Build 2 image:
+1. Khi `push` len `dev`, `main` hoac `master`, workflow chay cac job lint/test/build truoc.
+2. Chi khi cac job check thanh cong, workflow moi chay job build image.
+3. Build 2 image:
    - `ghcr.io/<owner>/ptitmeet-backend:<sha7>`
    - `ghcr.io/<owner>/ptitmeet-web:<sha7>`
-5. SSH vao EC2, cap nhat `.env.prod`, pull image moi, va restart compose.
+4. Sau khi build/push image thanh cong, workflow SSH vao EC2, cap nhat `.env.prod`, pull image moi, va restart compose.
 
 Luu y:
 

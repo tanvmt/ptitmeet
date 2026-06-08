@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   pull_request:
@@ -8,6 +8,10 @@ on:
       - main
       - master
       - develop
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   backend:
@@ -62,3 +66,81 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+
+  build-and-push:
+    if: github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main' || github.ref_name == 'master')
+    needs:
+      - backend
+      - web-client
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set lowercase owner
+        id: owner
+        run: echo "value=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Set image tag
+        id: meta
+        run: echo "image_tag=$(echo '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.value }}/ptitmeet-backend:${{ steps.meta.outputs.image_tag }}
+            ghcr.io/${{ steps.owner.outputs.value }}/ptitmeet-backend:latest
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./web-client
+          build-args: |
+            VITE_API_URL=${{ secrets.PROD_VITE_API_URL }}
+          push: true
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.value }}/ptitmeet-web:${{ steps.meta.outputs.image_tag }}
+            ghcr.io/${{ steps.owner.outputs.value }}/ptitmeet-web:latest
+
+  deploy-ec2:
+    if: github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main' || github.ref_name == 'master')
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            set -eu
+            APP_DIR="${{ secrets.EC2_APP_DIR }}"
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "EC2_APP_DIR must point to a cloned ptitmeet repository"
+              exit 1
+            fi
+            cd "$APP_DIR"
+            git fetch --all --prune
+            git checkout "${{ github.ref_name }}"
+            git reset --hard "${{ github.sha }}"
+            echo "${{ secrets.EC2_PROD_ENV_FILE }}" > deploy/ec2/.env.prod
+            mkdir -p deploy/ec2/nginx
+            OWNER_LOWER="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+            docker login ghcr.io -u "${{ github.repository_owner }}" -p "${{ secrets.GHCR_READ_TOKEN }}"
+            export GHCR_USERNAME="ghcr.io/$OWNER_LOWER"
+            export IMAGE_TAG="${{ needs.build-and-push.outputs.image_tag }}"
+            docker compose -f deploy/ec2/docker-compose.prod.yml pull
+            docker compose -f deploy/ec2/docker-compose.prod.yml up -d --remove-orphans
