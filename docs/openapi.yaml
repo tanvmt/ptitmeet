@@ -1,68 +1,488 @@
 openapi: 3.1.0
 info:
-  title: PTITMeet API
-  description: API documentation for the PTITMeet backend services.
   contact:
     name: PTITMeet Team
+  description: API documentation for the PTITMeet backend services.
+  title: PTITMeet API
   version: v1
 servers:
-- url: http://localhost:8080
-  description: Local development server
+- description: PTITMeet backend server
+  url: http://mymeeting.ddns.net/api
 paths:
-  /api/users/profile:
-    get:
-      tags:
-      - user-controller
-      operationId: getProfile
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseUserResponse"
-    put:
-      tags:
-      - user-controller
-      operationId: updateProfile
+  /api/auth/forgot-password:
+    post:
+      operationId: forgotPassword
       requestBody:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateProfileRequest"
+              $ref: "#/components/schemas/ForgotPasswordRequest"
         required: true
       responses:
         "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
           description: OK
+      tags:
+      - auth-controller
+  /api/auth/google:
+    post:
+      operationId: loginWithGoogle
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoogleLoginRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseAuthResponse"
+          description: OK
+      tags:
+      - auth-controller
+  /api/auth/login:
+    post:
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseAuthResponse"
+          description: OK
+      tags:
+      - auth-controller
+  /api/auth/logout:
+    post:
+      operationId: logout
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+          description: OK
+      tags:
+      - auth-controller
+  /api/auth/refresh-token:
+    post:
+      operationId: refreshToken
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseAuthResponse"
+          description: OK
+      tags:
+      - auth-controller
+  /api/auth/register:
+    post:
+      operationId: register
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+        required: true
+      responses:
+        "200":
           content:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseUserResponse"
-  /api/meetings/{code}/settings:
-    get:
+          description: OK
       tags:
-      - meeting-controller
-      operationId: getSettings
+      - auth-controller
+  /api/auth/reset-password:
+    post:
+      operationId: resetPassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+          description: OK
+      tags:
+      - auth-controller
+  /api/livekit/recordings/start:
+    post:
+      operationId: startRecording
       parameters:
-      - name: code
-        in: path
+      - in: query
+        name: meetingCode
         required: true
         schema:
           type: string
       responses:
         "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseMeetingRecording"
           description: OK
+      tags:
+      - recording-controller
+  /api/livekit/recordings/status:
+    get:
+      operationId: getRecordingStatus
+      parameters:
+      - in: query
+        name: egressId
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: object
+          description: OK
+      tags:
+      - recording-controller
+  /api/livekit/recordings/stop:
+    post:
+      operationId: stopRecording
+      parameters:
+      - in: query
+        name: egressId
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: object
+          description: OK
+      tags:
+      - recording-controller
+  /api/livekit/webhook:
+    post:
+      operationId: handleWebhook
+      parameters:
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: string
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: string
+          description: OK
+      tags:
+      - live-kit-webhook-controller
+  /api/meetings/history:
+    get:
+      operationId: getHistory
+      parameters:
+      - in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 1
+      - in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 6
+      - in: query
+        name: role
+        required: false
+        schema:
+          type: string
+          default: ALL
+      - in: query
+        name: status
+        required: false
+        schema:
+          type: string
+          default: ALL
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponsePageMeetingHistoryResponse"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/instant:
+    post:
+      operationId: createInstant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMeetingRequest"
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseMeeting"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/my-meetings:
+    get:
+      operationId: getMyMeetings
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListMeeting"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/schedule:
+    post:
+      operationId: schedule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMeetingRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseMeeting"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/up-next:
+    get:
+      operationId: getUpNext
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseMeetingHistoryResponse"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/{code}:
+    delete:
+      operationId: cancel
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/{code}/approval:
+    post:
+      operationId: approveParticipant
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/{code}/chat/history:
+    get:
+      operationId: getChatHistory
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListChatMessage"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/{code}/end:
+    post:
+      operationId: endForAll
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/{code}/feedback:
+    post:
+      operationId: submitFeedback
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/{code}/info:
+    get:
+      operationId: getInfo
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseMeetingInfoResponse"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/{code}/join:
+    post:
+      operationId: joinMeeting
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinMeetingRequest"
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseJoinMeetingResponse"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/{code}/leave:
+    post:
+      operationId: leave
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseVoid"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/{code}/settings:
+    get:
+      operationId: getSettings
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
           content:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseString"
-    put:
+          description: OK
       tags:
       - meeting-controller
+    put:
       operationId: updateSettings
       parameters:
-      - name: code
-        in: path
+      - in: path
+        name: code
         required: true
         schema:
           type: string
@@ -75,15 +495,57 @@ paths:
         required: true
       responses:
         "200":
-          description: OK
           content:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseMeeting"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/{code}/summary:
+    get:
+      operationId: getSummary
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: action
+        required: false
+        schema:
+          type: string
+          default: LEAVE
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseMeetingSummaryResponse"
+          description: OK
+      tags:
+      - meeting-controller
+  /api/meetings/{code}/waiting-room:
+    get:
+      operationId: getWaitingRoom
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseListParticipantResponse"
+          description: OK
+      tags:
+      - meeting-controller
   /api/users/avatar:
     post:
-      tags:
-      - user-controller
       operationId: uploadAvatar
       requestBody:
         content:
@@ -98,619 +560,65 @@ paths:
               - file
       responses:
         "200":
-          description: OK
           content:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseUserResponse"
-  /api/meetings/{code}/leave:
-    post:
-      tags:
-      - meeting-controller
-      operationId: leave
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
           description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseVoid"
-  /api/meetings/{code}/join:
-    post:
-      tags:
-      - meeting-controller
-      operationId: joinMeeting
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/JoinMeetingRequest"
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseJoinMeetingResponse"
-  /api/meetings/{code}/feedback:
-    post:
-      tags:
-      - meeting-controller
-      operationId: submitFeedback
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/FeedbackRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseVoid"
-  /api/meetings/{code}/end:
-    post:
-      tags:
-      - meeting-controller
-      operationId: endForAll
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseVoid"
-  /api/meetings/{code}/approval:
-    post:
-      tags:
-      - meeting-controller
-      operationId: approveParticipant
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ApprovalRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseVoid"
-  /api/meetings/schedule:
-    post:
-      tags:
-      - meeting-controller
-      operationId: schedule
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateMeetingRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseMeeting"
-  /api/meetings/instant:
-    post:
-      tags:
-      - meeting-controller
-      operationId: createInstant
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateMeetingRequest"
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseMeeting"
-  /api/livekit/webhook:
-    post:
-      tags:
-      - live-kit-webhook-controller
-      operationId: handleWebhook
-      parameters:
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: string
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                type: string
-  /api/livekit/recordings/stop:
-    post:
-      tags:
-      - recording-controller
-      operationId: stopRecording
-      parameters:
-      - name: egressId
-        in: query
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                type: object
-  /api/livekit/recordings/start:
-    post:
-      tags:
-      - recording-controller
-      operationId: startRecording
-      parameters:
-      - name: meetingCode
-        in: query
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseMeetingRecording"
-  /api/auth/reset-password:
-    post:
-      tags:
-      - auth-controller
-      operationId: resetPassword
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ResetPasswordRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseVoid"
-  /api/auth/register:
-    post:
-      tags:
-      - auth-controller
-      operationId: register
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RegisterRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseUserResponse"
-  /api/auth/refresh-token:
-    post:
-      tags:
-      - auth-controller
-      operationId: refreshToken
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseAuthResponse"
-  /api/auth/logout:
-    post:
-      tags:
-      - auth-controller
-      operationId: logout
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseVoid"
-  /api/auth/login:
-    post:
-      tags:
-      - auth-controller
-      operationId: login
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LoginRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseAuthResponse"
-  /api/auth/google:
-    post:
-      tags:
-      - auth-controller
-      operationId: loginWithGoogle
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GoogleLoginRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseAuthResponse"
-  /api/auth/forgot-password:
-    post:
-      tags:
-      - auth-controller
-      operationId: forgotPassword
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ForgotPasswordRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseVoid"
-  /api/users/me:
-    get:
       tags:
       - user-controller
+  /api/users/me:
+    get:
       operationId: getCurrentUser
       responses:
         "200":
-          description: OK
           content:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiResponseUserResponse"
-  /api/meetings/{code}/waiting-room:
-    get:
+          description: OK
       tags:
-      - meeting-controller
-      operationId: getWaitingRoom
-      parameters:
-      - name: code
-        in: path
+      - user-controller
+  /api/users/profile:
+    get:
+      operationId: getProfile
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiResponseUserResponse"
+          description: OK
+      tags:
+      - user-controller
+    put:
+      operationId: updateProfile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
         required: true
-        schema:
-          type: string
       responses:
         "200":
-          description: OK
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/ApiResponseListParticipantResponse"
-  /api/meetings/{code}/summary:
-    get:
+                $ref: "#/components/schemas/ApiResponseUserResponse"
+          description: OK
       tags:
-      - meeting-controller
-      operationId: getSummary
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: action
-        in: query
-        required: false
-        schema:
-          type: string
-          default: LEAVE
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseMeetingSummaryResponse"
-  /api/meetings/{code}/info:
-    get:
-      tags:
-      - meeting-controller
-      operationId: getInfo
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseMeetingInfoResponse"
-  /api/meetings/{code}/chat/history:
-    get:
-      tags:
-      - meeting-controller
-      operationId: getChatHistory
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseListChatMessage"
-  /api/meetings/up-next:
-    get:
-      tags:
-      - meeting-controller
-      operationId: getUpNext
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseMeetingHistoryResponse"
-  /api/meetings/my-meetings:
-    get:
-      tags:
-      - meeting-controller
-      operationId: getMyMeetings
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseListMeeting"
-  /api/meetings/history:
-    get:
-      tags:
-      - meeting-controller
-      operationId: getHistory
-      parameters:
-      - name: page
-        in: query
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 1
-      - name: size
-        in: query
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 6
-      - name: role
-        in: query
-        required: false
-        schema:
-          type: string
-          default: ALL
-      - name: status
-        in: query
-        required: false
-        schema:
-          type: string
-          default: ALL
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponsePageMeetingHistoryResponse"
-  /api/livekit/recordings/status:
-    get:
-      tags:
-      - recording-controller
-      operationId: getRecordingStatus
-      parameters:
-      - name: egressId
-        in: query
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                type: object
-  /api/meetings/{code}:
-    delete:
-      tags:
-      - meeting-controller
-      operationId: cancel
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseVoid"
+      - user-controller
 components:
   schemas:
-    UpdateProfileRequest:
-      type: object
-      properties:
-        fullName:
-          type: string
-          maxLength: 100
-          minLength: 2
-        avatarUrl:
-          type: string
-    ApiResponseUserResponse:
+    ApiResponseAuthResponse:
       type: object
       properties:
         code:
           type: integer
           format: int32
-        message:
-          type: string
         data:
-          $ref: "#/components/schemas/UserResponse"
-    UserResponse:
-      type: object
-      properties:
-        userId:
-          type: string
-          format: uuid
-        email:
-          type: string
-        fullName:
-          type: string
-        avatarUrl:
-          type: string
-        authProvider:
-          type: string
-    ApiResponseMeeting:
-      type: object
-      properties:
-        code:
-          type: integer
-          format: int32
+          $ref: "#/components/schemas/AuthResponse"
         message:
-          type: string
-        data:
-          $ref: "#/components/schemas/Meeting"
-    Meeting:
-      type: object
-      properties:
-        meetingId:
-          type: string
-          format: uuid
-        hostId:
-          type: string
-          format: uuid
-        meetingCode:
-          type: string
-        title:
-          type: string
-        password:
-          type: string
-        startTime:
-          type: string
-          format: date-time
-        endTime:
-          type: string
-          format: date-time
-        allowedDomain:
-          type: string
-        accessType:
-          type: string
-          enum:
-          - OPEN
-          - TRUSTED
-          - RESTRICTED
-        status:
-          type: string
-          enum:
-          - SCHEDULED
-          - ACTIVE
-          - FINISHED
-          - CANCELED
-        settings:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        instant:
-          type: boolean
-    ApiResponseVoid:
-      type: object
-      properties:
-        code:
-          type: integer
-          format: int32
-        message:
-          type: string
-        data: {}
-    JoinMeetingRequest:
-      type: object
-      properties:
-        password:
-          type: string
-        displayName:
           type: string
     ApiResponseJoinMeetingResponse:
       type: object
@@ -718,133 +626,143 @@ components:
         code:
           type: integer
           format: int32
-        message:
-          type: string
         data:
           $ref: "#/components/schemas/JoinMeetingResponse"
-    JoinMeetingResponse:
-      type: object
-      properties:
-        token:
-          type: string
-        serverUrl:
-          type: string
-        status:
-          type: string
-        role:
-          type: string
         message:
           type: string
-        settings:
-          type: string
-    FeedbackRequest:
+    ApiResponseListChatMessage:
       type: object
       properties:
-        rating:
+        code:
           type: integer
           format: int32
-    ApprovalRequest:
-      type: object
-      properties:
-        participantId:
-          type: string
-          format: uuid
-        action:
-          type: string
-    CreateMeetingRequest:
-      type: object
-      properties:
-        title:
-          type: string
-        password:
-          type: string
-        settings:
-          type: string
-        start_time:
-          type: string
-          format: date-time
-        end_time:
-          type: string
-          format: date-time
-        access_type:
-          type: string
-          enum:
-          - OPEN
-          - TRUSTED
-          - RESTRICTED
-        participant_emails:
+        data:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/ChatMessage"
+        message:
+          type: string
+    ApiResponseListMeeting:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Meeting"
+        message:
+          type: string
+    ApiResponseListParticipantResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParticipantResponse"
+        message:
+          type: string
+    ApiResponseMeeting:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        data:
+          $ref: "#/components/schemas/Meeting"
+        message:
+          type: string
+    ApiResponseMeetingHistoryResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        data:
+          $ref: "#/components/schemas/MeetingHistoryResponse"
+        message:
+          type: string
+    ApiResponseMeetingInfoResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        data:
+          $ref: "#/components/schemas/MeetingInfoResponse"
+        message:
+          type: string
     ApiResponseMeetingRecording:
       type: object
       properties:
         code:
           type: integer
           format: int32
-        message:
-          type: string
         data:
           $ref: "#/components/schemas/MeetingRecording"
-    MeetingRecording:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-        roomName:
+        message:
           type: string
-        egressId:
-          type: string
-        status:
-          type: string
-        fileUrl:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-    ResetPasswordRequest:
-      type: object
-      properties:
-        token:
-          type: string
-          minLength: 1
-        newPassword:
-          type: string
-          maxLength: 2147483647
-          minLength: 8
-      required:
-      - newPassword
-      - token
-    RegisterRequest:
-      type: object
-      properties:
-        email:
-          type: string
-          format: email
-          minLength: 1
-        password:
-          type: string
-          maxLength: 2147483647
-          minLength: 8
-        fullName:
-          type: string
-          maxLength: 100
-          minLength: 2
-      required:
-      - email
-      - fullName
-      - password
-    ApiResponseAuthResponse:
+    ApiResponseMeetingSummaryResponse:
       type: object
       properties:
         code:
           type: integer
           format: int32
+        data:
+          $ref: "#/components/schemas/MeetingSummaryResponse"
         message:
           type: string
+    ApiResponsePageMeetingHistoryResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
         data:
-          $ref: "#/components/schemas/AuthResponse"
+          $ref: "#/components/schemas/PageMeetingHistoryResponse"
+        message:
+          type: string
+    ApiResponseString:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        data:
+          type: string
+        message:
+          type: string
+    ApiResponseUserResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        data:
+          $ref: "#/components/schemas/UserResponse"
+        message:
+          type: string
+    ApiResponseVoid:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        data: {}
+        message:
+          type: string
+    ApprovalRequest:
+      type: object
+      properties:
+        action:
+          type: string
+        participantId:
+          type: string
+          format: uuid
     AuthResponse:
       type: object
       properties:
@@ -854,6 +772,93 @@ components:
           type: string
         user:
           $ref: "#/components/schemas/UserResponse"
+    ChatMessage:
+      type: object
+      properties:
+        content:
+          type: string
+        id:
+          type: string
+        meetingCode:
+          type: string
+        senderId:
+          type: string
+          format: uuid
+        senderName:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    CreateMeetingRequest:
+      type: object
+      properties:
+        access_type:
+          type: string
+          enum:
+          - OPEN
+          - TRUSTED
+          - RESTRICTED
+        end_time:
+          type: string
+          format: date-time
+        participant_emails:
+          type: array
+          items:
+            type: string
+        password:
+          type: string
+        settings:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        title:
+          type: string
+    FeedbackRequest:
+      type: object
+      properties:
+        rating:
+          type: integer
+          format: int32
+    ForgotPasswordRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+      required:
+      - email
+    GoogleLoginRequest:
+      type: object
+      properties:
+        idToken:
+          type: string
+          minLength: 1
+      required:
+      - idToken
+    JoinMeetingRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+        password:
+          type: string
+    JoinMeetingResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        role:
+          type: string
+        serverUrl:
+          type: string
+        settings:
+          type: string
+        status:
+          type: string
+        token:
+          type: string
     LoginRequest:
       type: object
       properties:
@@ -867,244 +872,216 @@ components:
       required:
       - email
       - password
-    GoogleLoginRequest:
+    Meeting:
       type: object
       properties:
-        idToken:
+        accessType:
           type: string
-          minLength: 1
-      required:
-      - idToken
-    ForgotPasswordRequest:
-      type: object
-      properties:
-        email:
+          enum:
+          - OPEN
+          - TRUSTED
+          - RESTRICTED
+        allowedDomain:
           type: string
-          format: email
-          minLength: 1
-      required:
-      - email
-    ApiResponseListParticipantResponse:
-      type: object
-      properties:
-        code:
-          type: integer
-          format: int32
-        message:
+        createdAt:
           type: string
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/ParticipantResponse"
-    ParticipantResponse:
-      type: object
-      properties:
-        participantId:
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        hostId:
           type: string
           format: uuid
-        userId:
+        instant:
+          type: boolean
+        meetingCode:
+          type: string
+        meetingId:
           type: string
           format: uuid
-        displayName:
+        password:
           type: string
-        email:
+        settings:
           type: string
-        avatarUrl:
+        startTime:
           type: string
+          format: date-time
         status:
           type: string
-        requestTime:
+          enum:
+          - SCHEDULED
+          - ACTIVE
+          - FINISHED
+          - CANCELED
+        title:
           type: string
-    ApiResponseMeetingSummaryResponse:
+    MeetingHistoryResponse:
       type: object
       properties:
-        code:
-          type: integer
-          format: int32
-        message:
+        endTime:
           type: string
-        data:
-          $ref: "#/components/schemas/MeetingSummaryResponse"
-    MeetingSummaryResponse:
-      type: object
-      properties:
-        duration:
+          format: date-time
+        host:
+          type: boolean
+        meetingCode:
           type: string
-        participants:
-          type: integer
-          format: int32
-        messages:
-          type: integer
-          format: int32
-    ApiResponseString:
-      type: object
-      properties:
-        code:
-          type: integer
-          format: int32
-        message:
+        startTime:
           type: string
-        data:
+          format: date-time
+        status:
           type: string
-    ApiResponseMeetingInfoResponse:
-      type: object
-      properties:
-        code:
-          type: integer
-          format: int32
-        message:
+        title:
           type: string
-        data:
-          $ref: "#/components/schemas/MeetingInfoResponse"
     MeetingInfoResponse:
       type: object
       properties:
-        title:
-          type: string
-        status:
-          type: string
-        passwordProtected:
-          type: boolean
-        meeting_code:
-          type: string
-        host_name:
-          type: string
-        is_password_protected:
-          type: boolean
         access_type:
           type: string
           enum:
           - OPEN
           - TRUSTED
           - RESTRICTED
-    ApiResponseListChatMessage:
-      type: object
-      properties:
-        code:
-          type: integer
-          format: int32
-        message:
+        host_name:
           type: string
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/ChatMessage"
-    ChatMessage:
-      type: object
-      properties:
-        id:
+        is_password_protected:
+          type: boolean
+        meeting_code:
           type: string
-        meetingCode:
-          type: string
-        senderId:
-          type: string
-          format: uuid
-        senderName:
-          type: string
-        content:
-          type: string
-        timestamp:
-          type: string
-          format: date-time
-    ApiResponseMeetingHistoryResponse:
-      type: object
-      properties:
-        code:
-          type: integer
-          format: int32
-        message:
-          type: string
-        data:
-          $ref: "#/components/schemas/MeetingHistoryResponse"
-    MeetingHistoryResponse:
-      type: object
-      properties:
-        meetingCode:
+        passwordProtected:
+          type: boolean
+        status:
           type: string
         title:
           type: string
-        startTime:
+    MeetingRecording:
+      type: object
+      properties:
+        createdAt:
           type: string
           format: date-time
-        endTime:
+        egressId:
           type: string
-          format: date-time
+        fileUrl:
+          type: string
+        id:
+          type: integer
+          format: int64
+        roomName:
+          type: string
         status:
           type: string
-        host:
-          type: boolean
-    ApiResponseListMeeting:
+    MeetingSummaryResponse:
       type: object
       properties:
-        code:
+        duration:
+          type: string
+        messages:
           type: integer
           format: int32
-        message:
-          type: string
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/Meeting"
-    ApiResponsePageMeetingHistoryResponse:
-      type: object
-      properties:
-        code:
+        participants:
           type: integer
           format: int32
-        message:
-          type: string
-        data:
-          $ref: "#/components/schemas/PageMeetingHistoryResponse"
     PageMeetingHistoryResponse:
       type: object
       properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingHistoryResponse"
+        empty:
+          type: boolean
+        first:
+          type: boolean
+        last:
+          type: boolean
+        number:
+          type: integer
+          format: int32
+        numberOfElements:
+          type: integer
+          format: int32
+        pageable:
+          $ref: "#/components/schemas/PageableObject"
+        size:
+          type: integer
+          format: int32
+        sort:
+          $ref: "#/components/schemas/SortObject"
         totalElements:
           type: integer
           format: int64
         totalPages:
           type: integer
           format: int32
-        size:
-          type: integer
-          format: int32
-        content:
-          type: array
-          items:
-            $ref: "#/components/schemas/MeetingHistoryResponse"
-        number:
-          type: integer
-          format: int32
-        sort:
-          $ref: "#/components/schemas/SortObject"
-        numberOfElements:
-          type: integer
-          format: int32
-        first:
-          type: boolean
-        last:
-          type: boolean
-        pageable:
-          $ref: "#/components/schemas/PageableObject"
-        empty:
-          type: boolean
     PageableObject:
       type: object
       properties:
         offset:
           type: integer
           format: int64
-        sort:
-          $ref: "#/components/schemas/SortObject"
-        pageSize:
+        pageNumber:
           type: integer
           format: int32
-        pageNumber:
+        pageSize:
           type: integer
           format: int32
         paged:
           type: boolean
+        sort:
+          $ref: "#/components/schemas/SortObject"
         unpaged:
           type: boolean
+    ParticipantResponse:
+      type: object
+      properties:
+        avatarUrl:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        participantId:
+          type: string
+          format: uuid
+        requestTime:
+          type: string
+        status:
+          type: string
+        userId:
+          type: string
+          format: uuid
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        fullName:
+          type: string
+          maxLength: 100
+          minLength: 2
+        password:
+          type: string
+          maxLength: 2147483647
+          minLength: 8
+      required:
+      - email
+      - fullName
+      - password
+    ResetPasswordRequest:
+      type: object
+      properties:
+        newPassword:
+          type: string
+          maxLength: 2147483647
+          minLength: 8
+        token:
+          type: string
+          minLength: 1
+      required:
+      - newPassword
+      - token
     SortObject:
       type: object
       properties:
@@ -1114,3 +1091,26 @@ components:
           type: boolean
         unsorted:
           type: boolean
+    UpdateProfileRequest:
+      type: object
+      properties:
+        avatarUrl:
+          type: string
+        fullName:
+          type: string
+          maxLength: 100
+          minLength: 2
+    UserResponse:
+      type: object
+      properties:
+        authProvider:
+          type: string
+        avatarUrl:
+          type: string
+        email:
+          type: string
+        fullName:
+          type: string
+        userId:
+          type: string
+          format: uuid

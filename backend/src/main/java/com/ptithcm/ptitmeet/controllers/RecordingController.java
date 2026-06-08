@@ -15,7 +15,6 @@ import com.ptithcm.ptitmeet.exception.ErrorCode;
 
 @RestController
 @RequestMapping("/api/livekit/recordings")
-@CrossOrigin(origins = "http://localhost:3000") // Cho phép React gọi API
 @Slf4j
 public class RecordingController {
 
