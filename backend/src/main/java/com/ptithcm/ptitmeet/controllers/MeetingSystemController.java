@@ -24,7 +24,9 @@ public class MeetingSystemController {
             "KICK_ALL",
             "MUTE_PARTICIPANT",
             "STOP_CAMERA_PARTICIPANT",
-            "KICK_PARTICIPANT");
+            "KICK_PARTICIPANT",
+            "RECORDING_STARTED",
+            "RECORDING_STOPPED");
 
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
