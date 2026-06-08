@@ -1,63 +1,40 @@
-server.port=8080
+server.port=${SERVER_PORT:8080}
 
-spring.datasource.url=jdbc:mysql://amin:_z-Ui8@ptitmeet-tie-9799.c.aivencloud.com:28519/defaultdb?ssl-mode=REQUIRED
-spring.datasource.username=av
-spring.datasource.password=AV
+spring.datasource.url=${SPRING_DATASOURCE_URL}
+spring.datasource.username=${SPRING_DATASOURCE_USERNAME}
+spring.datasource.password=${SPRING_DATASOURCE_PASSWORD}
 spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
+spring.data.mongodb.uri=${SPRING_DATA_MONGODB_URI}
 
+livekit.api.url=${LIVEKIT_URL}
+livekit.api.ws-url=${LIVEKIT_WSURL}
+livekit.api.secret=${LIVEKIT_SECRET}
+livekit.api.key=${LIVEKIT_KEY}
 
+s3.endpoint=${S3_ENDPOINT}
+s3.access-key=${S3_ACCESS_KEY}
+s3.secret-key=${S3_SECRET_KEY}
+s3.bucket=${S3_BUCKET}
+s3.region=${S3_REGION}
 
-
-
-
-# LiveKit Cloud - API URL (dùng cho EgressServiceClient, backend calls)
-
-
-# tài khoản của sang 
-# livekit.api.url=https://ptilivekit.cloud
-# livekit.api.ws-url=wss://p6.livekit.cloud
-# livekit.api.key=APIuCG
-# livekit.api.secret=VAYYO
-
-
-
-# LiveKit Cloud - WebSocket URL (dùng cho frontend kết nối)
-
-livekit.api.url=https://ptilivekit.cloud
-livekit.api.ws-url=wss://p6.livekit.cloud
-livekit.api.secret=AH1mPfIzh
-livekit.api.key=APIui7
-
-# Cloudflare R2 (S3-compatible) - Lưu video recording
-# Thay YOUR_ACCOUNT_ID, YOUR_ACCESS_KEY, YOUR_SECRET_KEY bằng giá trị thực từ Cloudflare R2
-s3.endpoint=https://s3.ap-southeast-1.amazonaws.com
-s3.access-key=AKIA
-s3.secret-key=T2W/ndmHaM
-s3.bucket=record-
-s3.region=south-asia
-
-
-
-
-
-spring.data.mongodb.uri=mongodb+srv://tanvmt:vanminhtan04@cluster0.6qqf9el.mongodb.net/ptitmeet_chat?retryWrites=true&w=majority&appName=Cluster0&uuidRepresentation=standard
-
-jwt.secret=djhskjdfhjksdhfkjdshfjkhskdjfdsfdskjfhkdshfkjdshfhsdjfhkdsjhfkjdshkfjadsjkfhksdjhfiyeiureifhdskhfaldsfjajoewhsdkfhkdjfhk
+jwt.secret=${JWT_SECRET}
 jwt.access-token-expiration=3600000
 jwt.refresh-token-expiration=604800000
 
-google.client-id=1086617479608-uuhsvoav6jddeqk21j7niucgo5md061c.apps.googleusercontent.com
+google.client-id=${GOOGLE_CLIENT_ID}
 
 spring.mail.host=smtp.gmail.com
 spring.mail.port=587
-spring.mail.username=tiendat
-spring.mail.password=jhnz nrb
+spring.mail.username=${SPRING_MAIL_USERNAME}
+spring.mail.password=${SPRING_MAIL_PASSWORD}
 spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
 
-app.frontend-url=http://localhost:3000
+app.frontend-url=${APP_FRONTEND_URL:http://localhost:3000}
+app.backend-url=${APP_BACKEND_URL:http://localhost:8080}
+app.cors.allowed-origins=${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
 
 springdoc.api-docs.path=/v3/api-docs
 springdoc.swagger-ui.path=/swagger-ui.html
