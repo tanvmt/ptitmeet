@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -6,15 +6,28 @@ const DashboardLayout = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const isActive = (path) => location.pathname === path;
 
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
+
   return (
     <div className="bg-background-light dark:bg-slate-950 text-slate-900 dark:text-white h-screen flex overflow-hidden font-display">
+      {mobileSidebarOpen && (
+        <button
+          aria-label="Close sidebar"
+          onClick={() => setMobileSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-slate-950/55 backdrop-blur-[2px] md:hidden"
+        />
+      )}
+
       {/* 1. Sidebar dùng chung */}
-      <aside className="w-64 bg-white dark:bg-[#111418] border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between shrink-0 z-20">
+      <aside className={`fixed inset-y-0 left-0 z-40 w-[88vw] max-w-72 -translate-x-full border-r border-slate-200 bg-white transition-transform duration-300 dark:border-slate-800 dark:bg-[#111418] md:static md:z-20 md:w-64 md:max-w-none md:translate-x-0 ${mobileSidebarOpen ? 'translate-x-0' : ''}`}>
         <div className="flex flex-col h-full">
-          <div className="h-16 flex items-center px-6 border-b border-slate-200 dark:border-slate-800/50">
+          <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 dark:border-slate-800/50">
             <div className="flex items-center gap-3">
               <div className="bg-primary/20 p-1.5 rounded-lg text-primary">
                 <span className="material-symbols-outlined text-2xl">videocam</span>
@@ -24,6 +37,12 @@ const DashboardLayout = ({ children }) => {
                 <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Meeting workspace</span>
               </div>
             </div>
+            <button
+              onClick={() => setMobileSidebarOpen(false)}
+              className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white md:hidden"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
           </div>
 
           <nav className="flex-1 overflow-y-auto py-6 px-3 flex flex-col gap-1">
@@ -95,22 +114,24 @@ const DashboardLayout = ({ children }) => {
       {/* 2. Main Content Area */}
       <main className="flex-1 flex flex-col h-full relative overflow-hidden">
         {/* Header dùng chung */}
-        <header className="h-16 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8">
-          <div className="flex items-center text-slate-500 dark:text-slate-400 text-sm">
+        <header className="h-16 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-8">
+          <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 text-sm min-w-0">
+            <button
+              onClick={() => setMobileSidebarOpen(true)}
+              className="flex items-center justify-center rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white md:hidden"
+            >
+              <span className="material-symbols-outlined text-[20px]">menu</span>
+            </button>
             <span>PTIT-Meet</span>
-            <span className="material-symbols-outlined mx-2 text-[16px]">chevron_right</span>
-            <span className="text-slate-900 dark:text-white font-medium capitalize">
+            <span className="material-symbols-outlined hidden md:block mx-2 text-[16px]">chevron_right</span>
+            <span className="truncate text-slate-900 dark:text-white font-medium capitalize">
               {location.pathname === '/' ? 'Dashboard' : location.pathname.substring(1)}
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <div className="relative hidden md:block">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-400 text-[20px]">search</span>
-              <input className="pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-900 border-none rounded-lg text-sm w-64 focus:ring-2 focus:ring-primary transition-all placeholder:text-slate-500" placeholder="Search..." />
-            </div>
-            <button className="relative p-2 text-slate-500 hover:text-primary transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
+            <span className="hidden text-sm font-medium text-slate-500 md:block">
+              Workspace
+            </span>
           </div>
         </header>
 

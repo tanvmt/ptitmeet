@@ -11,6 +11,7 @@ import {
     requestDeviceAccess,
     stopMediaStream,
 } from "../../utils/mediaPermissions";
+import { SYSTEM_ACTION_TYPES, createSystemActionPayload } from "../../utils/meetingRealtime";
 
 const ControlBar = ({
     sidebarOpen, setSidebarOpen, activeTab, setActiveTab, waitingCount, unreadCount, isHost, isOwner, code, stompClient, meetingSettings
@@ -57,12 +58,30 @@ const ControlBar = ({
                 console.log("Extracted egressId:", id);
                 setEgressId(id);
                 egressIdRef.current = id;
+                if (stompClient?.active && localParticipant) {
+                    stompClient.publish({
+                        destination: `/app/meeting/${code}/system`,
+                        body: createSystemActionPayload(SYSTEM_ACTION_TYPES.RECORDING_STARTED, {
+                            actorId: localParticipant.identity,
+                            actorName: localParticipant.name || "Meeting owner",
+                        }),
+                    });
+                }
             } else {
                 const currentEgressId = egressIdRef.current;
                 console.log("Stopping with egressId:", currentEgressId);
                 await meetingService.endRecordMeeting(currentEgressId);
                 setEgressId(null);
                 egressIdRef.current = null;
+                if (stompClient?.active && localParticipant) {
+                    stompClient.publish({
+                        destination: `/app/meeting/${code}/system`,
+                        body: createSystemActionPayload(SYSTEM_ACTION_TYPES.RECORDING_STOPPED, {
+                            actorId: localParticipant.identity,
+                            actorName: localParticipant.name || "Meeting owner",
+                        }),
+                    });
+                }
             }
             setIsRecord(!isRecord);
         } catch (error) {
@@ -243,8 +262,8 @@ const ControlBar = ({
                 onConfirm={handleProcessLeave}
                 isHost={isHost}
             />
-            <footer className="h-24 w-full flex items-center justify-center px-6 relative z-40 bg-background shrink-0 border-t border-white/5">
-                <div className="flex items-center gap-3 bg-surface/90 backdrop-blur-xl p-2 rounded-full border border-white/10 shadow-2xl">
+            <footer className="w-full px-3 pb-3 pt-2 relative z-40 bg-background shrink-0 border-t border-white/5">
+                <div className="mx-auto flex max-w-full flex-wrap items-center justify-center gap-2 rounded-[28px] border border-white/10 bg-surface/90 p-2 shadow-2xl backdrop-blur-xl md:flex-nowrap md:gap-3">
 
                     <button
                         onClick={toggleMic}
@@ -347,31 +366,33 @@ const ControlBar = ({
                         )}
                     </button>
 
-                    <div className="relative">
-                        <button
-                            onClick={() => setShowMoreMenu(!showMoreMenu)}
-                            className={`size-12 rounded-full flex items-center justify-center transition-all ${
-                                showMoreMenu ? "bg-white/30 text-white" : "bg-white/10 hover:bg-white/20 text-white"
-                            }`}
-                        >
-                            <span className="material-symbols-outlined text-[22px]">more_vert</span>
-                        </button>
-                        
-                        {showMoreMenu && (
-                            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-surface/95 border border-white/10 p-2 rounded-xl shadow-2xl backdrop-blur min-w-44 flex flex-col gap-1 z-[60]">
-                                <button
-                                    onClick={() => {
-                                        setShowSettings(true);
-                                        setShowMoreMenu(false);
-                                    }}
-                                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 text-gray-200 hover:text-white transition-colors text-left"
-                                >
-                                    <span className="material-symbols-outlined text-[18px]">settings</span>
-                                    <span className="text-xs font-semibold">Cài đặt</span>
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                    {isHost && (
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                                className={`size-12 rounded-full flex items-center justify-center transition-all ${
+                                    showMoreMenu ? "bg-white/30 text-white" : "bg-white/10 hover:bg-white/20 text-white"
+                                }`}
+                            >
+                                <span className="material-symbols-outlined text-[22px]">more_vert</span>
+                            </button>
+                            
+                            {showMoreMenu && (
+                                <div className="absolute bottom-16 left-1/2 z-[60] flex min-w-44 -translate-x-1/2 flex-col gap-1 rounded-xl border border-white/10 bg-surface/95 p-2 shadow-2xl backdrop-blur">
+                                    <button
+                                        onClick={() => {
+                                            setShowSettings(true);
+                                            setShowMoreMenu(false);
+                                        }}
+                                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 text-gray-200 hover:text-white transition-colors text-left"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">settings</span>
+                                        <span className="text-xs font-semibold">Host controls</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="w-px h-8 bg-white/10 mx-1"></div>
                     <button
@@ -391,7 +412,7 @@ const ControlBar = ({
 
                     <button
                         onClick={onLeaveButtonClicked}
-                        className="px-8 py-3 rounded-full bg-red-500 hover:bg-red-600 text-white font-black text-sm shadow-xl shadow-red-500/20 active:scale-95 transition-all"
+                        className="min-w-[120px] px-6 py-3 rounded-full bg-red-500 hover:bg-red-600 text-white font-black text-sm shadow-xl shadow-red-500/20 active:scale-95 transition-all"
                     >
                         Leave Call
                     </button>

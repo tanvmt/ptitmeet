@@ -210,7 +210,7 @@ const MeetingSidebar = ({
                     setConfirmState({ isOpen: false, title: "", description: "", confirmLabel: "", payload: null });
                 }}
             />
-            <aside className={`fixed top-16 right-0 bottom-24 z-20 w-full max-w-80 border-l border-white/5 bg-surface shadow-2xl transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
+            <aside className={`fixed inset-x-3 bottom-[104px] z-20 h-[min(68vh,560px)] rounded-[28px] border border-white/10 bg-surface shadow-2xl transition-transform duration-300 md:inset-x-auto md:top-16 md:right-0 md:bottom-[92px] md:h-auto md:max-w-80 md:rounded-none md:border-l md:border-t-0 ${sidebarOpen ? "translate-y-0 md:translate-x-0" : "translate-y-[120%] md:translate-y-0 md:translate-x-full"}`}>
             <div className="flex h-full min-h-0 flex-col">
                 <div className="flex p-2 gap-1 border-b border-white/5 bg-background/20">
                     <button onClick={() => setActiveTab("chat")} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === "chat" ? "bg-primary text-white" : "text-gray-500 hover:bg-white/5"}`}>
@@ -349,7 +349,7 @@ const MeetingSidebar = ({
                                         </div>
                                     </div>
                                         {isHost && !p.isLocal && (
-                                            <div className="mt-2 flex items-center gap-2">
+                                            <div className="mt-2 grid grid-cols-3 gap-2">
                                                 <button
                                                     onClick={() => handleParticipantAction(p, SYSTEM_ACTION_TYPES.MUTE_PARTICIPANT)}
                                                     className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-bold text-gray-200 transition-colors hover:bg-white/10"

@@ -17,6 +17,7 @@ import {
   parseSystemAction,
   SYSTEM_ACTION_TYPES,
 } from "../utils/meetingRealtime";
+import { playMeetingCue } from "../utils/meetingSounds";
 
 const MeetingPage = () => {
   const { code } = useParams();
@@ -59,7 +60,9 @@ const MeetingPage = () => {
   const [waitingList, setWaitingList] = useState([]);
   const [isLoadingWaiting, setIsLoadingWaiting] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
-  const [chatToast, setChatToast] = useState(null);
+  const [notificationToast, setNotificationToast] = useState(null);
+  const [inviteToast, setInviteToast] = useState(null);
+  const [isRecordingActive, setIsRecordingActive] = useState(false);
 
   const [stompClient, setStompClient] = useState(null);
   const [isStompConnected, setIsStompConnected] = useState(false);
@@ -80,15 +83,38 @@ const MeetingPage = () => {
   useEffect(() => {
     if (sidebarOpen && activeTab === "chat") {
       setUnreadMessages(0);
-      setChatToast(null);
+      setNotificationToast((prev) => (prev?.kind === "chat" ? null : prev));
     }
   }, [activeTab, sidebarOpen]);
 
   useEffect(() => {
-    if (!chatToast) return;
-    const timeoutId = window.setTimeout(() => setChatToast(null), 3500);
+    if (!notificationToast) return;
+    const timeoutId = window.setTimeout(() => setNotificationToast(null), 3500);
     return () => window.clearTimeout(timeoutId);
-  }, [chatToast]);
+  }, [notificationToast]);
+
+  useEffect(() => {
+    const handleMeetingCue = (event) => {
+      const cue = event.detail;
+      if (!cue?.type) return;
+      if (String(cue.senderId || "") === currentUserId) return;
+      if (cue.type === "handRaise" && cue.isRaised) {
+        playMeetingCue("handRaise");
+        setNotificationToast({
+          kind: "handRaise",
+          title: "Hand raised",
+          subtitle: cue.senderName || "Participant",
+          content: "wants attention",
+        });
+      }
+      if (cue.type === "joinLeave") {
+        playMeetingCue("joinLeave");
+      }
+    };
+
+    window.addEventListener("meeting_cue", handleMeetingCue);
+    return () => window.removeEventListener("meeting_cue", handleMeetingCue);
+  }, [currentUserId]);
 
   useEffect(() => {
     if (!code) return;
@@ -116,6 +142,23 @@ const MeetingPage = () => {
               if (becameHost) {
                 fetchWaitingList();
               }
+            } else if (action.type === SYSTEM_ACTION_TYPES.RECORDING_STARTED) {
+              setIsRecordingActive(true);
+              setNotificationToast({
+                kind: "recording",
+                title: "Recording started",
+                subtitle: action.actorName || "Meeting owner",
+                content: "is recording this meeting",
+              });
+              playMeetingCue("chat");
+            } else if (action.type === SYSTEM_ACTION_TYPES.RECORDING_STOPPED) {
+              setIsRecordingActive(false);
+              setNotificationToast({
+                kind: "recording",
+                title: "Recording stopped",
+                subtitle: action.actorName || "Meeting owner",
+                content: "stopped the recording",
+              });
             } else if (action.type === SYSTEM_ACTION_TYPES.MEETING_ENDED) {
                if (!isHostRef.current) {
                    navigate("/summary", { 
@@ -179,8 +222,19 @@ const MeetingPage = () => {
     }
 
     fetchWaitingList();
-    adminSubscriptionRef.current = stompClient.subscribe(`/topic/meeting/${code}/admin`, () => {
+    adminSubscriptionRef.current = stompClient.subscribe(`/topic/meeting/${code}/admin`, (message) => {
       fetchWaitingList();
+      try {
+        const request = JSON.parse(message.body);
+        setInviteToast({
+          participantId: request.participantId,
+          userId: request.userId,
+          displayName: request.displayName || "Someone",
+        });
+        playMeetingCue("joinLeave");
+      } catch (error) {
+        console.error("Unable to parse waiting-room request:", error);
+      }
     });
 
     return () => {
@@ -217,10 +271,13 @@ const MeetingPage = () => {
     if (!message || senderId === currentUserId) return;
 
     const isChatOpen = sidebarOpen && activeTab === "chat";
+    playMeetingCue("chat");
     if (!isChatOpen) {
       setUnreadMessages((prev) => prev + 1);
-      setChatToast({
-        senderName: message.senderName || "New message",
+      setNotificationToast({
+        kind: "chat",
+        title: "New message",
+        subtitle: message.senderName || "New message",
         content: message.content || "",
       });
     }
@@ -237,14 +294,41 @@ const MeetingPage = () => {
   return (
       <LiveKitRoom video={initialVideoEnabled} audio={initialAudioEnabled} token={token} serverUrl={serverUrl} connect={true}>
         <div className="h-screen w-full flex flex-col bg-background overflow-hidden text-white font-sans">
-          {chatToast && (
-            <div className="pointer-events-none fixed top-20 right-6 z-[120] w-80 rounded-2xl border border-white/10 bg-surface/95 p-4 shadow-2xl backdrop-blur">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">New message</p>
-              <p className="mt-2 text-sm font-semibold text-white">{chatToast.senderName}</p>
-              <p className="mt-1 line-clamp-2 text-sm text-gray-300">{chatToast.content}</p>
+          {notificationToast && (
+            <div className="pointer-events-none fixed left-4 right-4 top-20 z-[120] mx-auto w-full max-w-sm rounded-2xl border border-white/10 bg-surface/95 p-4 shadow-2xl backdrop-blur md:left-auto md:right-6 md:mx-0 md:w-80">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">{notificationToast.title}</p>
+              <p className="mt-2 text-sm font-semibold text-white">{notificationToast.subtitle}</p>
+              <p className="mt-1 line-clamp-2 text-sm text-gray-300">{notificationToast.content}</p>
             </div>
           )}
-          <MeetingHeader code={code} isHost={isHost} isOwner={isOwner} />
+          <MeetingHeader code={code} isHost={isHost} isOwner={isOwner} isRecordingActive={isRecordingActive} />
+          {inviteToast && (
+            <div className="fixed left-4 right-4 top-20 z-[125] mx-auto w-full max-w-sm rounded-2xl border border-primary/20 bg-surface/95 p-4 shadow-2xl backdrop-blur md:left-auto md:right-6 md:mx-0 md:w-[360px]">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Join request</p>
+              <p className="mt-2 text-sm font-semibold text-white">{inviteToast.displayName}</p>
+              <p className="mt-1 text-sm text-gray-300">wants to enter this meeting.</p>
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={async () => {
+                    await handleApproval(inviteToast.participantId, "APPROVED");
+                    setInviteToast(null);
+                  }}
+                  className="flex-1 rounded-xl bg-green-500/20 px-3 py-2 text-sm font-bold text-green-300 transition-colors hover:bg-green-500 hover:text-white"
+                >
+                  Admit
+                </button>
+                <button
+                  onClick={async () => {
+                    await handleApproval(inviteToast.participantId, "REJECTED");
+                    setInviteToast(null);
+                  }}
+                  className="flex-1 rounded-xl bg-red-500/20 px-3 py-2 text-sm font-bold text-red-300 transition-colors hover:bg-red-500 hover:text-white"
+                >
+                  Deny
+                </button>
+              </div>
+            </div>
+          )}
           <div className="relative flex min-h-0 flex-grow overflow-hidden w-full">
             <ParticipantGrid sidebarOpen={sidebarOpen} currentHostId={currentHostId} />
             <MeetingSidebar

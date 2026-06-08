@@ -35,14 +35,38 @@ const Reactions = () => {
                         detail: { identity: participant.identity, isRaised: data.isRaised }
                     });
                     window.dispatchEvent(event);
+                    window.dispatchEvent(new CustomEvent("meeting_cue", {
+                        detail: {
+                            type: "handRaise",
+                            senderId: participant.identity,
+                            isRaised: data.isRaised,
+                        },
+                    }));
                 } catch(e) {}
             }
         };
 
         room.on(RoomEvent.DataReceived, handleDataReceived);
 
+        const handleParticipantDisconnected = (participant) => {
+            if (!participant?.identity) {
+                return;
+            }
+            window.dispatchEvent(new CustomEvent("meeting_cue", {
+                detail: {
+                    type: "joinLeave",
+                    senderId: participant.identity,
+                    senderName: participant.name || participant.identity || "A participant",
+                    message: "left the meeting",
+                },
+            }));
+        };
+
+        room.on(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected);
+
         return () => {
             room.off(RoomEvent.DataReceived, handleDataReceived);
+            room.off(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected);
         };
     }, [room]);
 

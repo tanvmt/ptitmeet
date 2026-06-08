@@ -274,12 +274,6 @@ const WaitingRoomPage = () => {
     setStompClient(client);
   };
 
-  const permissionBadgeClass = (state) => {
-    if (state === "granted") return "bg-green-500/10 text-green-300 border-green-500/20";
-    if (state === "denied") return "bg-red-500/10 text-red-300 border-red-500/20";
-    return "bg-yellow-500/10 text-yellow-300 border-yellow-500/20";
-  };
-
   const permissionBadgeText = (state) => {
     if (state === "granted") return "Allowed";
     if (state === "denied") return "Blocked";
@@ -291,9 +285,9 @@ const WaitingRoomPage = () => {
       return (
         <button
           disabled
-          className="w-full h-16 bg-blue-900 text-blue-200 text-xl font-black rounded-2xl flex items-center justify-center gap-3 cursor-not-allowed transition-all"
+          className="flex h-16 w-full cursor-not-allowed items-center justify-center gap-3 rounded-2xl bg-blue-900 text-xl font-black text-blue-200 transition-all"
         >
-          <div className="size-5 border-2 border-blue-200/30 border-t-blue-200 rounded-full animate-spin"></div>
+          <div className="size-5 rounded-full border-2 border-blue-200/30 border-t-blue-200 animate-spin"></div>
           {isHostSetup ? "Preparing meeting..." : "Sending request..."}
         </button>
       );
@@ -301,27 +295,20 @@ const WaitingRoomPage = () => {
 
     if (joinState === "WAITING") {
       return (
-        <div className="flex flex-col gap-4">
-          <div className="bg-blue-500/10 border border-blue-500/20 text-blue-300 text-sm py-3 px-4 rounded-xl flex items-start gap-3 text-left animate-fade-in">
-            <span className="material-symbols-outlined mt-0.5 text-lg">info</span>
-            <span className="leading-relaxed">{waitingMessage}</span>
-          </div>
-
-          <button
-            disabled
-            className="w-full h-16 bg-slate-800 text-gray-400 text-lg font-bold rounded-2xl flex items-center justify-center gap-3 cursor-not-allowed transition-all shadow-inner"
-          >
-            <div className="size-5 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin"></div>
-            Waiting for host...
-          </button>
-        </div>
+        <button
+          disabled
+          className="flex h-16 w-full cursor-not-allowed items-center justify-center gap-3 rounded-2xl bg-slate-800 text-lg font-bold text-gray-400 transition-all shadow-inner"
+        >
+          <div className="size-5 rounded-full border-2 border-gray-400/30 border-t-gray-400 animate-spin"></div>
+          Waiting for host...
+        </button>
       );
     }
 
     return (
       <button
         onClick={handleAskToJoin}
-        className="w-full h-16 bg-primary hover:bg-blue-600 text-white text-xl font-black rounded-2xl shadow-xl transition-all active:scale-95"
+        className="h-16 w-full rounded-2xl bg-primary text-xl font-black text-white shadow-xl transition-all hover:bg-blue-600 active:scale-[0.99]"
       >
         {isHostSetup ? "Start meeting" : "Join now"}
       </button>
@@ -329,156 +316,175 @@ const WaitingRoomPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="h-20 flex items-center justify-between px-6 border-b border-white/5">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(19,127,236,0.22),_transparent_42%),linear-gradient(180deg,_#0b1017,_#06080d)] text-white">
+      <header className="flex h-20 items-center justify-between border-b border-white/5 px-4 md:px-6">
         <div className="flex items-center gap-2">
-          <div className="size-8 bg-primary rounded-lg flex items-center justify-center text-white">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-white">
             <span className="material-symbols-outlined text-xl">videocam</span>
           </div>
           <span className="text-lg font-bold">PTIT-Meet</span>
         </div>
+        <button
+          onClick={() => navigate("/")}
+          className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+        >
+          <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+          Back
+        </button>
       </header>
 
-      <main className="flex-grow flex items-center justify-center p-6">
-        <div className="max-w-5xl w-full grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-8">
-            <div className="relative aspect-video bg-surface rounded-2xl overflow-hidden shadow-2xl border border-white/10 group">
-              {isCheckingDevices && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm z-20">
-                  <div className="size-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4"></div>
-                  <p className="text-sm font-bold text-gray-300">Checking camera & mic...</p>
-                </div>
-              )}
+      <main className="px-4 py-6 md:px-6 md:py-10">
+        <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.55fr)]">
+          <section className="space-y-5">
+            <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-surface shadow-2xl">
+              <div className="relative min-h-[360px] aspect-[4/3] sm:min-h-[460px] sm:aspect-[16/10] xl:min-h-[560px]">
+                {isCheckingDevices && (
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm">
+                    <div className="mb-4 size-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin"></div>
+                    <p className="text-sm font-bold text-gray-300">Checking camera & mic...</p>
+                  </div>
+                )}
 
-              {videoOn && previewStream ? (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-950 to-black">
-                  <div className="size-32 rounded-full bg-primary/20 flex items-center justify-center text-primary text-5xl font-black">
-                    {user?.fullName?.charAt(0) || "U"}
+                {videoOn && previewStream ? (
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-950 to-black">
+                    <div className="flex size-32 items-center justify-center rounded-full bg-primary/20 text-5xl font-black text-primary">
+                      {user?.fullName?.charAt(0) || "U"}
+                    </div>
+                  </div>
+                )}
+
+                <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider backdrop-blur">
+                  <span className={`size-2 rounded-full ${videoOn && previewStream ? "bg-green-500 animate-pulse" : "bg-gray-500"}`}></span>
+                  {videoOn && previewStream ? "Preview ready" : "Preview paused"}
+                </div>
+
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent px-4 pb-4 pt-16 sm:px-6">
+                  <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.22em] text-primary/80">
+                        {isHostSetup ? "Host setup" : "Waiting room"}
+                      </p>
+                      <h1 className="mt-2 text-2xl font-black sm:text-3xl">
+                        {isHostSetup ? "Set up before you go live" : "Ready to join?"}
+                      </h1>
+                      <p className="mt-2 max-w-xl text-sm text-gray-300">
+                        {isHostSetup
+                          ? "Check your microphone and camera before starting so the room opens smoothly."
+                          : "Make sure your mic and camera look right before sending your join request."}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 rounded-full border border-white/10 bg-black/40 p-2 backdrop-blur">
+                      <button
+                        onClick={handleToggleMic}
+                        className={`flex size-11 items-center justify-center rounded-full transition-all ${
+                          micOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-red-500 text-white"
+                        }`}
+                        title={micOn ? "Mute microphone before joining" : "Turn microphone on"}
+                      >
+                        <span className="material-symbols-outlined">{micOn ? "mic" : "mic_off"}</span>
+                      </button>
+                      <button
+                        onClick={handleToggleCamera}
+                        className={`flex size-11 items-center justify-center rounded-full transition-all ${
+                          videoOn ? "bg-primary text-white hover:bg-blue-600" : "bg-red-500 text-white"
+                        }`}
+                        title={videoOn ? "Turn camera off" : "Turn camera on"}
+                      >
+                        <span className="material-symbols-outlined">{videoOn ? "videocam" : "videocam_off"}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              )}
-
-              <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/40 backdrop-blur px-3 py-1 rounded-full border border-white/10">
-                <div className={`w-2 h-2 rounded-full ${videoOn && previewStream ? "bg-green-500 animate-pulse" : "bg-gray-500"}`}></div>
-                <span className="text-[10px] font-bold uppercase tracking-wider">
-                  {videoOn && previewStream ? "Preview ready" : "Camera off"}
-                </span>
-              </div>
-
-              <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-4 z-10">
-                <button
-                  onClick={handleToggleMic}
-                  className={`size-12 rounded-full flex items-center justify-center transition-all ${
-                    micOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500 text-white"
-                  }`}
-                >
-                  <span className="material-symbols-outlined">{micOn ? "mic" : "mic_off"}</span>
-                </button>
-                <button
-                  onClick={handleToggleCamera}
-                  className={`size-12 rounded-full flex items-center justify-center transition-all ${
-                    videoOn ? "bg-primary hover:bg-blue-600 text-white" : "bg-red-500 text-white"
-                  }`}
-                >
-                  <span className="material-symbols-outlined">{videoOn ? "videocam" : "videocam_off"}</span>
-                </button>
               </div>
             </div>
-          </div>
+          </section>
 
-          <div className="space-y-8 text-center lg:text-left">
-            <div>
-              <h1 className="text-4xl font-black mb-4">
-                {isHostSetup ? "Set up before you go live" : "Ready to join?"}
-              </h1>
-              <p className="text-gray-400">
-                {isHostSetup
-                  ? "Check your camera and microphone before entering so the meeting starts smoothly."
-                  : "Allow camera and microphone access before entering so you can join right away."}
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-left">
+          <aside className="space-y-5">
+            <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-bold text-white">Browser permissions</p>
-                  <p className="mt-1 text-xs text-gray-400">
-                    Use the button below to show the browser permission prompt for your camera and microphone.
-                  </p>
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-primary/80">Join details</p>
+                  <h2 className="mt-2 text-xl font-bold text-white">Before you enter</h2>
                 </div>
-                <button
-                  onClick={() => requestPermissions({ audio: true, video: true })}
-                  className="rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-600"
-                >
-                  Allow mic & cam
-                </button>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-3">
-                <div className={`rounded-full border px-3 py-2 text-xs font-bold ${permissionBadgeClass(permissionState.microphone)}`}>
-                  Microphone: {permissionBadgeText(permissionState.microphone)}
-                </div>
-                <div className={`rounded-full border px-3 py-2 text-xs font-bold ${permissionBadgeClass(permissionState.camera)}`}>
-                  Camera: {permissionBadgeText(permissionState.camera)}
+                <div className="rounded-2xl bg-black/20 px-3 py-2 text-right">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Meeting</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{code}</p>
                 </div>
               </div>
 
-              {deviceError && (
-                <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                  {deviceError}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-500 block">Your Display Name</label>
+              <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+                <label className="text-[11px] font-black uppercase tracking-wider text-gray-500">Display name</label>
                 <input
                   type="text"
                   value={user?.fullName || ""}
                   readOnly
-                  className="w-full h-14 px-5 rounded-2xl bg-surface border border-white/10 text-lg font-bold"
+                  className="mt-3 w-full rounded-2xl border border-white/10 bg-surface px-4 py-3 text-base font-bold text-white"
                 />
               </div>
 
-              {errorMsg && (
-                <div className="bg-red-500/10 border border-red-500/30 text-red-500 text-sm py-3 px-4 rounded-xl flex items-center gap-2 text-left">
-                  <span className="material-symbols-outlined">error</span>
-                  <span>{errorMsg}</span>
+              <div className="mt-4 grid gap-3">
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-gray-300">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-primary">headphones</span>
+                    <span>Microphone: {permissionBadgeText(permissionState.microphone)}</span>
+                  </div>
+                  <div className="mt-3 flex items-center gap-3">
+                    <span className="material-symbols-outlined text-primary">photo_camera</span>
+                    <span>Camera: {permissionBadgeText(permissionState.camera)}</span>
+                  </div>
                 </div>
-              )}
 
-              <div className="space-y-4">
+                {deviceError && (
+                  <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                    {deviceError}
+                  </div>
+                )}
+
+                {errorMsg && (
+                  <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                    {errorMsg}
+                  </div>
+                )}
+
+                {joinState === "WAITING" && (
+                  <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-sm text-blue-200">
+                    {waitingMessage}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 space-y-3">
                 {renderActionButton()}
-
                 <button
                   onClick={() => navigate("/")}
-                  className="w-full h-14 bg-transparent hover:bg-slate-200 dark:hover:bg-white/5 text-gray-500 dark:text-gray-400 font-bold rounded-2xl transition-all"
+                  className="w-full rounded-2xl border border-white/10 px-4 py-3 font-bold text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
                 >
                   Cancel
                 </button>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 p-4 bg-white/5 rounded-2xl border border-white/5 text-sm text-gray-500">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-primary">headphones</span>
-                <span>Microphone status: {permissionBadgeText(permissionState.microphone)}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-primary">photo_camera</span>
-                <span>Camera status: {permissionBadgeText(permissionState.camera)}</span>
+            <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 text-sm text-gray-300 shadow-lg backdrop-blur">
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined mt-0.5 text-primary">tips_and_updates</span>
+                <div>
+                  <p className="font-semibold text-white">Quick tip</p>
+                  <p className="mt-1 text-gray-400">
+                    If the browser blocks your camera or microphone, allow access from the browser address bar and try again.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          </aside>
         </div>
       </main>
     </div>
