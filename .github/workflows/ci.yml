@@ -109,6 +109,7 @@ jobs:
           context: ./web-client
           build-args: |
             VITE_API_URL=${{ secrets.PROD_VITE_API_URL }}
+            VITE_GOOGLE_CLIENT_ID=${{ secrets.PROD_VITE_GOOGLE_CLIENT_ID }}
           push: true
           tags: |
             ghcr.io/${{ steps.owner.outputs.value }}/ptitmeet-web:${{ steps.meta.outputs.image_tag }}
