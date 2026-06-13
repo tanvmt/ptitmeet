@@ -76,9 +76,15 @@ public class AuthService {
             throw new AppException(ErrorCode.INVALID_LOGIN);
         }
 
-        generateTokensAndSetCookies(user, response);
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getEmail());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUserId());
+
+        addCookie(response, "access_token", accessToken, jwtTokenProvider.getAccessTokenExpiration() / 1000);
+        addCookie(response, "refresh_token", refreshToken, jwtTokenProvider.getRefreshTokenExpiration() / 1000);
 
         return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
                 .user(mapToUserResponse(user))
                 .build();
     }
@@ -126,9 +132,15 @@ public class AuthService {
                                 });
                     });
 
-            generateTokensAndSetCookies(user, response);
+            String accessToken = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getEmail());
+            String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUserId());
+
+            addCookie(response, "access_token", accessToken, jwtTokenProvider.getAccessTokenExpiration() / 1000);
+            addCookie(response, "refresh_token", refreshToken, jwtTokenProvider.getRefreshTokenExpiration() / 1000);
 
             return AuthResponse.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken)
                     .user(mapToUserResponse(user))
                     .build();
         } catch (Exception e) {
@@ -163,6 +175,8 @@ public class AuthService {
         addCookie(response, "access_token", newAccessToken, jwtTokenProvider.getAccessTokenExpiration() / 1000);
 
         return AuthResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(refreshToken)
                 .user(mapToUserResponse(user))
                 .build();
     }

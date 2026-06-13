@@ -5,14 +5,17 @@ import android.widget.FrameLayout
 import io.livekit.android.LiveKit
 import io.livekit.android.room.Room
 import io.livekit.android.room.track.VideoTrack
+import io.livekit.android.renderer.SurfaceViewRenderer
+import io.livekit.android.events.RoomEvent
+import io.livekit.android.room.participant.Participant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.Flow
+import io.livekit.android.events.collect
 import kotlinx.coroutines.launch
-import org.webrtc.SurfaceViewRenderer
 import java.util.concurrent.ConcurrentHashMap
 
 class LiveKitRoomManager(private val context: Context) {
@@ -39,7 +42,7 @@ class LiveKitRoomManager(private val context: Context) {
 
         eventsJob = scope.launch {
             launch {
-                newRoom.events.collectLatest {
+                newRoom.events.collect { event: RoomEvent ->
                     refreshParticipants()
                 }
             }
@@ -96,12 +99,12 @@ class LiveKitRoomManager(private val context: Context) {
     fun attachVideo(identity: String, container: FrameLayout) {
         val activeRoom = room ?: return
         val participant = when {
-            activeRoom.localParticipant.identity == identity -> activeRoom.localParticipant
-            else -> activeRoom.remoteParticipants[identity]
+            activeRoom.localParticipant.identity?.value == identity -> activeRoom.localParticipant
+            else -> activeRoom.remoteParticipants[Participant.Identity(identity)]
         } ?: return
 
-        val videoTrack = participant.videoTrackPublications.values
-            .mapNotNull { it.track as? VideoTrack }
+        val videoTrack = participant.videoTrackPublications
+            .mapNotNull { it.second as? VideoTrack }
             .firstOrNull()
             ?: return
 
@@ -125,7 +128,7 @@ class LiveKitRoomManager(private val context: Context) {
             val local = activeRoom.localParticipant
             add(
                 LiveParticipantState(
-                    identity = local.identity,
+                    identity = local.identity?.value ?: "",
                     displayName = local.name ?: "You",
                     hasVideo = local.isCameraEnabled,
                     isMicOn = local.isMicrophoneEnabled,
@@ -137,8 +140,8 @@ class LiveKitRoomManager(private val context: Context) {
             activeRoom.remoteParticipants.values.forEach { participant ->
                 add(
                     LiveParticipantState(
-                        identity = participant.identity,
-                        displayName = participant.name ?: participant.identity,
+                        identity = participant.identity?.value ?: "",
+                        displayName = participant.name ?: participant.identity?.value ?: "",
                         hasVideo = participant.isCameraEnabled,
                         isMicOn = participant.isMicrophoneEnabled,
                         isSpeaking = activeRoom.activeSpeakers.any { it.identity == participant.identity },

@@ -760,7 +760,7 @@ public class MeetingActivity extends AppCompatActivity {
         if (liveKitRoomManager == null) {
             return;
         }
-        if (liveKitUrl == null || liveKitUrl.trim().isEmpty() || liveKitToken == null || liveKitToken.trim().isEmpty()) {
+        if (livekitUrl == null || livekitUrl.trim().isEmpty() || liveKitToken == null || liveKitToken.trim().isEmpty()) {
             Toast.makeText(this, "Chua co du lieu LiveKit de vao phong media", Toast.LENGTH_SHORT).show();
             return;
         }
