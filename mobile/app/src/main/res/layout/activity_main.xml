@@ -154,6 +154,7 @@
                     android:padding="16dp">
 
                     <TextView
+                        android:id="@+id/tvUpNextTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Weekly Product Sync"
@@ -162,11 +163,21 @@
                         android:textStyle="bold" />
 
                     <TextView
+                        android:id="@+id/tvUpNextTime"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
                         android:text="11:00 AM - 12:00 PM"
                         android:textColor="@color/text_secondary" />
+
+                    <TextView
+                        android:id="@+id/tvUpNextCode"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Meeting code: ---"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
 
                     <androidx.appcompat.widget.AppCompatButton
                         android:id="@+id/btnJoinNow"

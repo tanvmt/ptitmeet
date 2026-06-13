@@ -1,8 +1,9 @@
-package com.ptithcm.ptitmeet.api.dto;
+package com.ptithcm.ptitmeet.api.dto.meeting;
 
 import com.google.gson.annotations.SerializedName;
 
 public class JoinMeetingRequest {
+
     @SerializedName("password")
     private String password;
 
@@ -12,11 +13,5 @@ public class JoinMeetingRequest {
     public JoinMeetingRequest(String password, String displayName) {
         this.password = password;
         this.displayName = displayName;
-    }
-    public String getPassword() {
-        return password;
-    }
-    public String getDisplayName(){
-        return displayName;
     }
 }

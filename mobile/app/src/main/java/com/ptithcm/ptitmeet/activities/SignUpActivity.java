@@ -10,8 +10,9 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.ptithcm.ptitmeet.R;
-import com.ptithcm.ptitmeet.api.dto.AuthResponse;
-import com.ptithcm.ptitmeet.api.dto.RegisterRequest;
+import com.ptithcm.ptitmeet.api.dto.auth.RegisterRequest;
+import com.ptithcm.ptitmeet.api.dto.common.ApiResponse;
+import com.ptithcm.ptitmeet.api.dto.user.UserResponse;
 import com.ptithcm.ptitmeet.api.services.ApiService;
 import com.ptithcm.ptitmeet.api.services.RetrofitClient;
 
@@ -70,34 +71,31 @@ public class SignUpActivity extends AppCompatActivity {
         btnSignUp.setEnabled(false);
         btnSignUp.setText("Đang xử lý...");
 
-        // 3. Gửi Request lên Backend
         RegisterRequest registerRequest = new RegisterRequest(fullName, email, password);
-        ApiService apiService = RetrofitClient.getApiService();
+        ApiService apiService = RetrofitClient.getApiService(this);
 
-        apiService.register(registerRequest).enqueue(new Callback<AuthResponse>() {
+        apiService.register(registerRequest).enqueue(new Callback<ApiResponse<UserResponse>>() {
             @Override
-            public void onResponse(Call<AuthResponse> call, Response<AuthResponse> response) {
-                // Mở khóa lại nút bấm
+            public void onResponse(Call<ApiResponse<UserResponse>> call, Response<ApiResponse<UserResponse>> response) {
                 btnSignUp.setEnabled(true);
                 btnSignUp.setText("Đăng ký");
 
-                if (response.isSuccessful() && response.body() != null) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
                     Toast.makeText(SignUpActivity.this, "Đăng ký thành công! Vui lòng đăng nhập.", Toast.LENGTH_LONG).show();
 
-                    // Chuyển dữ liệu email về màn hình Login để người dùng đỡ phải gõ lại
                     Intent intent = new Intent(SignUpActivity.this, LoginActivity.class);
                     intent.putExtra("REGISTERED_EMAIL", email);
                     intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                     startActivity(intent);
                     finish();
                 } else {
-                    Toast.makeText(SignUpActivity.this, "Đăng ký thất bại hoặc email đã tồn tại", Toast.LENGTH_SHORT).show();
+                    String errorMessage = response.body() != null ? response.body().getMessage() : "Đăng ký thất bại hoặc email đã tồn tại";
+                    Toast.makeText(SignUpActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
-            public void onFailure(Call<AuthResponse> call, Throwable t) {
-                // Mở khóa lại nút bấm
+            public void onFailure(Call<ApiResponse<UserResponse>> call, Throwable t) {
                 btnSignUp.setEnabled(true);
                 btnSignUp.setText("Đăng ký");
 

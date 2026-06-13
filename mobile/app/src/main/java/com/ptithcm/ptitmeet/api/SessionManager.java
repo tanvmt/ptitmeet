@@ -17,9 +17,9 @@ public class SessionManager {
         editor = pref.edit();
     }
 
-    public void saveAuthData(String token, Long userId, String fullName) {
+    public void saveAuthData(String token, String userId, String fullName) {
         editor.putString(KEY_TOKEN, token);
-        editor.putLong(KEY_USER_ID, userId);
+        editor.putString(KEY_USER_ID, userId);
         editor.putString(KEY_USER_NAME, fullName);
         editor.apply();
     }
@@ -27,6 +27,11 @@ public class SessionManager {
     public String getToken() {
         return pref.getString(KEY_TOKEN, null);
     }
+
+    public String getUserId() {
+        return pref.getString(KEY_USER_ID, null);
+    }
+
     public String getUserName() {
         return pref.getString(KEY_USER_NAME, "User");
     }

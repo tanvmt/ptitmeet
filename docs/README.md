@@ -11,3 +11,4 @@ Other manual docs:
 - `test_script.md`
 - `test_report_template.md`
 - `development-workflow.md`
+- `presentation/README.md`

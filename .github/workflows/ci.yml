@@ -1,13 +1,7 @@
 name: CI/CD
 
 on:
-  pull_request:
-  push:
-    branches:
-      - dev
-      - main
-      - master
-      - develop
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -68,7 +62,7 @@ jobs:
         run: npm run build
 
   build-and-push:
-    if: github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main' || github.ref_name == 'master')
+    if: false
     needs:
       - backend
       - web-client
@@ -116,7 +110,7 @@ jobs:
             ghcr.io/${{ steps.owner.outputs.value }}/ptitmeet-web:latest
 
   deploy-ec2:
-    if: github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main' || github.ref_name == 'master')
+    if: false
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
