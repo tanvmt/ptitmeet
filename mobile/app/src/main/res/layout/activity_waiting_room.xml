@@ -130,6 +130,19 @@
         app:layout_constraintStart_toStartOf="@id/cvPreview"
         app:layout_constraintEnd_toEndOf="@id/cvPreview"/>
 
+    <TextView
+        android:id="@+id/tvPollingStatus"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="App se tu dong kiem tra lai sau vai giay."
+        android:textColor="#A0A0A0"
+        android:textSize="12sp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/tvWaitingMessage"
+        app:layout_constraintStart_toStartOf="@id/cvPreview"
+        app:layout_constraintEnd_toEndOf="@id/cvPreview"/>
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnJoin"
         android:layout_width="0dp"
@@ -140,7 +153,21 @@
         android:textStyle="bold"
         app:cornerRadius="16dp"
         app:backgroundTint="#137fec"
-        app:layout_constraintTop_toBottomOf="@id/tvWaitingMessage"
+        app:layout_constraintTop_toBottomOf="@id/tvPollingStatus"
+        app:layout_constraintStart_toStartOf="@id/cvPreview"
+        app:layout_constraintEnd_toEndOf="@id/cvPreview"/>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCancelWaiting"
+        android:layout_width="0dp"
+        android:layout_height="52dp"
+        android:layout_marginTop="12dp"
+        android:text="Cancel Waiting"
+        android:textAllCaps="false"
+        android:textColor="@color/white"
+        app:cornerRadius="16dp"
+        app:backgroundTint="#334155"
+        app:layout_constraintTop_toBottomOf="@id/btnJoin"
         app:layout_constraintStart_toStartOf="@id/cvPreview"
         app:layout_constraintEnd_toEndOf="@id/cvPreview"/>
 

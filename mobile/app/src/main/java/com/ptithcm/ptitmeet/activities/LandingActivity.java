@@ -8,6 +8,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.ptithcm.ptitmeet.R;
+import com.ptithcm.ptitmeet.api.SessionManager;
 
 public class LandingActivity extends AppCompatActivity {
 
@@ -16,11 +17,11 @@ public class LandingActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_landing);
 
-        // Ánh xạ các nút bấm
+        SessionManager sessionManager = new SessionManager(this);
+
         TextView btnSignIn = findViewById(R.id.btnSignInNav);
         Button btnStartMeeting = findViewById(R.id.btnStartMeeting);
 
-        // Xử lý sự kiện bấm nút "Sign In"
         btnSignIn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -29,11 +30,12 @@ public class LandingActivity extends AppCompatActivity {
             }
         });
 
-        // Xử lý sự kiện bấm nút "Start New Meeting"
         btnStartMeeting.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Tạm thời chuyển đến Waiting Room hoặc Login
+                Class<?> nextScreen = sessionManager.getToken() == null ? LoginActivity.class : MainActivity.class;
+                Intent intent = new Intent(LandingActivity.this, nextScreen);
+                startActivity(intent);
             }
         });
     }

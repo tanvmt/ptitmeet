@@ -14,10 +14,24 @@ import java.util.List;
 
 public class ParticipantAdapter extends RecyclerView.Adapter<ParticipantAdapter.ViewHolder> {
 
+    public interface ParticipantVideoBinder {
+        void bindVideo(ParticipantData participant, FrameLayout videoContainer);
+    }
+
     private List<ParticipantData> participantList;
+    private ParticipantVideoBinder videoBinder;
 
     public ParticipantAdapter(List<ParticipantData> participantList) {
         this.participantList = participantList;
+    }
+
+    public void setParticipantList(List<ParticipantData> participantList) {
+        this.participantList = participantList;
+        notifyDataSetChanged();
+    }
+
+    public void setVideoBinder(ParticipantVideoBinder videoBinder) {
+        this.videoBinder = videoBinder;
     }
 
     @NonNull
@@ -40,9 +54,13 @@ public class ParticipantAdapter extends RecyclerView.Adapter<ParticipantAdapter.
         if (p.hasVideo()) {
             holder.videoContainer.setVisibility(View.VISIBLE);
             holder.avatarContainer.setVisibility(View.GONE);
-            // TODO: Gắn LiveKit VideoTrack vào holder.videoContainer ở đây
+            holder.videoContainer.removeAllViews();
+            if (videoBinder != null) {
+                videoBinder.bindVideo(p, holder.videoContainer);
+            }
         } else {
             holder.videoContainer.setVisibility(View.GONE);
+            holder.videoContainer.removeAllViews();
             holder.avatarContainer.setVisibility(View.VISIBLE);
             // Lấy chữ cái đầu làm Avatar
             if (p.getName() != null && !p.getName().isEmpty()) {
@@ -65,6 +83,8 @@ public class ParticipantAdapter extends RecyclerView.Adapter<ParticipantAdapter.
         } else {
             holder.viewActiveSpeakerBorder.setVisibility(View.GONE);
         }
+
+        holder.tvParticipantName.setText(p.isLocal() ? p.getName() + " (You)" : p.getName());
     }
 
     @Override

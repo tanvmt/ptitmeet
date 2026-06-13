@@ -11,8 +11,9 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.ptithcm.ptitmeet.R;
 import com.ptithcm.ptitmeet.api.SessionManager;
-import com.ptithcm.ptitmeet.api.dto.AuthResponse;
-import com.ptithcm.ptitmeet.api.dto.LoginRequest;
+import com.ptithcm.ptitmeet.api.dto.auth.AuthEnvelope;
+import com.ptithcm.ptitmeet.api.dto.auth.AuthResponse;
+import com.ptithcm.ptitmeet.api.dto.auth.LoginRequest;
 import com.ptithcm.ptitmeet.api.services.ApiService;
 import com.ptithcm.ptitmeet.api.services.RetrofitClient;
 
@@ -59,34 +60,34 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void performLogin(String email, String password) {
-        // Khởi tạo Request dựa trên cấu trúc LoginRequest của backend
         LoginRequest loginRequest = new LoginRequest(email, password);
-
-        // Gọi API qua RetrofitClient
-        ApiService apiService = RetrofitClient.getApiService();
-        apiService.login(loginRequest).enqueue(new Callback<AuthResponse>() {
+        ApiService apiService = RetrofitClient.getApiService(this);
+        apiService.login(loginRequest).enqueue(new Callback<AuthEnvelope>() {
             @Override
-            public void onResponse(Call<AuthResponse> call, Response<AuthResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    AuthResponse authData = response.body();
+            public void onResponse(Call<AuthEnvelope> call, Response<AuthEnvelope> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    AuthResponse authData = response.body().getData();
 
-                    // Lưu thông tin đăng nhập vào SessionManager
-                    sessionManager.saveAuthData(authData.getAccessToken(), authData.getUser().getId(), authData.getUser().getFullName());
+                    sessionManager.saveAuthData(
+                            authData.getAccessToken(),
+                            authData.getUser().getUserId(),
+                            authData.getUser().getFullName()
+                    );
 
                     Log.d("LOGIN_SUCCESS", "Token: " + authData.getAccessToken());
                     Toast.makeText(LoginActivity.this, "Welcome " + authData.getUser().getFullName(), Toast.LENGTH_SHORT).show();
 
-                    // Chuyển vào trang chính
                     Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                     startActivity(intent);
                     finish();
                 } else {
-                    Toast.makeText(LoginActivity.this, "Sai tài khoản hoặc mật khẩu", Toast.LENGTH_SHORT).show();
+                    String errorMessage = response.body() != null ? response.body().getMessage() : "Sai tài khoản hoặc mật khẩu";
+                    Toast.makeText(LoginActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
-            public void onFailure(Call<AuthResponse> call, Throwable t) {
+            public void onFailure(Call<AuthEnvelope> call, Throwable t) {
                 Log.e("API_ERROR", t.getMessage() != null ? t.getMessage() : "Unknown error");
                 Toast.makeText(LoginActivity.this, "Fail to connect to server", Toast.LENGTH_SHORT).show();
             }

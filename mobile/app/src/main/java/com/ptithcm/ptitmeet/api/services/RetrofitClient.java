@@ -1,17 +1,32 @@
 package com.ptithcm.ptitmeet.api.services;
 
+import android.content.Context;
+
+import com.ptithcm.ptitmeet.api.config.ApiConfig;
+import com.ptithcm.ptitmeet.api.interceptor.AuthInterceptor;
+
+import okhttp3.OkHttpClient;
+import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 public class RetrofitClient {
-    // Dùng 10.0.2.2 thay cho localhost nếu chạy trên Android Emulator
-    private static final String BASE_URL = "http://localhost:8080/";
+
     private static Retrofit retrofit;
 
-    public static ApiService getApiService() {
+    public static synchronized ApiService getApiService(Context context) {
         if (retrofit == null) {
+            HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor();
+            loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
+
+            OkHttpClient okHttpClient = new OkHttpClient.Builder()
+                    .addInterceptor(new AuthInterceptor(context))
+                    .addInterceptor(loggingInterceptor)
+                    .build();
+
             retrofit = new Retrofit.Builder()
-                    .baseUrl(BASE_URL)
+                    .baseUrl(ApiConfig.getBaseUrl())
+                    .client(okHttpClient)
                     .addConverterFactory(GsonConverterFactory.create())
                     .build();
         }
