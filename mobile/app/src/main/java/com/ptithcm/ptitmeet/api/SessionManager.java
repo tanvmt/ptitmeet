@@ -36,6 +36,11 @@ public class SessionManager {
         return pref.getString(KEY_USER_NAME, "User");
     }
 
+    public void updateUserName(String fullName) {
+        editor.putString(KEY_USER_NAME, fullName);
+        editor.apply();
+    }
+
     public void logout() {
         editor.clear();
         editor.apply();

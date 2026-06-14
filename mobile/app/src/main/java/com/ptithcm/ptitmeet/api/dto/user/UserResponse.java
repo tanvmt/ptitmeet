@@ -34,4 +34,8 @@ public class UserResponse {
     public String getAvatarUrl() {
         return avatarUrl;
     }
+
+    public String getAuthProvider() {
+        return authProvider;
+    }
 }

@@ -33,6 +33,20 @@
         android:textSize="16sp"
         android:textStyle="bold" />
 
+    <TextView
+        android:id="@+id/tvRecordingStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/bg_recording_pill"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="6dp"
+        android:text="REC"
+        android:textColor="@color/white"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnLeave"
         android:layout_width="wrap_content"
@@ -111,6 +125,15 @@
                 android:background="@drawable/bg_red_dot"
                 android:visibility="gone"/>
         </FrameLayout>
+
+        <ImageButton
+            android:id="@+id/btnRecord"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginHorizontal="6dp"
+            android:background="@drawable/bg_circle_button"
+            android:src="@drawable/ic_record"
+            app:tint="@color/white"/>
 
     </LinearLayout>
 

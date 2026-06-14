@@ -24,7 +24,12 @@
         </activity>
         <activity android:name=".activities.LoginActivity" android:exported="false"/>
         <activity android:name=".activities.SignUpActivity" android:exported="false"/>
+        <activity android:name=".activities.ForgotPasswordActivity" android:exported="false"/>
+        <activity android:name=".activities.VerifyResetOtpActivity" android:exported="false"/>
+        <activity android:name=".activities.ResetPasswordActivity" android:exported="false"/>
         <activity android:name=".activities.MainActivity"/>
+        <activity android:name=".activities.ProfileActivity" android:exported="false"/>
+        <activity android:name=".activities.RecordingsActivity" android:exported="false"/>
         <activity android:name=".activities.MeetingActivity"/>
         <activity android:name=".activities.WaitingRoomActivity"/>
     </application>

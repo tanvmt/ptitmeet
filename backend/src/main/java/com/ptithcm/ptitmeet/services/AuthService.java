@@ -1,9 +1,11 @@
 package com.ptithcm.ptitmeet.services;
 
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,6 +23,8 @@ import com.ptithcm.ptitmeet.dto.auth.GoogleLoginRequest;
 import com.ptithcm.ptitmeet.dto.auth.LoginRequest;
 import com.ptithcm.ptitmeet.dto.auth.RegisterRequest;
 import com.ptithcm.ptitmeet.dto.auth.ResetPasswordRequest;
+import com.ptithcm.ptitmeet.dto.auth.VerifyResetOtpRequest;
+import com.ptithcm.ptitmeet.dto.auth.VerifyResetOtpResponse;
 import com.ptithcm.ptitmeet.dto.user.UserResponse;
 import com.ptithcm.ptitmeet.entity.enums.AuthProvider;
 import com.ptithcm.ptitmeet.entity.mysql.User;
@@ -47,7 +51,11 @@ public class AuthService {
     @Value("${google.client-id}")
     private String googleClientId;
 
-    private final Map<String, String> resetTokenStore = new HashMap<>();
+    private static final int MOBILE_RESET_OTP_EXPIRATION_MINUTES = 10;
+
+    private final SecureRandom secureRandom = new SecureRandom();
+    private final Map<String, String> resetTokenStore = new ConcurrentHashMap<>();
+    private final Map<String, ResetOtpState> resetOtpStore = new ConcurrentHashMap<>();
 
     @Transactional
     public UserResponse register(RegisterRequest request) {
@@ -227,6 +235,47 @@ public class AuthService {
 
     }
 
+    @Transactional(readOnly = true)
+    public void forgotPasswordMobile(ForgotPasswordRequest request) {
+        String normalizedEmail = normalizeEmail(request.getEmail());
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        String otp = generateSixDigitOtp();
+        resetOtpStore.put(
+                normalizedEmail,
+                new ResetOtpState(otp, LocalDateTime.now().plusMinutes(MOBILE_RESET_OTP_EXPIRATION_MINUTES)));
+
+        emailService.sendPasswordResetOtpEmail(
+                user.getEmail(),
+                user.getFullName(),
+                otp,
+                MOBILE_RESET_OTP_EXPIRATION_MINUTES);
+    }
+
+    public VerifyResetOtpResponse verifyResetOtp(VerifyResetOtpRequest request) {
+        String normalizedEmail = normalizeEmail(request.getEmail());
+        ResetOtpState otpState = resetOtpStore.get(normalizedEmail);
+
+        if (otpState == null) {
+            throw new AppException(ErrorCode.INVALID_RESET_OTP);
+        }
+        if (otpState.isExpired()) {
+            resetOtpStore.remove(normalizedEmail);
+            throw new AppException(ErrorCode.EXPIRED_RESET_OTP);
+        }
+        if (!otpState.matches(request.getOtp())) {
+            throw new AppException(ErrorCode.INVALID_RESET_OTP);
+        }
+
+        resetOtpStore.remove(normalizedEmail);
+        String resetToken = UUID.randomUUID().toString();
+        resetTokenStore.put(resetToken, normalizedEmail);
+        return VerifyResetOtpResponse.builder()
+                .resetToken(resetToken)
+                .build();
+    }
+
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
 
@@ -242,6 +291,32 @@ public class AuthService {
         userRepository.save(user);
 
         resetTokenStore.remove(request.getToken());
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase();
+    }
+
+    private String generateSixDigitOtp() {
+        return String.format("%06d", secureRandom.nextInt(1_000_000));
+    }
+
+    private static final class ResetOtpState {
+        private final String otp;
+        private final LocalDateTime expiresAt;
+
+        private ResetOtpState(String otp, LocalDateTime expiresAt) {
+            this.otp = otp;
+            this.expiresAt = expiresAt;
+        }
+
+        private boolean matches(String candidate) {
+            return otp.equals(candidate);
+        }
+
+        private boolean isExpired() {
+            return LocalDateTime.now().isAfter(expiresAt);
+        }
     }
 
     private UserResponse mapToUserResponse(User user) {

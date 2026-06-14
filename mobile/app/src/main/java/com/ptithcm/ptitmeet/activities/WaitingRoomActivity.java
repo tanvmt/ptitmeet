@@ -263,6 +263,7 @@ public class WaitingRoomActivity extends AppCompatActivity {
         intent.putExtra("LIVEKIT_URL", joinData.getServerUrl());
         intent.putExtra("USER_ROLE", joinData.getRole());
         intent.putExtra("MEETING_CODE", meetingCode);
+        intent.putExtra("IS_OWNER", joinData.isOwner());
         startActivity(intent);
         finish();
     }
