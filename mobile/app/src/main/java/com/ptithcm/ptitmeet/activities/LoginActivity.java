@@ -39,6 +39,12 @@ public class LoginActivity extends AppCompatActivity {
         etPassword = findViewById(R.id.etPassword);
         Button btnLogin = findViewById(R.id.btnLogin);
         TextView tvSignUpLink = findViewById(R.id.tvSignUpLink);
+        TextView tvForgotPassword = findViewById(R.id.tvForgotPassword);
+
+        String registeredEmail = getIntent().getStringExtra("REGISTERED_EMAIL");
+        if (registeredEmail != null && !registeredEmail.trim().isEmpty()) {
+            etEmail.setText(registeredEmail);
+        }
 
         // Xử lý nút Đăng nhập
         btnLogin.setOnClickListener(v -> {
@@ -55,6 +61,12 @@ public class LoginActivity extends AppCompatActivity {
 
         tvSignUpLink.setOnClickListener(v -> {
             Intent intent = new Intent(LoginActivity.this, SignUpActivity.class);
+            startActivity(intent);
+        });
+
+        tvForgotPassword.setOnClickListener(v -> {
+            Intent intent = new Intent(LoginActivity.this, ForgotPasswordActivity.class);
+            intent.putExtra("EMAIL", etEmail.getText().toString().trim());
             startActivity(intent);
         });
     }

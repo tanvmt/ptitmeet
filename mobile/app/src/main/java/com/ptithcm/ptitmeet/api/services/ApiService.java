@@ -6,6 +6,8 @@ import com.ptithcm.ptitmeet.api.dto.auth.GoogleLoginRequest;
 import com.ptithcm.ptitmeet.api.dto.auth.LoginRequest;
 import com.ptithcm.ptitmeet.api.dto.auth.RegisterRequest;
 import com.ptithcm.ptitmeet.api.dto.auth.ResetPasswordRequest;
+import com.ptithcm.ptitmeet.api.dto.auth.VerifyResetOtpRequest;
+import com.ptithcm.ptitmeet.api.dto.auth.VerifyResetOtpResponse;
 import com.ptithcm.ptitmeet.api.dto.chat.ChatMessageResponse;
 import com.ptithcm.ptitmeet.api.dto.common.ApiResponse;
 import com.ptithcm.ptitmeet.api.dto.common.PageResponse;
@@ -56,6 +58,12 @@ public interface ApiService {
 
     @POST("/api/auth/forgot-password")
     Call<ApiResponse<Void>> forgotPassword(@Body ForgotPasswordRequest request);
+
+    @POST("/api/auth/forgot-password-mobile")
+    Call<ApiResponse<Void>> forgotPasswordMobile(@Body ForgotPasswordRequest request);
+
+    @POST("/api/auth/verify-reset-otp")
+    Call<ApiResponse<VerifyResetOtpResponse>> verifyResetOtp(@Body VerifyResetOtpRequest request);
 
     @POST("/api/auth/reset-password")
     Call<ApiResponse<Void>> resetPassword(@Body ResetPasswordRequest request);

@@ -56,6 +56,30 @@ public class EmailService {
         }
     }
 
+    public void sendPasswordResetOtpEmail(String toEmail, String fullName, String otp, int expiresInMinutes) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(toEmail);
+            message.setSubject("PTITMEET - Mobile password reset OTP");
+
+            String emailBody = String.format(
+                    "Xin chao %s,\n\n" +
+                            "Ma OTP dat lai mat khau PTITMeet cua ban la: %s\n\n" +
+                            "Ma nay se het han sau %d phut va chi dung duoc mot lan.\n\n" +
+                            "Neu ban khong yeu cau dat lai mat khau, vui long bo qua email nay.\n\n" +
+                            "PTITMEET Team",
+                    fullName,
+                    otp,
+                    expiresInMinutes);
+
+            message.setText(emailBody);
+            mailSender.send(message);
+        } catch (Exception e) {
+            throw new RuntimeException("Loi khi gui email OTP reset password den: " + toEmail);
+        }
+    }
+
     @Async 
     public void sendMeetingInvite(String toEmail, String meetingCode, String title, LocalDateTime startTime, String hostName) {
         try {

@@ -14,6 +14,7 @@ import androidx.appcompat.widget.AppCompatButton;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.ptithcm.ptitmeet.R;
 import com.ptithcm.ptitmeet.adapters.RecentActivityAdapter;
 import com.ptithcm.ptitmeet.api.SessionManager;
@@ -69,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
         etMeetingCode = findViewById(R.id.etMeetingCode);
         btnJoinNow = findViewById(R.id.btnJoinNow);
         rvRecentActivity = findViewById(R.id.rvRecentActivity);
+        BottomNavigationView bottomNav = findViewById(R.id.bottomNav);
 
         recentActivityAdapter = new RecentActivityAdapter();
         rvRecentActivity.setLayoutManager(new LinearLayoutManager(this));
@@ -82,6 +84,23 @@ public class MainActivity extends AppCompatActivity {
         btnNewMeeting.setOnClickListener(v -> createNewMeeting());
         btnJoinMeeting.setOnClickListener(v -> handleJoinFromInputOrDialog());
         btnJoinNow.setOnClickListener(v -> joinUpNextMeeting());
+
+        bottomNav.setSelectedItemId(R.id.nav_dashboard);
+        bottomNav.setOnItemSelectedListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.nav_dashboard) {
+                return true;
+            }
+            if (id == R.id.nav_recordings) {
+                startActivity(new Intent(this, RecordingsActivity.class));
+                return true;
+            }
+            if (id == R.id.nav_profile) {
+                startActivity(new Intent(this, ProfileActivity.class));
+                return true;
+            }
+            return false;
+        });
     }
 
     @Override
@@ -263,6 +282,7 @@ public class MainActivity extends AppCompatActivity {
         intent.putExtra("LIVEKIT_URL", joinData.getServerUrl());
         intent.putExtra("USER_ROLE", joinData.getRole());
         intent.putExtra("MEETING_CODE", meetingCode);
+        intent.putExtra("IS_OWNER", joinData.isOwner());
         startActivity(intent);
     }
 }

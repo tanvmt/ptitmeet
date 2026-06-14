@@ -27,4 +27,40 @@ public class MeetingRecordingResponse {
 
     @SerializedName("createdAt")
     private String createdAt;
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getRoomName() {
+        return roomName;
+    }
+
+    public String getEgressId() {
+        return egressId;
+    }
+
+    public String getMeetingId() {
+        return meetingId;
+    }
+
+    public String getOwnerId() {
+        return ownerId;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public String getFileUrl() {
+        return fileUrl;
+    }
+
+    public String getCreatedAt() {
+        return createdAt;
+    }
+
+    public boolean hasFile() {
+        return fileUrl != null && !fileUrl.trim().isEmpty();
+    }
 }

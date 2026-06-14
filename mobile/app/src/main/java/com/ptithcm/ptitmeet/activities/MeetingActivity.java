@@ -3,6 +3,8 @@ package com.ptithcm.ptitmeet.activities;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Handler;
 import android.os.Bundle;
 import android.os.Looper;
@@ -31,6 +33,7 @@ import com.ptithcm.ptitmeet.api.dto.common.ApiResponse;
 import com.ptithcm.ptitmeet.api.dto.meeting.ApprovalRequest;
 import com.ptithcm.ptitmeet.api.dto.meeting.MeetingInfoResponse;
 import com.ptithcm.ptitmeet.api.dto.meeting.ParticipantResponse;
+import com.ptithcm.ptitmeet.api.dto.recording.MeetingRecordingResponse;
 import com.ptithcm.ptitmeet.api.realtime.MeetingRealtimeClient;
 import com.ptithcm.ptitmeet.api.realtime.StompSocketClient;
 import com.ptithcm.ptitmeet.api.services.ApiService;
@@ -65,12 +68,18 @@ public class MeetingActivity extends AppCompatActivity {
     private ImageButton btnParticipants;
     private ImageButton btnChat;
     private ImageButton btnSwitchCamera;
+    private ImageButton btnRecord;
+    private TextView tvRecordingStatus;
 
     private ApiService apiService;
     private SessionManager sessionManager;
     private String meetingCode;
     private String userRole;
     private String livekitUrl;
+    private boolean isMeetingOwner;
+    private boolean recordingActive;
+    private boolean recordingRequestInFlight;
+    private String recordingEgressId;
     private final List<ParticipantResponse> waitingParticipants = new ArrayList<>();
     private MeetingRealtimeClient meetingRealtimeClient;
     private String adminSubscriptionId;
@@ -91,6 +100,7 @@ public class MeetingActivity extends AppCompatActivity {
             this::handlePermissionResult
     );
     private final Handler waitingRoomHandler = new Handler(Looper.getMainLooper());
+    private final Handler recordingStatusHandler = new Handler(Looper.getMainLooper());
     private boolean waitingRoomPollingActive;
     private final Runnable waitingRoomPollingRunnable = new Runnable() {
         @Override
@@ -100,6 +110,12 @@ public class MeetingActivity extends AppCompatActivity {
             }
             loadWaitingParticipants();
             waitingRoomHandler.postDelayed(this, 5000);
+        }
+    };
+    private final Runnable recordingStatusRunnable = new Runnable() {
+        @Override
+        public void run() {
+            pollRecordingStatus();
         }
     };
 
@@ -114,6 +130,8 @@ public class MeetingActivity extends AppCompatActivity {
         userRole = getIntent().getStringExtra("USER_ROLE");
         livekitUrl = getIntent().getStringExtra("LIVEKIT_URL");
         liveKitToken = getIntent().getStringExtra("LIVEKIT_TOKEN");
+        isMeetingOwner = getIntent().getBooleanExtra("IS_OWNER", false)
+                || "OWNER".equalsIgnoreCase(userRole);
         meetingRealtimeClient = new MeetingRealtimeClient(this, meetingCode);
         liveKitRoomManager = new LiveKitRoomManager(this);
 
@@ -126,6 +144,8 @@ public class MeetingActivity extends AppCompatActivity {
         btnParticipants = findViewById(R.id.btnParticipants);
         btnChat = findViewById(R.id.btnChat);
         btnSwitchCamera = findViewById(R.id.btnSwitchCamera);
+        btnRecord = findViewById(R.id.btnRecord);
+        tvRecordingStatus = findViewById(R.id.tvRecordingStatus);
 
         tvMeetingCode.setText(meetingCode != null ? meetingCode : "---");
         seedLocalParticipant();
@@ -150,6 +170,7 @@ public class MeetingActivity extends AppCompatActivity {
             openWaitingRoomDialog();
         });
         btnChat.setOnClickListener(v -> openChatDialog());
+        btnRecord.setOnClickListener(v -> toggleRecording());
         btnSwitchCamera.setOnClickListener(v -> {
             if (isHostLikeRole()) {
                 showHostControlsDialog();
@@ -158,6 +179,7 @@ public class MeetingActivity extends AppCompatActivity {
             }
         });
         updateLocalControlsUi();
+        updateRecordingUi("IDLE");
     }
 
     @Override
@@ -188,6 +210,7 @@ public class MeetingActivity extends AppCompatActivity {
         if (liveKitRoomManager != null) {
             liveKitRoomManager.release();
         }
+        stopRecordingStatusPolling();
     }
 
     private void seedLocalParticipant() {
@@ -462,6 +485,16 @@ public class MeetingActivity extends AppCompatActivity {
                 }
                 return;
             }
+            if ("RECORDING_STARTED".equalsIgnoreCase(type)) {
+                recordingActive = true;
+                updateRecordingUi("RECORDING");
+                return;
+            }
+            if ("RECORDING_STOPPED".equalsIgnoreCase(type)) {
+                recordingActive = false;
+                updateRecordingUi(isMeetingOwner && recordingEgressId != null ? "STOPPING" : "IDLE");
+                return;
+            }
             if ("MUTE_ALL".equalsIgnoreCase(type)) {
                 applyRemoteMicMute("Host da tat mic cua moi nguoi.");
                 return;
@@ -662,6 +695,169 @@ public class MeetingActivity extends AppCompatActivity {
             return;
         }
         meetingRealtimeClient.sendSystemAction(payload);
+    }
+
+    private void publishRecordingAction(String type) {
+        if (meetingRealtimeClient != null && meetingRealtimeClient.isConnected()) {
+            meetingRealtimeClient.sendSystemAction(SystemActionHelper.createPayload(type));
+        }
+    }
+
+    private void toggleRecording() {
+        if (!isMeetingOwner) {
+            Toast.makeText(this, "Only the meeting owner can record", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (recordingRequestInFlight) {
+            return;
+        }
+        if (recordingActive) {
+            stopRecording();
+        } else {
+            startRecording();
+        }
+    }
+
+    private void startRecording() {
+        if (meetingCode == null || meetingCode.trim().isEmpty()) {
+            Toast.makeText(this, "Missing meeting code", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        recordingRequestInFlight = true;
+        updateRecordingUi("STARTING");
+
+        apiService.startRecording(meetingCode).enqueue(new Callback<ApiResponse<MeetingRecordingResponse>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<MeetingRecordingResponse>> call, Response<ApiResponse<MeetingRecordingResponse>> response) {
+                recordingRequestInFlight = false;
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    MeetingRecordingResponse recording = response.body().getData();
+                    recordingEgressId = recording.getEgressId();
+                    recordingActive = true;
+                    updateRecordingUi(safeRecordingStatus(recording.getStatus(), "RECORDING"));
+                    publishRecordingAction("RECORDING_STARTED");
+                    Toast.makeText(MeetingActivity.this, "Recording started", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                recordingActive = false;
+                updateRecordingUi("FAILED");
+                String message = response.body() != null
+                        ? response.body().getMessage()
+                        : "Unable to start recording";
+                Toast.makeText(MeetingActivity.this, message, Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<MeetingRecordingResponse>> call, Throwable t) {
+                recordingRequestInFlight = false;
+                recordingActive = false;
+                updateRecordingUi("FAILED");
+                Toast.makeText(MeetingActivity.this, "Cannot start recording", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void stopRecording() {
+        if (recordingEgressId == null || recordingEgressId.trim().isEmpty()) {
+            recordingActive = false;
+            updateRecordingUi("FAILED");
+            Toast.makeText(this, "Missing recording session id", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        recordingRequestInFlight = true;
+        updateRecordingUi("STOPPING");
+        apiService.stopRecording(recordingEgressId).enqueue(new Callback<MeetingRecordingResponse>() {
+            @Override
+            public void onResponse(Call<MeetingRecordingResponse> call, Response<MeetingRecordingResponse> response) {
+                recordingRequestInFlight = false;
+                recordingActive = false;
+                String status = response.isSuccessful() && response.body() != null
+                        ? safeRecordingStatus(response.body().getStatus(), "STOPPING")
+                        : "STOPPING";
+                updateRecordingUi(status);
+                publishRecordingAction("RECORDING_STOPPED");
+                startRecordingStatusPolling();
+                Toast.makeText(MeetingActivity.this, "Stopping recording", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onFailure(Call<MeetingRecordingResponse> call, Throwable t) {
+                recordingRequestInFlight = false;
+                updateRecordingUi("FAILED");
+                Toast.makeText(MeetingActivity.this, "Cannot stop recording", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void startRecordingStatusPolling() {
+        recordingStatusHandler.removeCallbacks(recordingStatusRunnable);
+        recordingStatusHandler.postDelayed(recordingStatusRunnable, 3000);
+    }
+
+    private void stopRecordingStatusPolling() {
+        recordingStatusHandler.removeCallbacks(recordingStatusRunnable);
+    }
+
+    private void pollRecordingStatus() {
+        if (recordingEgressId == null || recordingEgressId.trim().isEmpty()) {
+            stopRecordingStatusPolling();
+            return;
+        }
+
+        apiService.getRecordingStatus(recordingEgressId).enqueue(new Callback<MeetingRecordingResponse>() {
+            @Override
+            public void onResponse(Call<MeetingRecordingResponse> call, Response<MeetingRecordingResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    String status = safeRecordingStatus(response.body().getStatus(), "STOPPING");
+                    updateRecordingUi(status);
+                    if ("COMPLETED".equalsIgnoreCase(status) || "FAILED".equalsIgnoreCase(status)) {
+                        stopRecordingStatusPolling();
+                        if ("COMPLETED".equalsIgnoreCase(status)) {
+                            Toast.makeText(MeetingActivity.this, "Recording saved", Toast.LENGTH_SHORT).show();
+                        }
+                        return;
+                    }
+                    recordingStatusHandler.postDelayed(recordingStatusRunnable, 5000);
+                    return;
+                }
+                updateRecordingUi("FAILED");
+                stopRecordingStatusPolling();
+            }
+
+            @Override
+            public void onFailure(Call<MeetingRecordingResponse> call, Throwable t) {
+                updateRecordingUi("FAILED");
+                stopRecordingStatusPolling();
+            }
+        });
+    }
+
+    private String safeRecordingStatus(String status, String fallback) {
+        return status == null || status.trim().isEmpty() ? fallback : status.trim().toUpperCase();
+    }
+
+    private void updateRecordingUi(String status) {
+        String normalized = safeRecordingStatus(status, "IDLE");
+        boolean showStatus = !"IDLE".equalsIgnoreCase(normalized);
+
+        if (tvRecordingStatus != null) {
+            tvRecordingStatus.setVisibility(showStatus ? View.VISIBLE : View.GONE);
+            if ("RECORDING".equalsIgnoreCase(normalized)) {
+                tvRecordingStatus.setText("REC");
+            } else {
+                tvRecordingStatus.setText(normalized);
+            }
+        }
+
+        if (btnRecord != null) {
+            btnRecord.setEnabled(isMeetingOwner && !recordingRequestInFlight);
+            btnRecord.setAlpha(isMeetingOwner ? 1f : 0.35f);
+            int color = recordingActive
+                    ? Color.parseColor("#E53935")
+                    : Color.parseColor("#2D3748");
+            btnRecord.setBackgroundTintList(ColorStateList.valueOf(color));
+        }
     }
 
     private void toggleLocalMic() {

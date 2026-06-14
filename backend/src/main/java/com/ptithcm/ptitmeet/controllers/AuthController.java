@@ -14,6 +14,8 @@ import com.ptithcm.ptitmeet.dto.auth.GoogleLoginRequest;
 import com.ptithcm.ptitmeet.dto.auth.LoginRequest;
 import com.ptithcm.ptitmeet.dto.auth.RegisterRequest;
 import com.ptithcm.ptitmeet.dto.auth.ResetPasswordRequest;
+import com.ptithcm.ptitmeet.dto.auth.VerifyResetOtpRequest;
+import com.ptithcm.ptitmeet.dto.auth.VerifyResetOtpResponse;
 import com.ptithcm.ptitmeet.dto.user.UserResponse;
 import com.ptithcm.ptitmeet.services.AuthService;
 
@@ -88,6 +90,26 @@ public class AuthController {
 
     return ResponseEntity.ok(
         ApiResponse.success(null, "Email khôi phục đã được gửi"));
+  }
+
+  @PostMapping("/forgot-password-mobile")
+  public ResponseEntity<ApiResponse<Void>> forgotPasswordMobile(
+      @Valid @RequestBody ForgotPasswordRequest request) {
+
+    authService.forgotPasswordMobile(request);
+
+    return ResponseEntity.ok(
+        ApiResponse.success(null, "Ma OTP dat lai mat khau da duoc gui qua email"));
+  }
+
+  @PostMapping("/verify-reset-otp")
+  public ResponseEntity<ApiResponse<VerifyResetOtpResponse>> verifyResetOtp(
+      @Valid @RequestBody VerifyResetOtpRequest request) {
+
+    VerifyResetOtpResponse response = authService.verifyResetOtp(request);
+
+    return ResponseEntity.ok(
+        ApiResponse.success(response, "Xac thuc OTP thanh cong"));
   }
 
   @PostMapping("/reset-password")
