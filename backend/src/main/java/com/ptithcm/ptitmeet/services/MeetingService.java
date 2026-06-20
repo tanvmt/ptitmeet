@@ -482,6 +482,20 @@ public class MeetingService {
         Participant participant = participantRepository.findByMeetingAndUser(meeting, user)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_PARTICIPANT));
 
+        if (participant.getApprovalStatus() == ParticipantApprovalStatus.PENDING) {
+            ParticipantResponse notiData = ParticipantResponse.builder()
+                    .participantId(participant.getParticipantId())
+                    .userId(user.getUserId())
+                    .displayName(participant.getDisplayName())
+                    .status("LEFT")
+                    .build();
+
+            messagingTemplate.convertAndSend("/topic/meeting/" + code + "/admin", notiData);
+
+            participantRepository.delete(participant);
+            return;
+        }
+
         ParticipantSession activeSession = sessionRepository
                 .findFirstByParticipantAndStatusOrderByJoinedAtDesc(participant, SessionStatus.ACTIVE)
                 .orElse(null);

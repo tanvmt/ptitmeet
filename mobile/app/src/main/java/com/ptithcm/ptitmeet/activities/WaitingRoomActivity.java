@@ -4,8 +4,8 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
-import android.os.Handler;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -15,9 +15,15 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.core.Preview;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.view.PreviewView;
+import androidx.core.content.ContextCompat;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.ptithcm.ptitmeet.R;
 import com.ptithcm.ptitmeet.api.SessionManager;
 import com.ptithcm.ptitmeet.api.dto.common.ApiResponse;
@@ -67,6 +73,11 @@ public class WaitingRoomActivity extends AppCompatActivity {
     private String waitingRoomRealtimeSubscriptionId;
     private boolean realtimeConnected;
     private String pendingPermissionRequest;
+
+    private PreviewView previewView;
+    private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
+    private boolean isHostSetup;
+
     private final ActivityResultLauncher<String[]> permissionLauncher = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(),
             this::handlePermissionResult
@@ -97,6 +108,7 @@ public class WaitingRoomActivity extends AppCompatActivity {
         meetingCode = getIntent().getStringExtra("MEETING_CODE");
         displayName = getIntent().getStringExtra("DISPLAY_NAME");
         waitingMessage = getIntent().getStringExtra("WAITING_MESSAGE");
+        isHostSetup = getIntent().getBooleanExtra("IS_HOST_SETUP", false);
         meetingRealtimeClient = new MeetingRealtimeClient(this, meetingCode);
         if (displayName == null || displayName.trim().isEmpty()) {
             displayName = sessionManager.getUserName();
@@ -114,6 +126,21 @@ public class WaitingRoomActivity extends AppCompatActivity {
         tvPollingStatus = findViewById(R.id.tvPollingStatus);
 
         tvDisplayName.setText(displayName);
+
+        View btnBack = findViewById(R.id.btnBack);
+        if (btnBack != null) {
+            btnBack.setOnClickListener(v -> {
+                if (isWaitingState) {
+                    cancelWaitingAndExit();
+                } else {
+                    finish();
+                }
+            });
+        }
+
+        previewView = new PreviewView(this);
+        videoPreviewContainer.addView(previewView);
+
         if (waitingMessage != null && !waitingMessage.trim().isEmpty()) {
             showWaitingState(waitingMessage);
         } else {
@@ -165,6 +192,9 @@ public class WaitingRoomActivity extends AppCompatActivity {
         if (isWaitingState) {
             startPolling();
         }
+        if (isVideoOn && DevicePermissionHelper.hasCameraPermission(this)) {
+            startCameraPreview();
+        }
     }
 
     @Override
@@ -172,12 +202,19 @@ public class WaitingRoomActivity extends AppCompatActivity {
         super.onStop();
         stopPolling();
         disconnectRealtime();
+        stopCameraPreview();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        stopCameraPreview();
     }
 
     private void loadMeetingInfo() {
         if (meetingCode == null || meetingCode.trim().isEmpty()) {
             tvReady.setText("Missing meeting code");
-            tvParticipantsCount.setText("Khong the tai thong tin phong.");
+            tvParticipantsCount.setText("Unable to load meeting info.");
             btnJoin.setEnabled(false);
             return;
         }
@@ -187,16 +224,16 @@ public class WaitingRoomActivity extends AppCompatActivity {
             public void onResponse(Call<ApiResponse<MeetingInfoResponse>> call, Response<ApiResponse<MeetingInfoResponse>> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
                     MeetingInfoResponse info = response.body().getData();
-                    tvReady.setText(info.getTitle());
-                    tvParticipantsCount.setText("Host: " + info.getHostName() + " • Status: " + info.getStatus());
+                    tvReady.setText(isHostSetup ? "Set up before you go live" : "Ready to join?");
+                    tvParticipantsCount.setText("Meeting: " + info.getTitle() + "\nHost: " + info.getHostName());
                 } else {
-                    tvParticipantsCount.setText("Khong tai duoc thong tin phong.");
+                    tvParticipantsCount.setText("Unable to load meeting details.");
                 }
             }
 
             @Override
             public void onFailure(Call<ApiResponse<MeetingInfoResponse>> call, Throwable t) {
-                tvParticipantsCount.setText("Khong tai duoc thong tin phong.");
+                tvParticipantsCount.setText("Unable to load meeting details.");
             }
         });
     }
@@ -208,10 +245,7 @@ public class WaitingRoomActivity extends AppCompatActivity {
 
         isJoinRequestInFlight = true;
         btnJoin.setEnabled(false);
-        btnJoin.setText(isWaitingState ? "Checking..." : "Joining...");
-        if (fromPolling) {
-            tvPollingStatus.setText("Dang kiem tra host da duyet ban chua...");
-        }
+        btnJoin.setText(isWaitingState ? "Checking..." : (isHostSetup ? "Preparing..." : "Joining..."));
 
         apiService.joinMeeting(meetingCode, new JoinMeetingRequest(null, displayName))
                 .enqueue(new Callback<ApiResponse<JoinMeetingResponse>>() {
@@ -236,23 +270,16 @@ public class WaitingRoomActivity extends AppCompatActivity {
                             return;
                         }
 
-                        btnJoin.setText(isWaitingState ? "Check Again" : "Join Now");
-                        if (isWaitingState) {
-                            tvPollingStatus.setText("Van dang cho duyet. App se tiep tuc kiem tra lai.");
-                        }
-                        Toast.makeText(WaitingRoomActivity.this, response.body() != null ? response.body().getMessage() : "Khong the tham gia phong", Toast.LENGTH_SHORT).show();
+                        btnJoin.setText(isWaitingState ? "Check Again" : (isHostSetup ? "Start meeting" : "Join now"));
+                        Toast.makeText(WaitingRoomActivity.this, response.body() != null ? response.body().getMessage() : "Unable to join meeting", Toast.LENGTH_SHORT).show();
                     }
 
                     @Override
                     public void onFailure(Call<ApiResponse<JoinMeetingResponse>> call, Throwable t) {
                         isJoinRequestInFlight = false;
                         btnJoin.setEnabled(true);
-                        btnJoin.setText(isWaitingState ? "Check Again" : "Join Now");
-                        if (isWaitingState) {
-                            tvPollingStatus.setText("Tam thoi khong kiem tra duoc. App se thu lai sau.");
-                        } else {
-                            Toast.makeText(WaitingRoomActivity.this, "Khong the ket noi may chu", Toast.LENGTH_SHORT).show();
-                        }
+                        btnJoin.setText(isWaitingState ? "Check Again" : (isHostSetup ? "Start meeting" : "Join now"));
+                        Toast.makeText(WaitingRoomActivity.this, "Unable to connect to server", Toast.LENGTH_SHORT).show();
                     }
                 });
     }
@@ -264,6 +291,8 @@ public class WaitingRoomActivity extends AppCompatActivity {
         intent.putExtra("USER_ROLE", joinData.getRole());
         intent.putExtra("MEETING_CODE", meetingCode);
         intent.putExtra("IS_OWNER", joinData.isOwner());
+        intent.putExtra("MIC_ON", isMicOn);
+        intent.putExtra("VIDEO_ON", isVideoOn);
         startActivity(intent);
         finish();
     }
@@ -271,15 +300,12 @@ public class WaitingRoomActivity extends AppCompatActivity {
     private void showWaitingState(String message) {
         isWaitingState = true;
         tvWaitingMessage.setVisibility(View.VISIBLE);
-        tvPollingStatus.setVisibility(View.VISIBLE);
+        tvPollingStatus.setVisibility(View.GONE);
         btnCancelWaiting.setVisibility(View.VISIBLE);
         tvWaitingMessage.setText(message == null || message.trim().isEmpty()
-                ? "Dang cho host duyet vao phong..."
+                ? "Waiting for host to let you in..."
                 : message);
         btnJoin.setText("Check Again");
-        tvPollingStatus.setText(realtimeConnected
-                ? "Dang nghe phe duyet realtime. Polling van duoc giu lam du phong."
-                : "App se tu dong kiem tra lai sau moi 10 giay.");
         startPolling();
     }
 
@@ -289,7 +315,7 @@ public class WaitingRoomActivity extends AppCompatActivity {
         tvWaitingMessage.setVisibility(View.GONE);
         tvPollingStatus.setVisibility(View.GONE);
         btnCancelWaiting.setVisibility(View.GONE);
-        btnJoin.setText("Join Now");
+        btnJoin.setText(isHostSetup ? "Start meeting" : "Join now");
     }
 
     private void startPolling() {
@@ -308,8 +334,28 @@ public class WaitingRoomActivity extends AppCompatActivity {
 
     private void cancelWaitingAndExit() {
         stopPolling();
-        Toast.makeText(this, "Da dung cho duyet", Toast.LENGTH_SHORT).show();
+        if (meetingCode != null && !meetingCode.trim().isEmpty()) {
+            apiService.leaveMeeting(meetingCode).enqueue(new Callback<ApiResponse<Void>>() {
+                @Override
+                public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                }
+
+                @Override
+                public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                }
+            });
+        }
+        Toast.makeText(this, "Stopped waiting for approval", Toast.LENGTH_SHORT).show();
         finish();
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (isWaitingState) {
+            cancelWaitingAndExit();
+        } else {
+            super.onBackPressed();
+        }
     }
 
     private void updatePreviewControlsUi() {
@@ -325,11 +371,49 @@ public class WaitingRoomActivity extends AppCompatActivity {
             fabToggleVideo.setImageResource(R.drawable.ic_videocam);
             fabToggleVideo.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#137fec")));
             videoPreviewContainer.setVisibility(View.VISIBLE);
+            startCameraPreview();
         } else {
             fabToggleVideo.setImageResource(R.drawable.ic_videocam);
             fabToggleVideo.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#E53935")));
             videoPreviewContainer.setVisibility(View.GONE);
+            stopCameraPreview();
         }
+    }
+
+    private void startCameraPreview() {
+        if (!DevicePermissionHelper.hasCameraPermission(this)) {
+            return;
+        }
+        cameraProviderFuture = ProcessCameraProvider.getInstance(this);
+        cameraProviderFuture.addListener(() -> {
+            try {
+                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+                bindPreview(cameraProvider);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }, ContextCompat.getMainExecutor(this));
+    }
+
+    private void bindPreview(ProcessCameraProvider cameraProvider) {
+        cameraProvider.unbindAll();
+        Preview preview = new Preview.Builder().build();
+        CameraSelector cameraSelector = new CameraSelector.Builder()
+                .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
+                .build();
+        preview.setSurfaceProvider(previewView.getSurfaceProvider());
+        cameraProvider.bindToLifecycle(this, cameraSelector, preview);
+    }
+
+    private void stopCameraPreview() {
+        ListenableFuture<ProcessCameraProvider> future = ProcessCameraProvider.getInstance(this);
+        future.addListener(() -> {
+            try {
+                future.get().unbindAll();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }, ContextCompat.getMainExecutor(this));
     }
 
     private void handlePermissionResult(Map<String, Boolean> permissions) {
@@ -339,7 +423,7 @@ public class WaitingRoomActivity extends AppCompatActivity {
                 isMicOn = true;
                 updatePreviewControlsUi();
             } else {
-                Toast.makeText(this, "Can quyen microphone de bat mic", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Microphone permission is required to enable mic", Toast.LENGTH_SHORT).show();
             }
         } else if (DevicePermissionHelper.REQUEST_CAMERA.equals(pendingPermissionRequest)) {
             boolean granted = Boolean.TRUE.equals(permissions.get(Manifest.permission.CAMERA));
@@ -347,7 +431,7 @@ public class WaitingRoomActivity extends AppCompatActivity {
                 isVideoOn = true;
                 updatePreviewControlsUi();
             } else {
-                Toast.makeText(this, "Can quyen camera de bat video", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Camera permission is required to enable video", Toast.LENGTH_SHORT).show();
             }
         }
         pendingPermissionRequest = null;
@@ -363,25 +447,16 @@ public class WaitingRoomActivity extends AppCompatActivity {
             public void onConnected() {
                 realtimeConnected = true;
                 subscribeRealtimeTopics();
-                if (isWaitingState) {
-                    tvPollingStatus.setText("Dang nghe phe duyet realtime. Polling van duoc giu lam du phong.");
-                }
             }
 
             @Override
             public void onError(String message) {
                 realtimeConnected = false;
-                if (isWaitingState) {
-                    tvPollingStatus.setText("Socket tam thoi gian doan. App se tiep tuc polling.");
-                }
             }
 
             @Override
             public void onDisconnected() {
                 realtimeConnected = false;
-                if (isWaitingState) {
-                    tvPollingStatus.setText("Socket da ngat. App se tiep tuc polling.");
-                }
             }
         });
     }
@@ -416,7 +491,7 @@ public class WaitingRoomActivity extends AppCompatActivity {
                 return;
             }
             if ("REJECTED".equalsIgnoreCase(status)) {
-                String message = jsonObject.optString("message", "Yeu cau tham gia da bi tu choi.");
+                String message = jsonObject.optString("message", "Your request to join was rejected.");
                 Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
                 hideWaitingState();
             }
@@ -426,7 +501,7 @@ public class WaitingRoomActivity extends AppCompatActivity {
 
     private void handleWaitingRoomRealtime(String body) {
         if ("HOST_JOINED".equalsIgnoreCase(body)) {
-            showWaitingState("Host da vao phong. Vui long doi duyet.");
+            showWaitingState("The host has joined the meeting. Please wait for approval.");
             requestJoinMeeting(false);
             return;
         }

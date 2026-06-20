@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingVertical="12dp"
+    android:paddingHorizontal="4dp"
+    android:background="?attr/selectableItemBackground">
+
+    <FrameLayout
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_circle_avatar">
+        <TextView
+            android:id="@+id/tvWaitingAvatarInitial"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:textColor="@color/white"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:text="U" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:layout_marginStart="12dp">
+
+        <TextView
+            android:id="@+id/tvWaitingName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/white"
+            android:textStyle="bold"
+            android:textSize="15sp"
+            android:text="John Doe" />
+
+        <TextView
+            android:id="@+id/tvWaitingEmail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#94A3B8"
+            android:textSize="12sp"
+            android:text="john.doe@example.com" />
+    </LinearLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnWaitingDecline"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:text="Decline"
+        android:textSize="12sp"
+        android:textColor="@color/white"
+        app:backgroundTint="#EF4444"
+        app:cornerRadius="8dp"
+        android:minWidth="64dp"
+        android:layout_marginEnd="8dp"/>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnWaitingAccept"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:text="Admit"
+        android:textSize="12sp"
+        android:textColor="@color/white"
+        app:backgroundTint="#10B981"
+        app:cornerRadius="8dp"
+        android:minWidth="64dp"/>
+</LinearLayout>
