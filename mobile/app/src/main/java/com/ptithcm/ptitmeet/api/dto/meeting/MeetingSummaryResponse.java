@@ -16,4 +16,12 @@ public class MeetingSummaryResponse {
     public String getDuration() {
         return duration;
     }
+
+    public int getParticipants() {
+        return participants;
+    }
+
+    public int getMessages() {
+        return messages;
+    }
 }

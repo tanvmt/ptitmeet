@@ -1,6 +1,7 @@
 package com.ptithcm.ptitmeet.activities;
 
 import android.Manifest;
+import android.content.Intent;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.res.ColorStateList;
@@ -325,12 +326,20 @@ public class MeetingActivity extends AppCompatActivity {
                 .show();
     }
 
+    private void navigateToSummary(String actionTaken) {
+        Intent intent = new Intent(MeetingActivity.this, SummaryActivity.class);
+        intent.putExtra("MEETING_CODE", meetingCode);
+        intent.putExtra("ACTION_TAKEN", actionTaken);
+        startActivity(intent);
+        finish();
+    }
+
     private void leaveMeeting() {
         apiService.leaveMeeting(meetingCode).enqueue(new Callback<ApiResponse<Void>>() {
             @Override
             public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
                 Toast.makeText(MeetingActivity.this, "Left the meeting", Toast.LENGTH_SHORT).show();
-                finish();
+                navigateToSummary("LEAVE");
             }
 
             @Override
@@ -345,7 +354,7 @@ public class MeetingActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
                 Toast.makeText(MeetingActivity.this, "Ended the meeting", Toast.LENGTH_SHORT).show();
-                finish();
+                navigateToSummary("END");
             }
 
             @Override
@@ -552,7 +561,7 @@ public class MeetingActivity extends AppCompatActivity {
     private void handleSystemRealtime(String body) {
         if ("MEETING_ENDED".equalsIgnoreCase(body)) {
             Toast.makeText(this, "The meeting has ended", Toast.LENGTH_SHORT).show();
-            finish();
+            navigateToSummary("ENDED_BY_HOST");
             return;
         }
 
@@ -589,7 +598,7 @@ public class MeetingActivity extends AppCompatActivity {
             }
             if ("KICK_ALL".equalsIgnoreCase(type)) {
                 Toast.makeText(this, "You have been removed from the meeting", Toast.LENGTH_SHORT).show();
-                finish();
+                navigateToSummary("KICKED");
                 return;
             }
 
@@ -601,7 +610,7 @@ public class MeetingActivity extends AppCompatActivity {
                     applyRemoteCameraOff("The host disabled your camera.");
                 } else if ("KICK_PARTICIPANT".equalsIgnoreCase(type)) {
                     Toast.makeText(this, "You have been removed from the meeting by the host", Toast.LENGTH_SHORT).show();
-                    finish();
+                    navigateToSummary("KICKED");
                 }
             }
         } catch (Exception ignored) {
