@@ -24,6 +24,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
 import com.ptithcm.ptitmeet.adapters.ChatMessageAdapter;
+import com.ptithcm.ptitmeet.adapters.WaitingParticipantAdapter;
 import com.ptithcm.ptitmeet.ParticipantAdapter;
 import com.ptithcm.ptitmeet.ParticipantData;
 import com.ptithcm.ptitmeet.R;
@@ -91,6 +92,22 @@ public class MeetingActivity extends AppCompatActivity {
     private Dialog chatDialog;
     private boolean localMicEnabled = true;
     private boolean localVideoEnabled = true;
+    private com.google.android.material.bottomsheet.BottomSheetDialog bottomSheetDialog;
+    private com.ptithcm.ptitmeet.adapters.WaitingParticipantAdapter waitingAdapter;
+    private View cardJoinRequest;
+    private TextView tvAvatarInitial;
+    private TextView tvRequestName;
+    private MaterialButton btnDeclineRequest;
+    private MaterialButton btnAcceptRequest;
+    private final Handler toastDismissHandler = new Handler(Looper.getMainLooper());
+    private final Runnable toastDismissRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (cardJoinRequest != null) {
+                cardJoinRequest.setVisibility(View.GONE);
+            }
+        }
+    };
     private String currentMeetingSettings = "{}";
     private String pendingPermissionRequest;
     private LiveKitRoomManager liveKitRoomManager;
@@ -135,6 +152,9 @@ public class MeetingActivity extends AppCompatActivity {
         meetingRealtimeClient = new MeetingRealtimeClient(this, meetingCode);
         liveKitRoomManager = new LiveKitRoomManager(this);
 
+        localMicEnabled = getIntent().getBooleanExtra("MIC_ON", true);
+        localVideoEnabled = getIntent().getBooleanExtra("VIDEO_ON", true);
+
         rvParticipants = findViewById(R.id.rvParticipants);
         tvMeetingCode = findViewById(R.id.tvMeetingCode);
         badgeWaiting = findViewById(R.id.badgeWaiting);
@@ -146,6 +166,12 @@ public class MeetingActivity extends AppCompatActivity {
         btnSwitchCamera = findViewById(R.id.btnSwitchCamera);
         btnRecord = findViewById(R.id.btnRecord);
         tvRecordingStatus = findViewById(R.id.tvRecordingStatus);
+
+        cardJoinRequest = findViewById(R.id.cardJoinRequest);
+        tvAvatarInitial = findViewById(R.id.tvAvatarInitial);
+        tvRequestName = findViewById(R.id.tvRequestName);
+        btnDeclineRequest = findViewById(R.id.btnDeclineRequest);
+        btnAcceptRequest = findViewById(R.id.btnAcceptRequest);
 
         tvMeetingCode.setText(meetingCode != null ? meetingCode : "---");
         seedLocalParticipant();
@@ -164,7 +190,7 @@ public class MeetingActivity extends AppCompatActivity {
         btnVideo.setOnClickListener(v -> toggleLocalVideo());
         btnParticipants.setOnClickListener(v -> {
             if (!isHostLikeRole()) {
-                Toast.makeText(this, "Chi host moi duyet phong cho", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Only the host can admit participants from the waiting room", Toast.LENGTH_SHORT).show();
                 return;
             }
             openWaitingRoomDialog();
@@ -219,8 +245,8 @@ public class MeetingActivity extends AppCompatActivity {
                 sessionManager.getUserId() != null ? sessionManager.getUserId() : "self",
                 sessionManager.getUserId() != null ? sessionManager.getUserId() : "self",
                 sessionManager.getUserName(),
-                true,
-                true,
+                localVideoEnabled,
+                localMicEnabled,
                 false,
                 true
         ));
@@ -260,6 +286,15 @@ public class MeetingActivity extends AppCompatActivity {
                     waitingParticipants.addAll(response.body().getData());
                 }
                 updateWaitingBadge(!waitingParticipants.isEmpty());
+
+                runOnUiThread(() -> {
+                    if (waitingAdapter != null) {
+                        waitingAdapter.submitList(waitingParticipants);
+                    }
+                    if (waitingParticipants.isEmpty() && bottomSheetDialog != null && bottomSheetDialog.isShowing()) {
+                        bottomSheetDialog.dismiss();
+                    }
+                });
             }
 
             @Override
@@ -272,13 +307,13 @@ public class MeetingActivity extends AppCompatActivity {
     private void showLeaveOptions() {
         boolean isHost = isHostLikeRole();
         List<String> options = new ArrayList<>();
-        options.add("Roi phong");
+        options.add("Leave meeting");
         if (isHost) {
-            options.add("Ket thuc cho tat ca");
+            options.add("End meeting for all");
         }
 
         new AlertDialog.Builder(this)
-                .setTitle("Tuy chon cuoc hop")
+                .setTitle("Meeting options")
                 .setItems(options.toArray(new String[0]), (dialog, which) -> {
                     if (which == 0) {
                         leaveMeeting();
@@ -286,7 +321,7 @@ public class MeetingActivity extends AppCompatActivity {
                         endMeetingForAll();
                     }
                 })
-                .setNegativeButton("Dong", null)
+                .setNegativeButton("Close", null)
                 .show();
     }
 
@@ -294,13 +329,13 @@ public class MeetingActivity extends AppCompatActivity {
         apiService.leaveMeeting(meetingCode).enqueue(new Callback<ApiResponse<Void>>() {
             @Override
             public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
-                Toast.makeText(MeetingActivity.this, "Da roi phong", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MeetingActivity.this, "Left the meeting", Toast.LENGTH_SHORT).show();
                 finish();
             }
 
             @Override
             public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
-                Toast.makeText(MeetingActivity.this, "Khong the roi phong luc nay", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MeetingActivity.this, "Unable to leave the meeting at this time", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -309,61 +344,67 @@ public class MeetingActivity extends AppCompatActivity {
         apiService.endMeeting(meetingCode).enqueue(new Callback<ApiResponse<Void>>() {
             @Override
             public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
-                Toast.makeText(MeetingActivity.this, "Da ket thuc cuoc hop", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MeetingActivity.this, "Ended the meeting", Toast.LENGTH_SHORT).show();
                 finish();
             }
 
             @Override
             public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
-                Toast.makeText(MeetingActivity.this, "Khong the ket thuc cuoc hop", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MeetingActivity.this, "Unable to end the meeting", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
     private void openWaitingRoomDialog() {
         if (waitingParticipants.isEmpty()) {
-            Toast.makeText(this, "Phong cho hien dang trong", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "The waiting room is currently empty", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        String[] names = new String[waitingParticipants.size()];
-        for (int index = 0; index < waitingParticipants.size(); index++) {
-            ParticipantResponse item = waitingParticipants.get(index);
-            String email = item.getEmail() == null ? "" : " • " + item.getEmail();
-            names[index] = item.getDisplayName() + email;
+        if (bottomSheetDialog == null) {
+            bottomSheetDialog = new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+            View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_waiting_list, null);
+            bottomSheetDialog.setContentView(dialogView);
+
+            RecyclerView rvWaitingList = dialogView.findViewById(R.id.rvWaitingList);
+            MaterialButton btnCloseWaitingList = dialogView.findViewById(R.id.btnCloseWaitingList);
+
+            waitingAdapter = new WaitingParticipantAdapter(
+                    new WaitingParticipantAdapter.OnWaitingActionClickListener() {
+                        @Override
+                        public void onApprove(ParticipantResponse participant) {
+                            processWaitingApproval(participant.getParticipantId(), participant.getDisplayName(), "APPROVED");
+                        }
+
+                        @Override
+                        public void onReject(ParticipantResponse participant) {
+                            processWaitingApproval(participant.getParticipantId(), participant.getDisplayName(), "REJECTED");
+                        }
+                    }
+            );
+
+            rvWaitingList.setLayoutManager(new LinearLayoutManager(this));
+            rvWaitingList.setAdapter(waitingAdapter);
+
+            btnCloseWaitingList.setOnClickListener(v -> bottomSheetDialog.dismiss());
         }
 
-        new AlertDialog.Builder(this)
-                .setTitle("Phong cho")
-                .setItems(names, (dialog, which) -> showApprovalActions(waitingParticipants.get(which)))
-                .setNegativeButton("Dong", null)
-                .show();
+        waitingAdapter.submitList(waitingParticipants);
+        bottomSheetDialog.show();
     }
 
-    private void showApprovalActions(ParticipantResponse participant) {
-        String[] actions = new String[]{"Duyet vao phong", "Tu choi"};
-        new AlertDialog.Builder(this)
-                .setTitle(participant.getDisplayName())
-                .setItems(actions, (dialog, which) -> {
-                    String action = which == 0 ? "APPROVED" : "REJECTED";
-                    processWaitingApproval(participant, action);
-                })
-                .setNegativeButton("Huy", null)
-                .show();
-    }
-
-    private void processWaitingApproval(ParticipantResponse participant, String action) {
-        apiService.approveParticipant(meetingCode, new ApprovalRequest(participant.getParticipantId(), action))
+    private void processWaitingApproval(String participantId, String displayName, String action) {
+        apiService.approveParticipant(meetingCode, new ApprovalRequest(participantId, action))
                 .enqueue(new Callback<ApiResponse<Void>>() {
                     @Override
                     public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
-                        Toast.makeText(MeetingActivity.this, response.body() != null ? response.body().getMessage() : "Da xu ly", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MeetingActivity.this, response.body() != null ? response.body().getMessage() : "Processed successfully", Toast.LENGTH_SHORT).show();
                         loadWaitingParticipants();
                     }
 
                     @Override
                     public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
-                        Toast.makeText(MeetingActivity.this, "Khong the xu ly phong cho", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MeetingActivity.this, "Unable to process waiting room request", Toast.LENGTH_SHORT).show();
                     }
                 });
     }
@@ -374,19 +415,19 @@ public class MeetingActivity extends AppCompatActivity {
             public void onResponse(Call<ApiResponse<String>> call, Response<ApiResponse<String>> response) {
                 String settings = response.isSuccessful() && response.body() != null && response.body().getData() != null
                         ? response.body().getData()
-                        : "Chua co settings";
+                        : "No settings available";
                 currentMeetingSettings = settings;
 
                 new AlertDialog.Builder(MeetingActivity.this)
                         .setTitle("Meeting settings")
                         .setMessage(settings)
-                        .setPositiveButton("Dong", null)
+                        .setPositiveButton("Close", null)
                         .show();
             }
 
             @Override
             public void onFailure(Call<ApiResponse<String>> call, Throwable t) {
-                Toast.makeText(MeetingActivity.this, "Khong the tai settings", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MeetingActivity.this, "Unable to load settings", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -457,17 +498,60 @@ public class MeetingActivity extends AppCompatActivity {
     }
 
     private void showJoinRequestToast(String body) {
-        try {
-            JSONObject jsonObject = new JSONObject(body);
-            String displayName = jsonObject.optString("displayName", "Nguoi dung");
-            Toast.makeText(this, displayName + " dang xin vao phong", Toast.LENGTH_SHORT).show();
-        } catch (Exception ignored) {
+        runOnUiThread(() -> {
+            try {
+                JSONObject jsonObject = new JSONObject(body);
+                String status = jsonObject.optString("status");
+                String participantId = jsonObject.optString("participantId");
+                if ("LEFT".equalsIgnoreCase(status)) {
+                    if (cardJoinRequest != null && cardJoinRequest.getVisibility() == View.VISIBLE) {
+                        Object tag = cardJoinRequest.getTag();
+                        if (tag != null && tag.equals(participantId)) {
+                            cardJoinRequest.setVisibility(View.GONE);
+                            toastDismissHandler.removeCallbacks(toastDismissRunnable);
+                        }
+                    }
+                    return;
+                }
+                String displayName = jsonObject.optString("displayName", "User");
+                showFloatingJoinRequest(participantId, displayName);
+            } catch (Exception ignored) {
+            }
+        });
+    }
+
+    private void showFloatingJoinRequest(String participantId, String displayName) {
+        if (cardJoinRequest == null) {
+            return;
         }
+
+        tvRequestName.setText(displayName);
+        String initial = displayName != null && !displayName.isEmpty()
+                ? displayName.substring(0, 1).toUpperCase()
+                : "U";
+        tvAvatarInitial.setText(initial);
+
+        btnAcceptRequest.setOnClickListener(v -> {
+            processWaitingApproval(participantId, displayName, "APPROVED");
+            cardJoinRequest.setVisibility(View.GONE);
+            toastDismissHandler.removeCallbacks(toastDismissRunnable);
+        });
+
+        btnDeclineRequest.setOnClickListener(v -> {
+            processWaitingApproval(participantId, displayName, "REJECTED");
+            cardJoinRequest.setVisibility(View.GONE);
+            toastDismissHandler.removeCallbacks(toastDismissRunnable);
+        });
+
+        cardJoinRequest.setTag(participantId);
+        toastDismissHandler.removeCallbacks(toastDismissRunnable);
+        cardJoinRequest.setVisibility(View.VISIBLE);
+        toastDismissHandler.postDelayed(toastDismissRunnable, 8000);
     }
 
     private void handleSystemRealtime(String body) {
         if ("MEETING_ENDED".equalsIgnoreCase(body)) {
-            Toast.makeText(this, "Cuoc hop da ket thuc", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "The meeting has ended", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -481,7 +565,7 @@ public class MeetingActivity extends AppCompatActivity {
                     userRole = "HOST";
                     loadWaitingParticipants();
                     subscribeRealtimeTopics();
-                    Toast.makeText(this, "Ban vua duoc chuyen quyen host", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "You have been transferred host privileges", Toast.LENGTH_SHORT).show();
                 }
                 return;
             }
@@ -496,15 +580,15 @@ public class MeetingActivity extends AppCompatActivity {
                 return;
             }
             if ("MUTE_ALL".equalsIgnoreCase(type)) {
-                applyRemoteMicMute("Host da tat mic cua moi nguoi.");
+                applyRemoteMicMute("The host muted everyone's microphone.");
                 return;
             }
             if ("STOP_CAMERA_ALL".equalsIgnoreCase(type)) {
-                applyRemoteCameraOff("Host da tat camera cua moi nguoi.");
+                applyRemoteCameraOff("The host disabled everyone's camera.");
                 return;
             }
             if ("KICK_ALL".equalsIgnoreCase(type)) {
-                Toast.makeText(this, "Ban da bi moi roi khoi cuoc hop", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "You have been removed from the meeting", Toast.LENGTH_SHORT).show();
                 finish();
                 return;
             }
@@ -512,11 +596,11 @@ public class MeetingActivity extends AppCompatActivity {
             String targetParticipantId = jsonObject.optString("targetParticipantId");
             if (targetParticipantId != null && targetParticipantId.equals(sessionManager.getUserId())) {
                 if ("MUTE_PARTICIPANT".equalsIgnoreCase(type)) {
-                    applyRemoteMicMute("Host da tat mic cua ban.");
+                    applyRemoteMicMute("The host muted your microphone.");
                 } else if ("STOP_CAMERA_PARTICIPANT".equalsIgnoreCase(type)) {
-                    applyRemoteCameraOff("Host da tat camera cua ban.");
+                    applyRemoteCameraOff("The host disabled your camera.");
                 } else if ("KICK_PARTICIPANT".equalsIgnoreCase(type)) {
-                    Toast.makeText(this, "Ban da bi host moi ra khoi cuoc hop", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "You have been removed from the meeting by the host", Toast.LENGTH_SHORT).show();
                     finish();
                 }
             }
@@ -589,7 +673,7 @@ public class MeetingActivity extends AppCompatActivity {
 
     private void sendChatMessage(String content) {
         if (meetingRealtimeClient == null || !meetingRealtimeClient.isConnected()) {
-            Toast.makeText(this, "Chat socket chua san sang", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Chat is not ready yet", Toast.LENGTH_SHORT).show();
             return;
         }
         try {
@@ -646,7 +730,7 @@ public class MeetingActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(Call<ApiResponse<String>> call, Throwable t) {
-                Toast.makeText(MeetingActivity.this, "Khong the tai settings hien tai", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MeetingActivity.this, "Unable to load current settings", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -677,21 +761,21 @@ public class MeetingActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<ApiResponse<com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse>> call, Response<ApiResponse<com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse>> response) {
                 Toast.makeText(MeetingActivity.this,
-                        waitingRoomEnabled ? "Da bat waiting room" : "Da tat waiting room",
+                        waitingRoomEnabled ? "Waiting room enabled" : "Waiting room disabled",
                         Toast.LENGTH_SHORT).show();
                 loadWaitingParticipants();
             }
 
             @Override
             public void onFailure(Call<ApiResponse<com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse>> call, Throwable t) {
-                Toast.makeText(MeetingActivity.this, "Khong the cap nhat settings", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MeetingActivity.this, "Unable to update settings", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
     private void sendSystemAction(String payload) {
         if (meetingRealtimeClient == null || !meetingRealtimeClient.isConnected()) {
-            Toast.makeText(this, "Socket system chua san sang", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "System socket is not ready yet", Toast.LENGTH_SHORT).show();
             return;
         }
         meetingRealtimeClient.sendSystemAction(payload);
@@ -914,7 +998,7 @@ public class MeetingActivity extends AppCompatActivity {
                 localMicEnabled = true;
                 updateLocalControlsUi();
             } else {
-                Toast.makeText(this, "Can quyen microphone de bat mic", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Microphone permission is required to unmute", Toast.LENGTH_SHORT).show();
             }
         } else if (DevicePermissionHelper.REQUEST_CAMERA.equals(pendingPermissionRequest)) {
             boolean granted = Boolean.TRUE.equals(permissions.get(Manifest.permission.CAMERA));
@@ -922,7 +1006,7 @@ public class MeetingActivity extends AppCompatActivity {
                 localVideoEnabled = true;
                 updateLocalControlsUi();
             } else {
-                Toast.makeText(this, "Can quyen camera de bat video", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Camera permission is required to turn on video", Toast.LENGTH_SHORT).show();
             }
         }
         pendingPermissionRequest = null;
@@ -957,7 +1041,7 @@ public class MeetingActivity extends AppCompatActivity {
             return;
         }
         if (livekitUrl == null || livekitUrl.trim().isEmpty() || liveKitToken == null || liveKitToken.trim().isEmpty()) {
-            Toast.makeText(this, "Chua co du lieu LiveKit de vao phong media", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "LiveKit data is not available to join the media room", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -969,7 +1053,7 @@ public class MeetingActivity extends AppCompatActivity {
                 new LiveKitRoomManager.Listener() {
                     @Override
                     public void onConnected() {
-                        runOnUiThread(() -> Toast.makeText(MeetingActivity.this, "Da vao phong hop", Toast.LENGTH_SHORT).show());
+                        runOnUiThread(() -> Toast.makeText(MeetingActivity.this, "Joined the meeting room", Toast.LENGTH_SHORT).show());
                     }
 
                     @Override
@@ -979,7 +1063,7 @@ public class MeetingActivity extends AppCompatActivity {
 
                     @Override
                     public void onDisconnected() {
-                        runOnUiThread(() -> Toast.makeText(MeetingActivity.this, "Da ngat ket noi phong", Toast.LENGTH_SHORT).show());
+                        runOnUiThread(() -> Toast.makeText(MeetingActivity.this, "Disconnected from the meeting room", Toast.LENGTH_SHORT).show());
                     }
 
                     @Override

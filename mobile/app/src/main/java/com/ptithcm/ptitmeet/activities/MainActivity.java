@@ -134,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
                 btnNewMeeting.setEnabled(true);
                 if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
                     String newMeetingCode = response.body().getData().getMeetingCode();
-                    performJoinRequest(newMeetingCode);
+                    performJoinRequest(newMeetingCode, true);
                 } else {
                     String errorMessage = response.body() != null ? response.body().getMessage() : "Không thể tạo phòng";
                     Toast.makeText(MainActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
@@ -152,7 +152,7 @@ public class MainActivity extends AppCompatActivity {
     private void handleJoinFromInputOrDialog() {
         String meetingCode = etMeetingCode.getText().toString().trim();
         if (!meetingCode.isEmpty()) {
-            performJoinRequest(meetingCode);
+            performJoinRequest(meetingCode, false);
             return;
         }
         showJoinMeetingDialog();
@@ -170,7 +170,7 @@ public class MainActivity extends AppCompatActivity {
         builder.setPositiveButton("Tham gia", (dialog, which) -> {
             String meetingCode = input.getText().toString().trim();
             if (!meetingCode.isEmpty()) {
-                performJoinRequest(meetingCode);
+                performJoinRequest(meetingCode, false);
             } else {
                 Toast.makeText(MainActivity.this, "Mã phòng không được để trống", Toast.LENGTH_SHORT).show();
             }
@@ -185,7 +185,7 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Hiện chưa có cuộc họp sắp diễn ra", Toast.LENGTH_SHORT).show();
             return;
         }
-        performJoinRequest(upNextMeetingCode);
+        performJoinRequest(upNextMeetingCode, false);
     }
 
     private void loadDashboardData() {
@@ -247,50 +247,16 @@ public class MainActivity extends AppCompatActivity {
         btnJoinNow.setEnabled(false);
     }
 
-    private void performJoinRequest(String meetingCode) {
-        Toast.makeText(this, "Đang kết nối...", Toast.LENGTH_SHORT).show();
-
+    private void performJoinRequest(String meetingCode, boolean isHostSetup) {
         String displayName = sessionManager.getUserName();
-        JoinMeetingRequest request = new JoinMeetingRequest(null, displayName);
-
-        apiService.joinMeeting(meetingCode, request).enqueue(new Callback<ApiResponse<JoinMeetingResponse>>() {
-            @Override
-            public void onResponse(Call<ApiResponse<JoinMeetingResponse>> call, Response<ApiResponse<JoinMeetingResponse>> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    JoinMeetingResponse joinData = response.body().getData();
-                    if ("PENDING".equalsIgnoreCase(joinData.getStatus())) {
-                        openWaitingRoom(meetingCode, displayName, joinData.getMessage());
-                    } else {
-                        openMeetingRoom(meetingCode, joinData);
-                    }
-                } else {
-                    String errorMsg = response.body() != null ? response.body().getMessage() : "Lỗi không xác định";
-                    Toast.makeText(MainActivity.this, "Không thể tham gia: " + errorMsg, Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<ApiResponse<JoinMeetingResponse>> call, Throwable t) {
-                Toast.makeText(MainActivity.this, "Lỗi kết nối mạng", Toast.LENGTH_SHORT).show();
-            }
-        });
+        openWaitingRoom(meetingCode, displayName, isHostSetup);
     }
 
-    private void openWaitingRoom(String meetingCode, String displayName, String waitingMessage) {
+    private void openWaitingRoom(String meetingCode, String displayName, boolean isHostSetup) {
         Intent intent = new Intent(this, WaitingRoomActivity.class);
         intent.putExtra("MEETING_CODE", meetingCode);
         intent.putExtra("DISPLAY_NAME", displayName);
-        intent.putExtra("WAITING_MESSAGE", waitingMessage);
-        startActivity(intent);
-    }
-
-    private void openMeetingRoom(String meetingCode, JoinMeetingResponse joinData) {
-        Intent intent = new Intent(this, MeetingActivity.class);
-        intent.putExtra("LIVEKIT_TOKEN", joinData.getToken());
-        intent.putExtra("LIVEKIT_URL", joinData.getServerUrl());
-        intent.putExtra("USER_ROLE", joinData.getRole());
-        intent.putExtra("MEETING_CODE", meetingCode);
-        intent.putExtra("IS_OWNER", joinData.isOwner());
+        intent.putExtra("IS_HOST_SETUP", isHostSetup);
         startActivity(intent);
     }
 }
