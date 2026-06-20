@@ -30,7 +30,7 @@ public class UserController {
         UserResponse user = userService.getProfile(userId);
 
         return ResponseEntity.ok(
-                ApiResponse.success(user, "Lấy thông tin người dùng hiện tại thành công"));
+                ApiResponse.success(user, "Current user profile retrieved successfully"));
     }
 
     @GetMapping("/profile")
@@ -41,7 +41,7 @@ public class UserController {
         UserResponse user = userService.getProfile(userId);
 
         return ResponseEntity.ok(
-                ApiResponse.success(user, "Lấy thông tin thành công"));
+                ApiResponse.success(user, "Profile retrieved successfully"));
     }
 
     @PutMapping("/profile")
@@ -54,7 +54,7 @@ public class UserController {
         UserResponse user = userService.updateProfile(userId, request);
 
         return ResponseEntity.ok(
-                ApiResponse.success(user, "Cập nhật thông tin thành công"));
+                ApiResponse.success(user, "Profile updated successfully"));
     }
 
     @PostMapping("/avatar")
@@ -67,6 +67,6 @@ public class UserController {
         UserResponse user = userService.uploadAvatar(userId, file);
 
         return ResponseEntity.ok(
-                ApiResponse.success(user, "Cập nhật ảnh đại diện thành công"));
+                ApiResponse.success(user, "Avatar updated successfully"));
     }
 }

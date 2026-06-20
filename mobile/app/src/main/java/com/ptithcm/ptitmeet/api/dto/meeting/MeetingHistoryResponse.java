@@ -55,21 +55,40 @@ public class MeetingHistoryResponse {
         return status == null ? "UNKNOWN" : status;
     }
 
+    public boolean isHost() {
+        return host;
+    }
+
+    public boolean isOwner() {
+        return owner;
+    }
+
+    public boolean isCanViewChatHistory() {
+        return canViewChatHistory;
+    }
+
+    public boolean isCanViewRecordings() {
+        return canViewRecordings;
+    }
+
     public String getDisplayTime() {
         return MeetingUiFormatter.formatTimeRange(startTime, endTime);
     }
 
-    public int getStatusColor(TextView textView) {
+    public int getStatusColor() {
         String normalizedStatus = getStatus().toUpperCase();
-        if ("ENDED".equals(normalizedStatus) || "COMPLETED".equals(normalizedStatus)) {
-            return Color.parseColor("#86EFAC");
+        if ("ENDED".equals(normalizedStatus) || "COMPLETED".equals(normalizedStatus) || "FINISHED".equals(normalizedStatus)) {
+            return Color.parseColor("#94A3B8"); // Slate-400
         }
         if ("SCHEDULED".equals(normalizedStatus) || "UPCOMING".equals(normalizedStatus)) {
-            return Color.parseColor("#93C5FD");
+            return Color.parseColor("#93C5FD"); // Blue-300
         }
-        if ("CANCELLED".equals(normalizedStatus)) {
-            return Color.parseColor("#FDA4AF");
+        if ("ACTIVE".equals(normalizedStatus) || "LIVE".equals(normalizedStatus)) {
+            return Color.parseColor("#4ADE80"); // Green-400
         }
-        return textView.getCurrentTextColor();
+        if ("CANCELLED".equals(normalizedStatus) || "CANCELED".equals(normalizedStatus)) {
+            return Color.parseColor("#FCA5A5"); // Red-300
+        }
+        return Color.parseColor("#94A3B8");
     }
 }

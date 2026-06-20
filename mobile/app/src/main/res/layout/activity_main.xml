@@ -117,6 +117,58 @@
                         android:textColor="@color/white"
                         android:textStyle="bold" />
                 </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/btnScheduleMeeting"
+                    android:layout_width="0dp"
+                    android:layout_height="140dp"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="4dp"
+                    android:background="@drawable/bg_card_surface"
+                    android:gravity="bottom"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <ImageView
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_marginBottom="12dp"
+                        android:src="@android:drawable/ic_menu_today"
+                        app:tint="@color/primary" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Schedule Meeting"
+                        android:textColor="@color/white"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/btnMeetingHistory"
+                    android:layout_width="0dp"
+                    android:layout_height="140dp"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="4dp"
+                    android:background="@drawable/bg_card_surface"
+                    android:gravity="bottom"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <ImageView
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_marginBottom="12dp"
+                        android:src="@android:drawable/ic_menu_recent_history"
+                        app:tint="@color/primary" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Meeting History"
+                        android:textColor="@color/white"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </GridLayout>
 
             <!-- Thêm trường nhập mã phòng -->

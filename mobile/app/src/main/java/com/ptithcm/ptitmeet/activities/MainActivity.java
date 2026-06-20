@@ -44,7 +44,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvUpNextTitle;
     private TextView tvUpNextTime;
     private TextView tvUpNextCode;
-    private LinearLayout btnNewMeeting, btnJoinMeeting;
+    private LinearLayout btnNewMeeting, btnJoinMeeting, btnScheduleMeeting, btnMeetingHistory;
     private EditText etMeetingCode;
     private AppCompatButton btnJoinNow;
     private RecyclerView rvRecentActivity;
@@ -67,6 +67,8 @@ public class MainActivity extends AppCompatActivity {
         tvUpNextCode = findViewById(R.id.tvUpNextCode);
         btnNewMeeting = findViewById(R.id.btnNewMeeting);
         btnJoinMeeting = findViewById(R.id.btnJoinMeeting);
+        btnScheduleMeeting = findViewById(R.id.btnScheduleMeeting);
+        btnMeetingHistory = findViewById(R.id.btnMeetingHistory);
         etMeetingCode = findViewById(R.id.etMeetingCode);
         btnJoinNow = findViewById(R.id.btnJoinNow);
         rvRecentActivity = findViewById(R.id.rvRecentActivity);
@@ -83,12 +85,18 @@ public class MainActivity extends AppCompatActivity {
 
         btnNewMeeting.setOnClickListener(v -> createNewMeeting());
         btnJoinMeeting.setOnClickListener(v -> handleJoinFromInputOrDialog());
+        btnScheduleMeeting.setOnClickListener(v -> startActivity(new Intent(this, ScheduleMeetingActivity.class)));
+        btnMeetingHistory.setOnClickListener(v -> startActivity(new Intent(this, MeetingsActivity.class)));
         btnJoinNow.setOnClickListener(v -> joinUpNextMeeting());
 
         bottomNav.setSelectedItemId(R.id.nav_dashboard);
         bottomNav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
             if (id == R.id.nav_dashboard) {
+                return true;
+            }
+            if (id == R.id.nav_meetings) {
+                startActivity(new Intent(this, MeetingsActivity.class));
                 return true;
             }
             if (id == R.id.nav_recordings) {

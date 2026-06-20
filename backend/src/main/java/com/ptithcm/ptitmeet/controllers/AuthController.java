@@ -40,7 +40,7 @@ public class AuthController {
     UserResponse user = authService.register(request);
 
     return ResponseEntity.status(HttpStatus.CREATED).body(
-        ApiResponse.success(user, "Đăng ký tài khoản thành công"));
+        ApiResponse.success(user, "Account registered successfully"));
   }
 
   @PostMapping("/login")
@@ -50,7 +50,7 @@ public class AuthController {
     AuthResponse authResponse = authService.login(request, response);
 
     return ResponseEntity.ok(
-        ApiResponse.success(authResponse, "Đăng nhập thành công"));
+        ApiResponse.success(authResponse, "Login successful"));
   }
 
   @PostMapping("/google")
@@ -60,7 +60,7 @@ public class AuthController {
     AuthResponse authResponse = authService.loginWithGoogle(request, response);
 
     return ResponseEntity.ok(
-        ApiResponse.success(authResponse, "Đăng nhập Google thành công"));
+        ApiResponse.success(authResponse, "Google login successful"));
   }
 
   @PostMapping("/refresh-token")
@@ -70,7 +70,7 @@ public class AuthController {
     AuthResponse authResponse = authService.refreshToken(request, response);
 
     return ResponseEntity.ok(
-        ApiResponse.success(authResponse, "Làm mới token thành công"));
+        ApiResponse.success(authResponse, "Token refreshed successfully"));
   }
 
   @PostMapping("/logout")
@@ -79,7 +79,7 @@ public class AuthController {
     authService.logout(response);
 
     return ResponseEntity.ok(
-        ApiResponse.success(null, "Đăng xuất thành công"));
+        ApiResponse.success(null, "Logged out successfully"));
   }
 
   @PostMapping("/forgot-password")
@@ -89,7 +89,7 @@ public class AuthController {
     authService.forgotPassword(request);
 
     return ResponseEntity.ok(
-        ApiResponse.success(null, "Email khôi phục đã được gửi"));
+        ApiResponse.success(null, "Password reset email has been sent"));
   }
 
   @PostMapping("/forgot-password-mobile")
@@ -99,7 +99,7 @@ public class AuthController {
     authService.forgotPasswordMobile(request);
 
     return ResponseEntity.ok(
-        ApiResponse.success(null, "Ma OTP dat lai mat khau da duoc gui qua email"));
+        ApiResponse.success(null, "OTP password reset code has been sent to your email"));
   }
 
   @PostMapping("/verify-reset-otp")
@@ -109,7 +109,7 @@ public class AuthController {
     VerifyResetOtpResponse response = authService.verifyResetOtp(request);
 
     return ResponseEntity.ok(
-        ApiResponse.success(response, "Xac thuc OTP thanh cong"));
+        ApiResponse.success(response, "OTP verified successfully"));
   }
 
   @PostMapping("/reset-password")
@@ -119,6 +119,6 @@ public class AuthController {
     authService.resetPassword(request);
 
     return ResponseEntity.ok(
-        ApiResponse.success(null, "Mật khẩu đã được cập nhật"));
+        ApiResponse.success(null, "Password updated successfully"));
   }
 }
