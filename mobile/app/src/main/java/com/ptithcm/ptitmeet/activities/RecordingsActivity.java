@@ -70,6 +70,11 @@ public class RecordingsActivity extends AppCompatActivity {
                 finish();
                 return true;
             }
+            if (id == R.id.nav_meetings) {
+                startActivity(new Intent(this, MeetingsActivity.class));
+                finish();
+                return true;
+            }
             if (id == R.id.nav_profile) {
                 startActivity(new Intent(this, ProfileActivity.class));
                 finish();

@@ -110,9 +110,14 @@ public class MeetingService {
         return meetingRepository.save(meeting);
     }
 
+    @Transactional
     public Meeting scheduleMeeting(UUID hostId, CreateMeetingRequest request) {
         User host = userRepository.findById(hostId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (request.getTitle() == null || request.getTitle().isBlank()) {
+            throw new AppException(ErrorCode.INVALID_KEY);
+        }
 
         if (request.getStartTime() == null) {
             throw new AppException(ErrorCode.INVALID_KEY);
@@ -217,6 +222,9 @@ public class MeetingService {
 
         meeting.setStatus(MeetingStatus.CANCELED);
         meetingRepository.save(meeting);
+
+        // Thông báo tất cả participants qua WebSocket
+        messagingTemplate.convertAndSend("/topic/meeting/" + code + "/system", "MEETING_CANCELED");
     }
 
     @Transactional
@@ -421,7 +429,11 @@ public class MeetingService {
             int size) {
         MeetingStatus statusEnum = null;
         if (statusStr != null && !statusStr.equals("ALL")) {
-            statusEnum = MeetingStatus.valueOf(statusStr);
+            try {
+                statusEnum = MeetingStatus.valueOf(statusStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new AppException(ErrorCode.INVALID_KEY);
+            }
         }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "startTime"));
@@ -934,5 +946,46 @@ public class MeetingService {
         }
 
         return meeting;
+    }
+
+    @Transactional
+    public Meeting updateMeeting(UUID userId, String code, com.ptithcm.ptitmeet.dto.meeting.UpdateMeetingRequest request) {
+        Meeting meeting = meetingRepository.findByMeetingCode(code)
+                .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
+
+        if (!getMeetingOwnerId(meeting).equals(userId)) {
+            throw new AppException(ErrorCode.HOST_ONLY_ACTION);
+        }
+
+        if (meeting.getStatus() != MeetingStatus.SCHEDULED) {
+            throw new AppException(ErrorCode.INVALID_KEY);
+        }
+
+        if (request.getTitle() != null && !request.getTitle().isBlank()) {
+            meeting.setTitle(request.getTitle());
+        }
+
+        if (request.getStartTime() != null) {
+            if (request.getStartTime().isBefore(LocalDateTime.now())) {
+                throw new AppException(ErrorCode.INVALID_KEY);
+            }
+            meeting.setStartTime(request.getStartTime());
+        }
+
+        if (request.getEndTime() != null) {
+            LocalDateTime effectiveStart = request.getStartTime() != null
+                    ? request.getStartTime()
+                    : meeting.getStartTime();
+            if (request.getEndTime().isBefore(effectiveStart)) {
+                throw new AppException(ErrorCode.INVALID_TIME_RANGE);
+            }
+            meeting.setEndTime(request.getEndTime());
+        }
+
+        if (request.getAccessType() != null) {
+            meeting.setAccessType(request.getAccessType());
+        }
+
+        return meetingRepository.save(meeting);
     }
 }

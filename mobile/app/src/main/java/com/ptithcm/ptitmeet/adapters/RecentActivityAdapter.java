@@ -40,7 +40,8 @@ public class RecentActivityAdapter extends RecyclerView.Adapter<RecentActivityAd
         holder.title.setText(item.getTitle());
         holder.time.setText(item.getDisplayTime());
         holder.status.setText(item.getStatus());
-        holder.status.setTextColor(item.getStatusColor(holder.status));
+        // Updated to use the no-argument getStatusColor() method
+        holder.status.setTextColor(item.getStatusColor());
     }
 
     @Override

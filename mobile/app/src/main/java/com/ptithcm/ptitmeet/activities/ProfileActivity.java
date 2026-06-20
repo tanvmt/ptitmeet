@@ -114,6 +114,11 @@ public class ProfileActivity extends AppCompatActivity {
                 finish();
                 return true;
             }
+            if (id == R.id.nav_meetings) {
+                startActivity(new Intent(this, MeetingsActivity.class));
+                finish();
+                return true;
+            }
             if (id == R.id.nav_recordings) {
                 startActivity(new Intent(this, RecordingsActivity.class));
                 finish();

@@ -19,6 +19,7 @@ import com.ptithcm.ptitmeet.api.dto.meeting.JoinMeetingResponse;
 import com.ptithcm.ptitmeet.api.dto.meeting.MeetingHistoryResponse;
 import com.ptithcm.ptitmeet.api.dto.meeting.MeetingInfoResponse;
 import com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse;
+import com.ptithcm.ptitmeet.api.dto.meeting.UpdateMeetingRequest;
 import com.ptithcm.ptitmeet.api.dto.meeting.MeetingSummaryResponse;
 import com.ptithcm.ptitmeet.api.dto.meeting.ParticipantResponse;
 import com.ptithcm.ptitmeet.api.dto.recording.MeetingRecordingResponse;
@@ -106,6 +107,12 @@ public interface ApiService {
 
     @DELETE("/api/meetings/{meetingCode}")
     Call<ApiResponse<Void>> cancelMeeting(@Path("meetingCode") String meetingCode);
+
+    @PUT("/api/meetings/{meetingCode}")
+    Call<ApiResponse<MeetingResponse>> updateMeeting(
+            @Path("meetingCode") String meetingCode,
+            @Body UpdateMeetingRequest request
+    );
 
     @POST("/api/meetings/{meetingCode}/join")
     Call<ApiResponse<JoinMeetingResponse>> joinMeeting(

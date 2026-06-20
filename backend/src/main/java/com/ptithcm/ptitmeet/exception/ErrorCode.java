@@ -6,44 +6,44 @@ import lombok.Getter;
 
 @Getter
 public enum ErrorCode {
-    // --- Lỗi Hệ Thống/Chung (1xxx) ---
-    UNCATEGORIZED_EXCEPTION(9999, "Lỗi hệ thống chưa được định nghĩa", HttpStatus.INTERNAL_SERVER_ERROR),
-    INVALID_KEY(1001, "Sai định dạng dữ liệu", HttpStatus.BAD_REQUEST),
-    UNAUTHENTICATED(1002, "Vui lòng đăng nhập", HttpStatus.UNAUTHORIZED),
-    UNAUTHORIZED(1003, "Bạn không có quyền truy cập", HttpStatus.FORBIDDEN),
-    
-    // --- Lỗi User/Auth (2xxx) ---
-    USER_NOT_FOUND(2001, "Không tìm thấy người dùng", HttpStatus.NOT_FOUND),
-    USER_EXISTED(2002, "Người dùng đã tồn tại", HttpStatus.BAD_REQUEST),
-    EMAIL_ALREADY_USED(2003, "Email này đã được sử dụng", HttpStatus.BAD_REQUEST),
-    WRONG_PASSWORD(2004, "Mật khẩu không chính xác", HttpStatus.BAD_REQUEST),
-    INVALID_LOGIN(2005, "Email hoặc mật khẩu không đúng", HttpStatus.BAD_REQUEST),
-    INVALID_GOOGLE_TOKEN_ID(2006, "Google ID Token không hợp lệ", HttpStatus.BAD_REQUEST),
-    INVALID_REFRESH_TOKEN(2007, "Refresh token không hợp lệ hoặc hết hạn.", HttpStatus.UNAUTHORIZED),
-    INVALID_TOKEN(2008, "Token không hợp lệ hoặc hết hạn.", HttpStatus.UNAUTHORIZED),
-    INVALID_RESET_OTP(2009, "OTP khong hop le.", HttpStatus.BAD_REQUEST),
-    EXPIRED_RESET_OTP(2010, "OTP da het han. Vui long yeu cau ma moi.", HttpStatus.BAD_REQUEST),
+    // --- System / General (1xxx) ---
+    UNCATEGORIZED_EXCEPTION(9999, "An unexpected system error occurred", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_KEY(1001, "Invalid request data", HttpStatus.BAD_REQUEST),
+    UNAUTHENTICATED(1002, "Authentication required", HttpStatus.UNAUTHORIZED),
+    UNAUTHORIZED(1003, "You do not have permission to access this resource", HttpStatus.FORBIDDEN),
 
-    // --- Lỗi Meeting (3xxx) ---
-    MEETING_NOT_FOUND(3001, "Không tìm thấy phòng họp", HttpStatus.NOT_FOUND),
-    MEETING_ALREADY_FINISHED(3002, "Cuộc họp đã kết thúc hoặc bị hủy", HttpStatus.BAD_REQUEST),
-    MEETING_NOT_STARTED(3003, "Cuộc họp chưa bắt đầu", HttpStatus.BAD_REQUEST),
-    INVALID_MEETING_PASSWORD(3004, "Mật khẩu tham gia không đúng", HttpStatus.FORBIDDEN),
-    HOST_ONLY_ACTION(3005, "Chỉ chủ phòng mới có quyền thực hiện hành động này", HttpStatus.FORBIDDEN),
-    PARTICIPANT_KICKED(3006, "Bạn đã bị mời ra khỏi phòng", HttpStatus.FORBIDDEN),
-    INVALID_TIME_RANGE(3007, "Thời gian kết thúc phải sau thời gian bắt đầu", HttpStatus.BAD_REQUEST),
-    CANNOT_GENERATE_CODE(3008, "Hệ thống đang bận, không thể tạo mã phòng. Vui lòng thử lại.",
+    // --- User / Auth (2xxx) ---
+    USER_NOT_FOUND(2001, "User not found", HttpStatus.NOT_FOUND),
+    USER_EXISTED(2002, "User already exists", HttpStatus.BAD_REQUEST),
+    EMAIL_ALREADY_USED(2003, "This email is already in use", HttpStatus.BAD_REQUEST),
+    WRONG_PASSWORD(2004, "Incorrect password", HttpStatus.BAD_REQUEST),
+    INVALID_LOGIN(2005, "Invalid email or password", HttpStatus.BAD_REQUEST),
+    INVALID_GOOGLE_TOKEN_ID(2006, "Invalid Google ID Token", HttpStatus.BAD_REQUEST),
+    INVALID_REFRESH_TOKEN(2007, "Refresh token is invalid or expired", HttpStatus.UNAUTHORIZED),
+    INVALID_TOKEN(2008, "Token is invalid or expired", HttpStatus.UNAUTHORIZED),
+    INVALID_RESET_OTP(2009, "Invalid OTP", HttpStatus.BAD_REQUEST),
+    EXPIRED_RESET_OTP(2010, "OTP has expired. Please request a new one.", HttpStatus.BAD_REQUEST),
+
+    // --- Meeting (3xxx) ---
+    MEETING_NOT_FOUND(3001, "Meeting not found", HttpStatus.NOT_FOUND),
+    MEETING_ALREADY_FINISHED(3002, "Meeting has already ended or been cancelled", HttpStatus.BAD_REQUEST),
+    MEETING_NOT_STARTED(3003, "Meeting has not started yet", HttpStatus.BAD_REQUEST),
+    INVALID_MEETING_PASSWORD(3004, "Incorrect meeting password", HttpStatus.FORBIDDEN),
+    HOST_ONLY_ACTION(3005, "Only the host can perform this action", HttpStatus.FORBIDDEN),
+    PARTICIPANT_KICKED(3006, "You have been removed from the meeting", HttpStatus.FORBIDDEN),
+    INVALID_TIME_RANGE(3007, "End time must be after start time", HttpStatus.BAD_REQUEST),
+    CANNOT_GENERATE_CODE(3008, "System is busy, unable to generate meeting code. Please try again.",
             HttpStatus.SERVICE_UNAVAILABLE),
-    MEETING_REJECTED(3009, "Bạn đã bị từ chối tham gia phòng họp", HttpStatus.FORBIDDEN),
-    MEETING_CANCELED(3010, "Cuộc họp này đã bị chủ phòng hủy bỏ.", HttpStatus.BAD_REQUEST),
-    UN_START_RECORD_MEETING_ROOM(3011, "Không thể quay video cuộc họp.", HttpStatus.BAD_REQUEST),
-    UN_END_RECORD_MEETING_ROOM(3011, "Không thể lưu video cuộc họp.", HttpStatus.BAD_REQUEST),
-    USER_NOT_PARTICIPANT(3012, "Bạn không phải là thành viên của cuộc họp này", HttpStatus.FORBIDDEN);
+    MEETING_REJECTED(3009, "Your request to join the meeting has been rejected", HttpStatus.FORBIDDEN),
+    MEETING_CANCELED(3010, "This meeting has been cancelled by the host", HttpStatus.BAD_REQUEST),
+    UN_START_RECORD_MEETING_ROOM(3011, "Unable to start meeting recording", HttpStatus.BAD_REQUEST),
+    UN_END_RECORD_MEETING_ROOM(3012, "Unable to save meeting recording", HttpStatus.BAD_REQUEST),
+    USER_NOT_PARTICIPANT(3013, "You are not a participant of this meeting", HttpStatus.FORBIDDEN);
 
-    private final int code; 
+    private final int code;
     private final String message;
     private final HttpStatus statusCode;
- 
+
     ErrorCode(int code, String message, HttpStatus statusCode) {
         this.code = code;
         this.message = message;

@@ -28,20 +28,20 @@ public class RecordingController {
         return java.util.UUID.fromString(authentication.getName());
     }
 
-    // API: Bắt đầu ghi hình
+    // API: Start recording
     @PostMapping("/start")
     public ResponseEntity<ApiResponse<MeetingRecording>> startRecording(@RequestParam String meetingCode) {
         try {
             MeetingRecording recording = recordingService.startRoomRecording(meetingCode, getCurrentUserId());
 
-            return ResponseEntity.ok(ApiResponse.success(recording, "")); // Trả về object có chứa egressId cho React
+            return ResponseEntity.ok(ApiResponse.success(recording, "")); // Returns object containing egressId for React
         } catch (Exception e) {
 
             throw new AppException(ErrorCode.UN_START_RECORD_MEETING_ROOM);
         }
     }
 
-    // API: Dừng ghi hình
+    // API: Stop recording
     @PostMapping("/stop")
     public ResponseEntity<?> stopRecording(@RequestParam String egressId) {
         try {
@@ -52,7 +52,7 @@ public class RecordingController {
         }
     }
 
-    // API: Kiểm tra trạng thái recording (frontend poll sau khi stop)
+    // API: Check recording status (frontend polls after stop)
     @GetMapping("/status")
     public ResponseEntity<?> getRecordingStatus(@RequestParam String egressId) {
         try {
@@ -66,6 +66,6 @@ public class RecordingController {
     @GetMapping("/my")
     public ResponseEntity<ApiResponse<java.util.List<MeetingRecording>>> getMyRecordings() {
         java.util.List<MeetingRecording> recordings = recordingService.getRecordingsByOwnerId(getCurrentUserId());
-        return ResponseEntity.ok(ApiResponse.success(recordings, "Lấy danh sách recordings thành công"));
+        return ResponseEntity.ok(ApiResponse.success(recordings, "Recordings retrieved successfully"));
     }
 }

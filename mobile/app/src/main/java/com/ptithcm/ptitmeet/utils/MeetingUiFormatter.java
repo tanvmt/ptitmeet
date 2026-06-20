@@ -18,7 +18,7 @@ public final class MeetingUiFormatter {
         String end = formatClock(endTime);
 
         if (start.isEmpty() && end.isEmpty()) {
-            return "Chua co lich";
+            return "Chưa có lịch";
         }
         if (end.isEmpty()) {
             return start;
