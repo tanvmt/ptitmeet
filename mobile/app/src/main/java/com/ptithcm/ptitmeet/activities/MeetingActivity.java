@@ -15,6 +15,16 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.FrameLayout;
+import android.view.Gravity;
+import android.view.animation.TranslateAnimation;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.AnimationSet;
+import android.view.animation.AccelerateInterpolator;
+import android.media.projection.MediaProjectionManager;
+import android.content.Context;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -73,8 +83,32 @@ public class MeetingActivity extends AppCompatActivity {
     private ImageButton btnParticipants;
     private ImageButton btnChat;
     private ImageButton btnSettings;
-    private ImageButton btnRecord;
+    private ImageButton btnMore;
     private TextView tvRecordingStatus;
+
+    private LiveKitRoomManager liveKitRoomManager;
+    private boolean isLocalHandRaised = false;
+    private boolean isLocalScreenSharing = false;
+    private BottomSheetDialog moreOptionsDialog;
+    private View bottomSheetRecordLayout;
+    private ImageView bottomSheetRecordIcon;
+    private TextView bottomSheetRecordText;
+
+    private final ActivityResultLauncher<Intent> screenShareLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    isLocalScreenSharing = true;
+                    if (liveKitRoomManager != null) {
+                        liveKitRoomManager.setScreenShareEnabled(true, result.getData());
+                    }
+                    Toast.makeText(this, "Screen sharing started", Toast.LENGTH_SHORT).show();
+                    updateMoreOptionsBottomSheetUi();
+                } else {
+                    Toast.makeText(this, "Screen sharing permission denied", Toast.LENGTH_SHORT).show();
+                }
+            }
+    );
 
     private ApiService apiService;
     private SessionManager sessionManager;
@@ -117,7 +151,6 @@ public class MeetingActivity extends AppCompatActivity {
     };
     private String currentMeetingSettings = "{}";
     private String pendingPermissionRequest;
-    private LiveKitRoomManager liveKitRoomManager;
     private String liveKitToken;
     private final ActivityResultLauncher<String[]> permissionLauncher = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(),
@@ -171,7 +204,7 @@ public class MeetingActivity extends AppCompatActivity {
         btnParticipants = findViewById(R.id.btnParticipants);
         btnChat = findViewById(R.id.btnChat);
         btnSettings = findViewById(R.id.btnSettings);
-        btnRecord = findViewById(R.id.btnRecord);
+        btnMore = findViewById(R.id.btnMore);
         tvRecordingStatus = findViewById(R.id.tvRecordingStatus);
 
         cardJoinRequest = findViewById(R.id.cardJoinRequest);
@@ -189,7 +222,18 @@ public class MeetingActivity extends AppCompatActivity {
                 liveKitRoomManager.attachVideo(participant.getIdentity(), videoContainer);
             }
         });
-        rvParticipants.setLayoutManager(new GridLayoutManager(this, 2));
+        final GridLayoutManager glm = new GridLayoutManager(this, 2);
+        glm.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+            @Override
+            public int getSpanSize(int position) {
+                int totalItems = participantAdapter.getItemCount();
+                if (glm.getSpanCount() > 1 && totalItems % 2 != 0 && position == 0) {
+                    return 2; // Odd count: make the first item full-width
+                }
+                return 1;
+            }
+        });
+        rvParticipants.setLayoutManager(glm);
         rvParticipants.setAdapter(participantAdapter);
 
         btnLeave.setOnClickListener(v -> showLeaveOptions());
@@ -199,7 +243,7 @@ public class MeetingActivity extends AppCompatActivity {
             openParticipantsDialog();
         });
         btnChat.setOnClickListener(v -> openChatDialog());
-        btnRecord.setOnClickListener(v -> toggleRecording());
+        btnMore.setOnClickListener(v -> showMoreOptionsBottomSheet());
         btnSettings.setOnClickListener(v -> {
             if (isHostLikeRole()) {
                 showMeetingSettingsBottomSheet();
@@ -1166,13 +1210,18 @@ public class MeetingActivity extends AppCompatActivity {
             }
         }
 
-        if (btnRecord != null) {
-            btnRecord.setEnabled(isMeetingOwner && !recordingRequestInFlight);
-            btnRecord.setAlpha(isMeetingOwner ? 1f : 0.35f);
-            int color = recordingActive
-                    ? Color.parseColor("#E53935")
-                    : Color.parseColor("#2D3748");
-            btnRecord.setBackgroundTintList(ColorStateList.valueOf(color));
+        if (moreOptionsDialog != null && moreOptionsDialog.isShowing() && bottomSheetRecordLayout != null) {
+            runOnUiThread(() -> {
+                bottomSheetRecordLayout.setEnabled(isMeetingOwner && !recordingRequestInFlight);
+                bottomSheetRecordLayout.setAlpha(isMeetingOwner ? 1f : 0.35f);
+                if (recordingActive) {
+                    bottomSheetRecordIcon.setImageTintList(ColorStateList.valueOf(Color.parseColor("#E53935")));
+                    bottomSheetRecordText.setText("Stop Recording");
+                } else {
+                    bottomSheetRecordIcon.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+                    bottomSheetRecordText.setText("Record Meeting");
+                }
+            });
         }
     }
 
@@ -1318,6 +1367,20 @@ public class MeetingActivity extends AppCompatActivity {
                     public void onParticipantsUpdated(List<LiveParticipantState> participants) {
                         runOnUiThread(() -> bindParticipants(participants));
                     }
+
+                    @Override
+                    public void onReactionReceived(String senderId, String senderName, String emoji) {
+                        runOnUiThread(() -> showFloatingReaction(senderName, emoji));
+                    }
+
+                    @Override
+                    public void onHandRaiseReceived(String senderId, boolean isRaised) {
+                        runOnUiThread(() -> {
+                            if (isRaised) {
+                                MeetingSoundPlayer.playHandRaiseSound(MeetingActivity.this);
+                            }
+                        });
+                    }
                 }
         );
     }
@@ -1346,10 +1409,15 @@ public class MeetingActivity extends AppCompatActivity {
                     participant.getHasVideo(),
                     participant.isMicOn(),
                     participant.isSpeaking(),
-                    participant.isLocal()
+                    participant.isLocal(),
+                    participant.isHandRaised(),
+                    participant.isScreenSharing()
             ));
             currentIds.add(participant.getIdentity());
         }
+
+        updateGridSpanCount(participantList.size());
+
         participantAdapter.setParticipantList(participantList);
         if (activeParticipantAdapter != null) {
             activeParticipantAdapter.setParticipantList(new ArrayList<>(participantList));
@@ -1379,5 +1447,246 @@ public class MeetingActivity extends AppCompatActivity {
         }
 
         lastKnownParticipantIds = currentIds;
+    }
+
+    private void showFloatingReaction(String senderName, String emoji) {
+        View reactionView = LayoutInflater.from(this).inflate(R.layout.item_reaction_float, null);
+        TextView tvName = reactionView.findViewById(R.id.tvReactionSenderName);
+        TextView tvEmoji = reactionView.findViewById(R.id.tvReactionEmoji);
+
+        tvName.setText(senderName);
+        tvEmoji.setText(emoji);
+
+        FrameLayout rootLayout = findViewById(android.R.id.content);
+        if (rootLayout == null) {
+            return;
+        }
+
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+        );
+        
+        int screenWidth = getResources().getDisplayMetrics().widthPixels;
+        int randomLeft = (int) (0.1 * screenWidth + Math.random() * (0.6 * screenWidth));
+        
+        lp.leftMargin = randomLeft;
+        lp.topMargin = getResources().getDisplayMetrics().heightPixels - 350; // near the bottom
+        lp.gravity = Gravity.TOP | Gravity.START;
+        
+        reactionView.setLayoutParams(lp);
+        rootLayout.addView(reactionView);
+
+        float floatDistance = -1 * (400 * getResources().getDisplayMetrics().density);
+        TranslateAnimation translate = new TranslateAnimation(0, 0, 0, floatDistance);
+        translate.setDuration(3000);
+        translate.setFillAfter(true);
+
+        AlphaAnimation fade = new AlphaAnimation(1.0f, 0.0f);
+        fade.setDuration(3000);
+        fade.setFillAfter(true);
+
+        AnimationSet animSet = new AnimationSet(true);
+        animSet.setInterpolator(new AccelerateInterpolator());
+        animSet.addAnimation(translate);
+        animSet.addAnimation(fade);
+        
+        animSet.setAnimationListener(new android.view.animation.Animation.AnimationListener() {
+            @Override
+            public void onAnimationStart(android.view.animation.Animation animation) {}
+
+            @Override
+            public void onAnimationEnd(android.view.animation.Animation animation) {
+                rootLayout.post(() -> rootLayout.removeView(reactionView));
+            }
+
+            @Override
+            public void onAnimationRepeat(android.view.animation.Animation animation) {}
+        });
+
+        reactionView.startAnimation(animSet);
+    }
+
+    private void showMoreOptionsBottomSheet() {
+        moreOptionsDialog = new BottomSheetDialog(this);
+        View view = getLayoutInflater().inflate(R.layout.dialog_meeting_more_options, null);
+        moreOptionsDialog.setContentView(view);
+
+        TextView btnEmojiLike = view.findViewById(R.id.btnEmojiLike);
+        TextView btnEmojiLove = view.findViewById(R.id.btnEmojiLove);
+        TextView btnEmojiClap = view.findViewById(R.id.btnEmojiClap);
+        TextView btnEmojiLaugh = view.findViewById(R.id.btnEmojiLaugh);
+        TextView btnEmojiParty = view.findViewById(R.id.btnEmojiParty);
+        TextView btnEmojiShock = view.findViewById(R.id.btnEmojiShock);
+
+        View layoutRaiseHand = view.findViewById(R.id.layoutRaiseHand);
+        View layoutShareScreen = view.findViewById(R.id.layoutShareScreen);
+        bottomSheetRecordLayout = view.findViewById(R.id.layoutRecordMeeting);
+        bottomSheetRecordIcon = view.findViewById(R.id.ivActionRecordMeetingIcon);
+        bottomSheetRecordText = view.findViewById(R.id.tvActionRecordMeetingText);
+        View dividerRecordSettings = view.findViewById(R.id.dividerRecordSettings);
+        View layoutAudioSettings = view.findViewById(R.id.layoutAudioSettings);
+
+        String[] emojis = {"👍", "❤️", "👏", "😂", "🎉", "😮"};
+        TextView[] emojiButtons = {btnEmojiLike, btnEmojiLove, btnEmojiClap, btnEmojiLaugh, btnEmojiParty, btnEmojiShock};
+        for (int i = 0; i < emojis.length; i++) {
+            final String emoji = emojis[i];
+            emojiButtons[i].setOnClickListener(v -> {
+                sendReaction(emoji);
+                moreOptionsDialog.dismiss();
+            });
+        }
+
+        layoutRaiseHand.setOnClickListener(v -> {
+            toggleHandRaise();
+            moreOptionsDialog.dismiss();
+        });
+
+        layoutShareScreen.setOnClickListener(v -> {
+            toggleScreenSharing();
+            moreOptionsDialog.dismiss();
+        });
+
+        if (isMeetingOwner) {
+            bottomSheetRecordLayout.setVisibility(View.VISIBLE);
+            dividerRecordSettings.setVisibility(View.VISIBLE);
+            bottomSheetRecordLayout.setOnClickListener(v -> {
+                toggleRecording();
+                moreOptionsDialog.dismiss();
+            });
+        } else {
+            bottomSheetRecordLayout.setVisibility(View.GONE);
+            dividerRecordSettings.setVisibility(View.GONE);
+        }
+
+        layoutAudioSettings.setOnClickListener(v -> {
+            moreOptionsDialog.dismiss();
+            showAppAudioSettingsDialog();
+        });
+
+        updateMoreOptionsBottomSheetUi(view);
+
+        moreOptionsDialog.setOnDismissListener(dialog -> {
+            moreOptionsDialog = null;
+            bottomSheetRecordLayout = null;
+            bottomSheetRecordIcon = null;
+            bottomSheetRecordText = null;
+        });
+
+        moreOptionsDialog.show();
+    }
+
+    private void updateMoreOptionsBottomSheetUi() {
+        if (moreOptionsDialog != null && moreOptionsDialog.isShowing()) {
+            View view = moreOptionsDialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (view != null) {
+                updateMoreOptionsBottomSheetUi(view);
+            }
+        }
+    }
+
+    private void updateMoreOptionsBottomSheetUi(View view) {
+        ImageView ivActionRaiseHandIcon = view.findViewById(R.id.ivActionRaiseHandIcon);
+        TextView tvActionRaiseHandText = view.findViewById(R.id.tvActionRaiseHandText);
+        ImageView ivActionShareScreenIcon = view.findViewById(R.id.ivActionShareScreenIcon);
+        TextView tvActionShareScreenText = view.findViewById(R.id.tvActionShareScreenText);
+
+        if (ivActionRaiseHandIcon != null && tvActionRaiseHandText != null) {
+            if (isLocalHandRaised) {
+                ivActionRaiseHandIcon.setImageTintList(ColorStateList.valueOf(Color.parseColor("#FFA000")));
+                tvActionRaiseHandText.setText("Lower Hand");
+            } else {
+                ivActionRaiseHandIcon.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+                tvActionRaiseHandText.setText("Raise Hand");
+            }
+        }
+
+        if (ivActionShareScreenIcon != null && tvActionShareScreenText != null) {
+            if (isLocalScreenSharing) {
+                ivActionShareScreenIcon.setImageTintList(ColorStateList.valueOf(Color.parseColor("#3B82F6")));
+                tvActionShareScreenText.setText("Stop Screen Share");
+            } else {
+                ivActionShareScreenIcon.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+                tvActionShareScreenText.setText("Share Screen");
+            }
+        }
+
+        if (bottomSheetRecordLayout != null && bottomSheetRecordIcon != null && bottomSheetRecordText != null) {
+            bottomSheetRecordLayout.setEnabled(isMeetingOwner && !recordingRequestInFlight);
+            bottomSheetRecordLayout.setAlpha(isMeetingOwner ? 1f : 0.35f);
+            if (recordingActive) {
+                bottomSheetRecordIcon.setImageTintList(ColorStateList.valueOf(Color.parseColor("#E53935")));
+                bottomSheetRecordText.setText("Stop Recording");
+            } else {
+                bottomSheetRecordIcon.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+                bottomSheetRecordText.setText("Record Meeting");
+            }
+        }
+    }
+
+    private void toggleHandRaise() {
+        isLocalHandRaised = !isLocalHandRaised;
+        if (liveKitRoomManager != null) {
+            liveKitRoomManager.publishHandRaise(isLocalHandRaised);
+        }
+        if (isLocalHandRaised) {
+            Toast.makeText(this, "You raised your hand", Toast.LENGTH_SHORT).show();
+            MeetingSoundPlayer.playHandRaiseSound(this);
+        } else {
+            Toast.makeText(this, "You lowered your hand", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void sendReaction(String emoji) {
+        if (liveKitRoomManager != null) {
+            String userId = sessionManager.getUserId() != null ? sessionManager.getUserId() : "self";
+            String userName = sessionManager.getUserName() != null ? sessionManager.getUserName() : "You";
+            liveKitRoomManager.publishReaction(emoji, userId, userName);
+        }
+        showFloatingReaction("You", emoji);
+    }
+
+    private void toggleScreenSharing() {
+        boolean screenShareAllowed = isHostLikeRole();
+        if (!screenShareAllowed) {
+            try {
+                JSONObject jsonObject = new JSONObject(currentMeetingSettings);
+                screenShareAllowed = jsonObject.optBoolean("screenShareEnabled", true);
+            } catch (Exception e) {
+                screenShareAllowed = true;
+            }
+        }
+
+        if (!screenShareAllowed) {
+            Toast.makeText(this, "Screen sharing is disabled by the host", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (isLocalScreenSharing) {
+            isLocalScreenSharing = false;
+            if (liveKitRoomManager != null) {
+                liveKitRoomManager.setScreenShareEnabled(false, null);
+            }
+            Toast.makeText(this, "Screen sharing stopped", Toast.LENGTH_SHORT).show();
+            updateMoreOptionsBottomSheetUi();
+        } else {
+            MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+            if (mediaProjectionManager != null) {
+                Intent intent = mediaProjectionManager.createScreenCaptureIntent();
+                screenShareLauncher.launch(intent);
+            }
+        }
+    }
+
+    private void updateGridSpanCount(int itemCount) {
+        if (rvParticipants == null) return;
+        RecyclerView.LayoutManager lm = rvParticipants.getLayoutManager();
+        if (lm instanceof GridLayoutManager) {
+            GridLayoutManager glm = (GridLayoutManager) lm;
+            int newSpanCount = (itemCount <= 2) ? 1 : 2;
+            if (glm.getSpanCount() != newSpanCount) {
+                glm.setSpanCount(newSpanCount);
+            }
+        }
     }
 }

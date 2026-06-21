@@ -47,6 +47,41 @@ public class ParticipantAdapter extends RecyclerView.Adapter<ParticipantAdapter.
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         ParticipantData p = participantList.get(position);
 
+        // Dynamically adjust item height based on participant count
+        int totalItems = getItemCount();
+        ViewGroup.LayoutParams lp = holder.itemView.getLayoutParams();
+        if (lp != null) {
+            holder.itemView.post(() -> {
+                ViewGroup.LayoutParams currentLp = holder.itemView.getLayoutParams();
+                if (currentLp != null) {
+                    View parent = (View) holder.itemView.getParent();
+                    int parentHeight = 0;
+                    if (parent != null) {
+                        parentHeight = parent.getHeight();
+                    }
+                    if (parentHeight <= 0) {
+                        parentHeight = holder.itemView.getContext().getResources().getDisplayMetrics().heightPixels - 250;
+                    }
+                    
+                    int targetHeight;
+                    if (totalItems == 1) {
+                        targetHeight = parentHeight;
+                    } else if (totalItems == 2) {
+                        targetHeight = parentHeight / 2;
+                    } else if (totalItems == 3 || totalItems == 4) {
+                        targetHeight = parentHeight / 2;
+                    } else {
+                        targetHeight = parentHeight / 3;
+                    }
+                    
+                    if (currentLp.height != targetHeight) {
+                        currentLp.height = targetHeight;
+                        holder.itemView.setLayoutParams(currentLp);
+                    }
+                }
+            });
+        }
+
         // Hiển thị tên
         holder.tvParticipantName.setText(p.getName());
 
@@ -84,7 +119,20 @@ public class ParticipantAdapter extends RecyclerView.Adapter<ParticipantAdapter.
             holder.viewActiveSpeakerBorder.setVisibility(View.GONE);
         }
 
-        holder.tvParticipantName.setText(p.isLocal() ? p.getName() + " (You)" : p.getName());
+        // Xử lý Giơ tay
+        if (p.isHandRaised() && !p.isScreenSharing()) {
+            holder.ivHandRaised.setVisibility(View.VISIBLE);
+        } else {
+            holder.ivHandRaised.setVisibility(View.GONE);
+        }
+
+        String displayName;
+        if (p.isScreenSharing()) {
+            displayName = p.isLocal() ? "You are presenting" : p.getName();
+        } else {
+            displayName = p.isLocal() ? p.getName() + " (You)" : p.getName();
+        }
+        holder.tvParticipantName.setText(displayName);
     }
 
     @Override
@@ -98,6 +146,7 @@ public class ParticipantAdapter extends RecyclerView.Adapter<ParticipantAdapter.
         TextView tvAvatarInitial;
         TextView tvParticipantName;
         ImageView ivMicOff;
+        ImageView ivHandRaised;
         View viewActiveSpeakerBorder;
 
         public ViewHolder(View itemView) {
@@ -108,6 +157,7 @@ public class ParticipantAdapter extends RecyclerView.Adapter<ParticipantAdapter.
             tvAvatarInitial = itemView.findViewById(R.id.tvAvatarInitial);
             tvParticipantName = itemView.findViewById(R.id.tvParticipantName);
             ivMicOff = itemView.findViewById(R.id.ivMicOff);
+            ivHandRaised = itemView.findViewById(R.id.ivHandRaised);
             viewActiveSpeakerBorder = itemView.findViewById(R.id.viewActiveSpeakerBorder);
         }
     }
