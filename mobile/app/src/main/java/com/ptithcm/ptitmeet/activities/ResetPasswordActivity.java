@@ -9,16 +9,12 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.ptithcm.ptitmeet.R;
-import com.ptithcm.ptitmeet.api.dto.auth.ResetPasswordRequest;
-import com.ptithcm.ptitmeet.api.dto.common.ApiResponse;
-import com.ptithcm.ptitmeet.api.services.ApiService;
-import com.ptithcm.ptitmeet.api.services.RetrofitClient;
-
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
+import com.ptithcm.ptitmeet.viewmodel.ResetPasswordUiEvent;
+import com.ptithcm.ptitmeet.viewmodel.ResetPasswordUiState;
+import com.ptithcm.ptitmeet.viewmodel.ResetPasswordViewModel;
 
 public class ResetPasswordActivity extends AppCompatActivity {
 
@@ -27,15 +23,15 @@ public class ResetPasswordActivity extends AppCompatActivity {
     private EditText etConfirmPassword;
     private TextView tvState;
     private AppCompatButton btnResetPassword;
-    private ApiService apiService;
     private String verifiedResetToken;
+    private ResetPasswordViewModel viewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_reset_password);
 
-        apiService = RetrofitClient.getApiService(this);
+        viewModel = new ViewModelProvider(this).get(ResetPasswordViewModel.class);
         etToken = findViewById(R.id.etResetToken);
         etPassword = findViewById(R.id.etNewPassword);
         etConfirmPassword = findViewById(R.id.etConfirmNewPassword);
@@ -57,6 +53,18 @@ public class ResetPasswordActivity extends AppCompatActivity {
 
         btnResetPassword.setOnClickListener(v -> resetPassword());
         tvBackToLogin.setOnClickListener(v -> openLogin());
+
+        viewModel.getUiState().observe(this, this::applyState);
+        viewModel.getUiEvent().observe(this, event -> {
+            if (event == null) {
+                return;
+            }
+            ResetPasswordUiEvent uiEvent = event.getContentIfNotHandled();
+            if (uiEvent == null) {
+                return;
+            }
+            handleEvent(uiEvent);
+        });
     }
 
     private void resetPassword() {
@@ -65,44 +73,7 @@ public class ResetPasswordActivity extends AppCompatActivity {
                 : etToken.getText().toString().trim();
         String password = etPassword.getText().toString();
         String confirmPassword = etConfirmPassword.getText().toString();
-
-        if (token.isEmpty()) {
-            showState("Reset token is required.");
-            return;
-        }
-        if (password.length() < 8) {
-            showState("Password must be at least 8 characters.");
-            return;
-        }
-        if (!password.equals(confirmPassword)) {
-            showState("Passwords do not match.");
-            return;
-        }
-
-        setLoading(true);
-        apiService.resetPassword(new ResetPasswordRequest(token, password))
-                .enqueue(new Callback<ApiResponse<Void>>() {
-                    @Override
-                    public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
-                        setLoading(false);
-                        if (response.isSuccessful()) {
-                            showState("Password updated. You can sign in now.");
-                            Toast.makeText(ResetPasswordActivity.this, "Password updated", Toast.LENGTH_SHORT).show();
-                            openLogin();
-                            return;
-                        }
-                        String message = response.body() != null
-                                ? response.body().getMessage()
-                                : "Unable to update password.";
-                        showState(message);
-                    }
-
-                    @Override
-                    public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
-                        setLoading(false);
-                        showState("Cannot connect to server. Check your network and try again.");
-                    }
-                });
+        viewModel.resetPassword(token, password, confirmPassword);
     }
 
     private void setLoading(boolean loading) {
@@ -119,5 +90,28 @@ public class ResetPasswordActivity extends AppCompatActivity {
         intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivity(intent);
         finish();
+    }
+
+    private void applyState(ResetPasswordUiState state) {
+        if (state == null) {
+            return;
+        }
+        setLoading(state.isLoading());
+        if (state.getMessage() != null && !state.getMessage().isEmpty()) {
+            showState(state.getMessage());
+        }
+    }
+
+    private void handleEvent(ResetPasswordUiEvent event) {
+        switch (event.getType()) {
+            case ResetPasswordUiEvent.SHOW_TOAST:
+                Toast.makeText(this, event.getMessage(), Toast.LENGTH_SHORT).show();
+                break;
+            case ResetPasswordUiEvent.OPEN_LOGIN:
+                openLogin();
+                break;
+            default:
+                break;
+        }
     }
 }

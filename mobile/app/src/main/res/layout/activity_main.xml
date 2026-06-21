@@ -81,7 +81,7 @@
                         android:layout_width="32dp"
                         android:layout_height="32dp"
                         android:layout_marginBottom="12dp"
-                        android:src="@android:drawable/ic_menu_camera"
+                        android:src="@drawable/ic_videocam"
                         app:tint="@color/white" />
 
                     <TextView
@@ -171,17 +171,41 @@
                 </LinearLayout>
             </GridLayout>
 
-            <!-- Thêm trường nhập mã phòng -->
-            <EditText
-                android:id="@+id/etMeetingCode"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:background="@drawable/bg_card_surface"
-                android:hint="Enter Meeting Code"
-                android:padding="12dp"
-                android:textColor="@color/white"
-                android:textColorHint="@color/text_secondary" />
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Quick Join"
+                    android:textColor="@color/white"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Paste a meeting code or tap the Join Meeting card for the full form."
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
+
+                <EditText
+                    android:id="@+id/etMeetingCode"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_filter_surface"
+                    android:hint="Enter meeting code"
+                    android:paddingHorizontal="16dp"
+                    android:textColor="@color/white"
+                    android:textColorHint="@color/text_secondary" />
+            </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
@@ -265,10 +289,14 @@
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:background="@color/surface"
-        app:itemIconTint="@color/primary"
-        app:itemTextColor="@color/text_secondary"
+        android:layout_height="98dp"
+        android:background="@drawable/bg_bottom_nav"
+        android:elevation="18dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="18dp"
+        app:itemIconTint="@color/bottom_nav_item_colors"
+        app:itemTextColor="@color/bottom_nav_item_colors"
+        app:labelVisibilityMode="labeled"
         app:layout_constraintBottom_toBottomOf="parent"
         app:menu="@menu/bottom_nav_menu" />
 
