@@ -1,9 +1,9 @@
 package com.ptithcm.ptitmeet.adapters;
 
-import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -66,48 +66,24 @@ public class MeetingHistoryAdapter extends ListAdapter<MeetingHistoryResponse, M
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         MeetingHistoryResponse item = getItem(position); // ListAdapter cung cấp getItem()
 
-        holder.tvMeetingTitle.setText(item.getTitle() != null ? item.getTitle() : "Cuộc họp không tên");
+        holder.tvMeetingTitle.setText(item.getTitle() != null ? item.getTitle() : "Untitled meeting");
         holder.tvMeetingCode.setText(item.getMeetingCode());
         holder.tvMeetingTime.setText(item.getDisplayTime());
 
-        // Role Badge Setup
         boolean isOwner = item.isOwner() || item.isHost();
         if (isOwner) {
-            holder.tvRoleBadge.setText("CHỦ PHÒNG");
-            holder.tvRoleBadge.setTextColor(Color.parseColor("#FB923C")); // Orange-400
-            holder.tvRoleBadge.setBackgroundResource(R.drawable.bg_recording_pill);
+            holder.tvRoleBadge.setText("Host");
+            holder.tvRoleBadge.setTextColor(android.graphics.Color.parseColor("#FBBF24"));
         } else {
-            holder.tvRoleBadge.setText("THAM GIA");
-            holder.tvRoleBadge.setTextColor(Color.parseColor("#60A5FA")); // Blue-400
-            holder.tvRoleBadge.setBackgroundResource(R.drawable.bg_recording_pill);
+            holder.tvRoleBadge.setText("Guest");
+            holder.tvRoleBadge.setTextColor(android.graphics.Color.parseColor("#93C5FD"));
         }
 
-        // Status Badge Translation & Color
         String status = item.getStatus().toUpperCase();
-        String displayStatus = status;
-        int statusColor = Color.parseColor("#94A3B8"); // Slate-400 default
+        holder.tvStatusBadge.setText(item.getDisplayStatusLabel());
+        holder.tvStatusBadge.setTextColor(item.getStatusColor());
 
-        if ("SCHEDULED".equals(status) || "UPCOMING".equals(status)) {
-            displayStatus = "SẮP DIỄN RA";
-            statusColor = Color.parseColor("#93C5FD"); // Blue-300
-        } else if ("ACTIVE".equals(status) || "LIVE".equals(status)) {
-            displayStatus = "ĐANG DIỄN RA";
-            statusColor = Color.parseColor("#4ADE80"); // Green-400
-        } else if ("ENDED".equals(status) || "COMPLETED".equals(status) || "FINISHED".equals(status)) {
-            displayStatus = "ĐÃ KẾT THÚC";
-            statusColor = Color.parseColor("#A1A1AA"); // Zinc-400
-        } else if ("CANCELLED".equals(status) || "CANCELED".equals(status)) {
-            displayStatus = "ĐÃ HỦY";
-            statusColor = Color.parseColor("#FCA5A5"); // Red-300
-        }
-
-        holder.tvStatusBadge.setText(displayStatus);
-        holder.tvStatusBadge.setTextColor(statusColor);
-
-        // Action Buttons Logic
         boolean isUpcomingOrActive = "SCHEDULED".equals(status) || "UPCOMING".equals(status) || "ACTIVE".equals(status);
-
-        // 1. Join Button
         if (isUpcomingOrActive) {
             holder.btnJoinMeeting.setVisibility(View.VISIBLE);
             holder.btnJoinMeeting.setOnClickListener(v -> listener.onJoin(item));
@@ -115,7 +91,6 @@ public class MeetingHistoryAdapter extends ListAdapter<MeetingHistoryResponse, M
             holder.btnJoinMeeting.setVisibility(View.GONE);
         }
 
-        // 2. Cancel Button (Only if Host/Owner and Scheduled/Upcoming)
         boolean canCancel = isOwner && ("SCHEDULED".equals(status) || "UPCOMING".equals(status) || "ACTIVE".equals(status));
         if (canCancel) {
             holder.btnCancelMeeting.setVisibility(View.VISIBLE);
@@ -124,13 +99,18 @@ public class MeetingHistoryAdapter extends ListAdapter<MeetingHistoryResponse, M
             holder.btnCancelMeeting.setVisibility(View.GONE);
         }
 
-        // 3. View Chat Button (If canViewChatHistory is true)
         if (item.isCanViewChatHistory()) {
             holder.btnViewChat.setVisibility(View.VISIBLE);
             holder.btnViewChat.setOnClickListener(v -> listener.onViewChat(item));
         } else {
             holder.btnViewChat.setVisibility(View.GONE);
         }
+
+        holder.layoutCardActions.setVisibility(
+                holder.btnJoinMeeting.getVisibility() == View.VISIBLE
+                        || holder.btnCancelMeeting.getVisibility() == View.VISIBLE
+                        || holder.btnViewChat.getVisibility() == View.VISIBLE
+                        ? View.VISIBLE : View.GONE);
     }
 
     // getItemCount() KHÔNG cần override — ListAdapter đã xử lý
@@ -141,6 +121,7 @@ public class MeetingHistoryAdapter extends ListAdapter<MeetingHistoryResponse, M
         private final TextView tvMeetingTitle;
         private final TextView tvMeetingTime;
         private final TextView tvMeetingCode;
+        private final LinearLayout layoutCardActions;
         private final AppCompatButton btnCancelMeeting;
         private final AppCompatButton btnViewChat;
         private final AppCompatButton btnJoinMeeting;
@@ -152,6 +133,7 @@ public class MeetingHistoryAdapter extends ListAdapter<MeetingHistoryResponse, M
             tvMeetingTitle = itemView.findViewById(R.id.tvMeetingTitle);
             tvMeetingTime = itemView.findViewById(R.id.tvMeetingTime);
             tvMeetingCode = itemView.findViewById(R.id.tvMeetingCode);
+            layoutCardActions = itemView.findViewById(R.id.layoutCardActions);
             btnCancelMeeting = itemView.findViewById(R.id.btnCancelMeeting);
             btnViewChat = itemView.findViewById(R.id.btnViewChat);
             btnJoinMeeting = itemView.findViewById(R.id.btnJoinMeeting);

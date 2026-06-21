@@ -11,36 +11,30 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.ptithcm.ptitmeet.R;
 import com.ptithcm.ptitmeet.adapters.RecordingAdapter;
-import com.ptithcm.ptitmeet.api.dto.common.ApiResponse;
 import com.ptithcm.ptitmeet.api.dto.recording.MeetingRecordingResponse;
-import com.ptithcm.ptitmeet.api.services.ApiService;
-import com.ptithcm.ptitmeet.api.services.RetrofitClient;
-
-import java.util.List;
-
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
+import com.ptithcm.ptitmeet.viewmodel.RecordingsUiState;
+import com.ptithcm.ptitmeet.viewmodel.RecordingsViewModel;
 
 public class RecordingsActivity extends AppCompatActivity {
 
     private TextView tvState;
     private ProgressBar progressBar;
     private RecordingAdapter adapter;
-    private ApiService apiService;
+    private RecordingsViewModel viewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_recordings);
 
-        apiService = RetrofitClient.getApiService(this);
+        viewModel = new ViewModelProvider(this).get(RecordingsViewModel.class);
         tvState = findViewById(R.id.tvRecordingsState);
         progressBar = findViewById(R.id.progressRecordings);
         AppCompatButton btnRefresh = findViewById(R.id.btnRefreshRecordings);
@@ -51,8 +45,9 @@ public class RecordingsActivity extends AppCompatActivity {
         rvRecordings.setAdapter(adapter);
 
         setupBottomNavigation();
-        btnRefresh.setOnClickListener(v -> loadRecordings());
-        loadRecordings();
+        btnRefresh.setOnClickListener(v -> viewModel.loadRecordings());
+        viewModel.getUiState().observe(this, this::applyState);
+        viewModel.loadRecordings();
     }
 
     private void setupBottomNavigation() {
@@ -89,38 +84,6 @@ public class RecordingsActivity extends AppCompatActivity {
         });
     }
 
-    private void loadRecordings() {
-        setLoading(true, "Loading recordings...");
-        apiService.getMyRecordings().enqueue(new Callback<ApiResponse<List<MeetingRecordingResponse>>>() {
-            @Override
-            public void onResponse(Call<ApiResponse<List<MeetingRecordingResponse>>> call,
-                                   Response<ApiResponse<List<MeetingRecordingResponse>>> response) {
-                setLoading(false, "Your saved meeting captures");
-                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    List<MeetingRecordingResponse> recordings = response.body().getData();
-                    adapter.submitList(recordings);
-                    if (recordings.isEmpty()) {
-                        tvState.setText("No recordings yet. Start recording from an active meeting.");
-                    } else {
-                        tvState.setText(recordings.size() + " recording(s) found");
-                    }
-                    return;
-                }
-                adapter.submitList(null);
-                String message = response.body() != null
-                        ? response.body().getMessage()
-                        : "Unable to load recordings.";
-                tvState.setText(message);
-            }
-
-            @Override
-            public void onFailure(Call<ApiResponse<List<MeetingRecordingResponse>>> call, Throwable t) {
-                setLoading(false, "Cannot connect to server. Check your network and try again.");
-                adapter.submitList(null);
-            }
-        });
-    }
-
     private void setLoading(boolean loading, String message) {
         progressBar.setVisibility(loading ? View.VISIBLE : View.GONE);
         tvState.setText(message);
@@ -137,5 +100,13 @@ public class RecordingsActivity extends AppCompatActivity {
         } catch (ActivityNotFoundException exception) {
             Toast.makeText(this, "No app can open this recording", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void applyState(RecordingsUiState state) {
+        if (state == null) {
+            return;
+        }
+        setLoading(state.isLoading(), state.getStateMessage());
+        adapter.submitList(state.getRecordings().isEmpty() ? null : state.getRecordings());
     }
 }

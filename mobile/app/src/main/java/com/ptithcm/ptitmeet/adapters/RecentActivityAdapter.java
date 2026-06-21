@@ -38,9 +38,8 @@ public class RecentActivityAdapter extends RecyclerView.Adapter<RecentActivityAd
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         MeetingHistoryResponse item = items.get(position);
         holder.title.setText(item.getTitle());
-        holder.time.setText(item.getDisplayTime());
-        holder.status.setText(item.getStatus());
-        // Updated to use the no-argument getStatusColor() method
+        holder.time.setText(item.getDisplayTime() + "  •  " + item.getMeetingCode());
+        holder.status.setText(item.getDisplayStatusLabel());
         holder.status.setTextColor(item.getStatusColor());
     }
 

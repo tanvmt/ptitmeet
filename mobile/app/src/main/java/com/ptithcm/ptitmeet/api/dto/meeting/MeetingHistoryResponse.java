@@ -1,8 +1,6 @@
 package com.ptithcm.ptitmeet.api.dto.meeting;
 
 import android.graphics.Color;
-import android.widget.TextView;
-
 import com.google.gson.annotations.SerializedName;
 import com.ptithcm.ptitmeet.utils.MeetingUiFormatter;
 
@@ -90,5 +88,22 @@ public class MeetingHistoryResponse {
             return Color.parseColor("#FCA5A5"); // Red-300
         }
         return Color.parseColor("#94A3B8");
+    }
+
+    public String getDisplayStatusLabel() {
+        String normalizedStatus = getStatus().toUpperCase();
+        if ("SCHEDULED".equals(normalizedStatus) || "UPCOMING".equals(normalizedStatus)) {
+            return "Scheduled";
+        }
+        if ("ACTIVE".equals(normalizedStatus) || "LIVE".equals(normalizedStatus)) {
+            return "Live";
+        }
+        if ("ENDED".equals(normalizedStatus) || "COMPLETED".equals(normalizedStatus) || "FINISHED".equals(normalizedStatus)) {
+            return "Completed";
+        }
+        if ("CANCELLED".equals(normalizedStatus) || "CANCELED".equals(normalizedStatus)) {
+            return "Canceled";
+        }
+        return "Unknown";
     }
 }

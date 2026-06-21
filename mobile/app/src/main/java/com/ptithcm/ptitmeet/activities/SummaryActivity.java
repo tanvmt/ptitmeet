@@ -9,19 +9,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.google.android.material.button.MaterialButton;
 import com.ptithcm.ptitmeet.R;
-import com.ptithcm.ptitmeet.api.SessionManager;
-import com.ptithcm.ptitmeet.api.dto.common.ApiResponse;
-import com.ptithcm.ptitmeet.api.dto.meeting.FeedbackRequest;
-import com.ptithcm.ptitmeet.api.dto.meeting.MeetingSummaryResponse;
-import com.ptithcm.ptitmeet.api.services.ApiService;
-import com.ptithcm.ptitmeet.api.services.RetrofitClient;
-
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
+import com.ptithcm.ptitmeet.viewmodel.SummaryUiEvent;
+import com.ptithcm.ptitmeet.viewmodel.SummaryUiState;
+import com.ptithcm.ptitmeet.viewmodel.SummaryViewModel;
 
 public class SummaryActivity extends AppCompatActivity {
 
@@ -36,26 +30,25 @@ public class SummaryActivity extends AppCompatActivity {
     private ImageView[] ivStars = new ImageView[5];
     private LinearLayout layoutStars;
 
-    private ApiService apiService;
-    private SessionManager sessionManager;
+    private SummaryViewModel viewModel;
     private String meetingCode;
     private String actionTaken;
     private int selectedRating = 0;
-    private boolean isRatingSubmitted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_summary);
 
-        apiService = RetrofitClient.getApiService(this);
-        sessionManager = new SessionManager(this);
-
         meetingCode = getIntent().getStringExtra("MEETING_CODE");
         actionTaken = getIntent().getStringExtra("ACTION_TAKEN");
         if (actionTaken == null) {
             actionTaken = "LEAVE";
         }
+        viewModel = new ViewModelProvider(
+                this,
+                new SummaryViewModel.Factory(getApplication(), meetingCode, actionTaken)
+        ).get(SummaryViewModel.class);
 
         tvTitle = findViewById(R.id.tvTitle);
         tvSubtitle = findViewById(R.id.tvSubtitle);
@@ -76,7 +69,20 @@ public class SummaryActivity extends AppCompatActivity {
         setupTitleAndSubtitle();
         setupButtons();
         setupStars();
-        fetchSummaryData();
+        viewModel.getUiState().observe(this, this::applyState);
+        viewModel.getUiEvent().observe(this, event -> {
+            if (event == null) {
+                return;
+            }
+            SummaryUiEvent uiEvent = event.getContentIfNotHandled();
+            if (uiEvent == null) {
+                return;
+            }
+            if (SummaryUiEvent.SHOW_TOAST.equals(uiEvent.getType())) {
+                Toast.makeText(this, uiEvent.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+        viewModel.fetchSummaryData();
     }
 
     private void setupTitleAndSubtitle() {
@@ -113,7 +119,7 @@ public class SummaryActivity extends AppCompatActivity {
         }
         Intent intent = new Intent(this, WaitingRoomActivity.class);
         intent.putExtra("MEETING_CODE", meetingCode);
-        intent.putExtra("DISPLAY_NAME", sessionManager.getUserName());
+        intent.putExtra("DISPLAY_NAME", viewModel.getDisplayName());
         intent.putExtra("IS_HOST_SETUP", false);
         startActivity(intent);
         finish();
@@ -130,8 +136,7 @@ public class SummaryActivity extends AppCompatActivity {
         for (int i = 0; i < 5; i++) {
             final int starIndex = i;
             ivStars[i].setOnClickListener(v -> {
-                if (isRatingSubmitted) return;
-                submitRating(starIndex + 1);
+                viewModel.submitRating(starIndex + 1);
             });
         }
     }
@@ -146,59 +151,23 @@ public class SummaryActivity extends AppCompatActivity {
         }
     }
 
-    private void submitRating(int rating) {
-        if (meetingCode == null || meetingCode.trim().isEmpty() || isRatingSubmitted) {
+    private void applyState(SummaryUiState state) {
+        if (state == null) {
             return;
         }
-
-        selectedRating = rating;
-        updateStarsUi(rating);
-
-        apiService.submitFeedback(meetingCode, new FeedbackRequest(rating)).enqueue(new Callback<ApiResponse<Void>>() {
-            @Override
-            public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
-                if (response.isSuccessful()) {
-                    isRatingSubmitted = true;
-                    tvFeedbackSuccess.setVisibility(View.VISIBLE);
-                    for (ImageView star : ivStars) {
-                        star.setEnabled(false);
-                        star.setAlpha(0.8f);
-                    }
-                } else {
-                    Toast.makeText(SummaryActivity.this, "Unable to submit feedback", Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
-                Toast.makeText(SummaryActivity.this, "Connection error, feedback not submitted", Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    private void fetchSummaryData() {
-        if (meetingCode == null || meetingCode.trim().isEmpty()) {
-            tvSubtitle.setText("Meeting ID: Unknown • -- duration");
-            return;
+        if (state.getSubtitle() != null) {
+            tvSubtitle.setText(state.getSubtitle());
         }
-
-        apiService.getMeetingSummary(meetingCode, actionTaken).enqueue(new Callback<ApiResponse<MeetingSummaryResponse>>() {
-            @Override
-            public void onResponse(Call<ApiResponse<MeetingSummaryResponse>> call, Response<ApiResponse<MeetingSummaryResponse>> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    MeetingSummaryResponse summary = response.body().getData();
-                    tvSubtitle.setText("Meeting ID: " + meetingCode + " • " + summary.getDuration() + " duration");
-                    tvParticipantsVal.setText(summary.getParticipants() + " Joined");
-                    tvMessagesVal.setText(summary.getMessages() + " Sent");
-                } else {
-                    tvSubtitle.setText("Meeting ID: " + meetingCode + " • -- duration");
-                }
+        tvParticipantsVal.setText(state.getParticipantsText());
+        tvMessagesVal.setText(state.getMessagesText());
+        selectedRating = state.getSelectedRating();
+        updateStarsUi(selectedRating);
+        if (state.isRatingSubmitted()) {
+            tvFeedbackSuccess.setVisibility(View.VISIBLE);
+            for (ImageView star : ivStars) {
+                star.setEnabled(false);
+                star.setAlpha(0.8f);
             }
-
-            @Override
-            public void onFailure(Call<ApiResponse<MeetingSummaryResponse>> call, Throwable t) {
-                tvSubtitle.setText("Meeting ID: " + meetingCode + " • -- duration");
-            }
-        });
+        }
     }
 }

@@ -2,7 +2,6 @@ package com.ptithcm.ptitmeet.activities;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.text.InputType;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -11,32 +10,20 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.ptithcm.ptitmeet.R;
 import com.ptithcm.ptitmeet.adapters.RecentActivityAdapter;
-import com.ptithcm.ptitmeet.api.SessionManager;
-import com.ptithcm.ptitmeet.api.dto.common.ApiResponse;
-import com.ptithcm.ptitmeet.api.dto.common.PageResponse;
-import com.ptithcm.ptitmeet.api.dto.meeting.CreateMeetingRequest;
-import com.ptithcm.ptitmeet.api.dto.meeting.JoinMeetingRequest;
-import com.ptithcm.ptitmeet.api.dto.meeting.JoinMeetingResponse;
 import com.ptithcm.ptitmeet.api.dto.meeting.MeetingHistoryResponse;
-import com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse;
-import com.ptithcm.ptitmeet.api.services.ApiService;
-import com.ptithcm.ptitmeet.api.services.RetrofitClient;
 import com.ptithcm.ptitmeet.utils.MeetingUiFormatter;
+import com.ptithcm.ptitmeet.viewmodel.MainUiEvent;
+import com.ptithcm.ptitmeet.viewmodel.MainUiState;
+import com.ptithcm.ptitmeet.viewmodel.MainViewModel;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
-
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -48,18 +35,16 @@ public class MainActivity extends AppCompatActivity {
     private EditText etMeetingCode;
     private AppCompatButton btnJoinNow;
     private RecyclerView rvRecentActivity;
-    private SessionManager sessionManager;
-    private ApiService apiService;
     private RecentActivityAdapter recentActivityAdapter;
     private String upNextMeetingCode;
+    private MainViewModel viewModel;
+    private BottomNavigationView bottomNav;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        sessionManager = new SessionManager(this);
-        apiService = RetrofitClient.getApiService(this);
+        viewModel = new ViewModelProvider(this).get(MainViewModel.class);
 
         tvWelcome = findViewById(R.id.tvWelcome);
         tvUpNextTitle = findViewById(R.id.tvUpNextTitle);
@@ -72,22 +57,20 @@ public class MainActivity extends AppCompatActivity {
         etMeetingCode = findViewById(R.id.etMeetingCode);
         btnJoinNow = findViewById(R.id.btnJoinNow);
         rvRecentActivity = findViewById(R.id.rvRecentActivity);
-        BottomNavigationView bottomNav = findViewById(R.id.bottomNav);
+        bottomNav = findViewById(R.id.bottomNav);
 
         recentActivityAdapter = new RecentActivityAdapter();
         rvRecentActivity.setLayoutManager(new LinearLayoutManager(this));
         rvRecentActivity.setAdapter(recentActivityAdapter);
 
-        String fullName = sessionManager.getUserName();
-        if (tvWelcome != null) {
-            tvWelcome.setText("Welcome back, " + fullName);
-        }
-
-        btnNewMeeting.setOnClickListener(v -> createNewMeeting());
+        btnNewMeeting.setOnClickListener(v -> {
+            Toast.makeText(this, "Creating meeting...", Toast.LENGTH_SHORT).show();
+            viewModel.createNewMeeting();
+        });
         btnJoinMeeting.setOnClickListener(v -> handleJoinFromInputOrDialog());
         btnScheduleMeeting.setOnClickListener(v -> startActivity(new Intent(this, ScheduleMeetingActivity.class)));
         btnMeetingHistory.setOnClickListener(v -> startActivity(new Intent(this, MeetingsActivity.class)));
-        btnJoinNow.setOnClickListener(v -> joinUpNextMeeting());
+        btnJoinNow.setOnClickListener(v -> viewModel.joinUpNextMeeting());
 
         bottomNav.setSelectedItemId(R.id.nav_dashboard);
         bottomNav.setOnItemSelectedListener(item -> {
@@ -113,130 +96,57 @@ public class MainActivity extends AppCompatActivity {
             }
             return false;
         });
+
+        viewModel.getUiState().observe(this, this::applyState);
+        viewModel.getUiEvent().observe(this, event -> {
+            if (event == null) {
+                return;
+            }
+            MainUiEvent uiEvent = event.getContentIfNotHandled();
+            if (uiEvent == null) {
+                return;
+            }
+            handleEvent(uiEvent);
+        });
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        BottomNavigationView bottomNav = findViewById(R.id.bottomNav);
         if (bottomNav != null) {
             bottomNav.setSelectedItemId(R.id.nav_dashboard);
         }
-        loadDashboardData();
-    }
-
-    private void createNewMeeting() {
-        btnNewMeeting.setEnabled(false);
-        Toast.makeText(this, "Đang khởi tạo phòng họp...", Toast.LENGTH_SHORT).show();
-
-        String fullName = sessionManager.getUserName();
-        CreateMeetingRequest request = new CreateMeetingRequest("Phòng họp của " + fullName);
-
-        String nowPlus1Min = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-                .format(new Date(System.currentTimeMillis() + 60000));
-        request.setStartTime(nowPlus1Min);
-
-        apiService.createInstantMeeting(request).enqueue(new Callback<ApiResponse<MeetingResponse>>() {
-            @Override
-            public void onResponse(Call<ApiResponse<MeetingResponse>> call, Response<ApiResponse<MeetingResponse>> response) {
-                btnNewMeeting.setEnabled(true);
-                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    String newMeetingCode = response.body().getData().getMeetingCode();
-                    performJoinRequest(newMeetingCode, true);
-                } else {
-                    String errorMessage = response.body() != null ? response.body().getMessage() : "Không thể tạo phòng";
-                    Toast.makeText(MainActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<ApiResponse<MeetingResponse>> call, Throwable t) {
-                btnNewMeeting.setEnabled(true);
-                Toast.makeText(MainActivity.this, "Lỗi kết nối máy chủ", Toast.LENGTH_SHORT).show();
-            }
-        });
+        viewModel.loadDashboardData();
     }
 
     private void handleJoinFromInputOrDialog() {
         String meetingCode = etMeetingCode.getText().toString().trim();
         if (!meetingCode.isEmpty()) {
-            performJoinRequest(meetingCode, false);
+            viewModel.joinMeeting(meetingCode);
             return;
         }
         showJoinMeetingDialog();
     }
 
     private void showJoinMeetingDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Tham gia cuộc họp");
+        android.view.View dialogView = getLayoutInflater().inflate(R.layout.dialog_join_meeting, null, false);
+        EditText input = dialogView.findViewById(R.id.etJoinMeetingCode);
 
-        final EditText input = new EditText(this);
-        input.setHint("Nhập mã phòng (VD: abc-xyz)");
-        input.setInputType(InputType.TYPE_CLASS_TEXT);
-        builder.setView(input);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
+                .create();
 
-        builder.setPositiveButton("Tham gia", (dialog, which) -> {
+        dialogView.findViewById(R.id.btnCancelJoinMeeting).setOnClickListener(v -> dialog.dismiss());
+        dialogView.findViewById(R.id.btnConfirmJoinMeeting).setOnClickListener(v -> {
             String meetingCode = input.getText().toString().trim();
             if (!meetingCode.isEmpty()) {
-                performJoinRequest(meetingCode, false);
+                viewModel.joinMeeting(meetingCode);
+                dialog.dismiss();
             } else {
-                Toast.makeText(MainActivity.this, "Mã phòng không được để trống", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "Meeting code cannot be empty", Toast.LENGTH_SHORT).show();
             }
         });
-
-        builder.setNegativeButton("Hủy", (dialog, which) -> dialog.cancel());
-        builder.show();
-    }
-
-    private void joinUpNextMeeting() {
-        if (upNextMeetingCode == null || upNextMeetingCode.trim().isEmpty()) {
-            Toast.makeText(this, "Hiện chưa có cuộc họp sắp diễn ra", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        performJoinRequest(upNextMeetingCode, false);
-    }
-
-    private void loadDashboardData() {
-        loadUpNextMeeting();
-        loadRecentActivity();
-    }
-
-    private void loadUpNextMeeting() {
-        apiService.getUpNextMeeting().enqueue(new Callback<ApiResponse<MeetingHistoryResponse>>() {
-            @Override
-            public void onResponse(Call<ApiResponse<MeetingHistoryResponse>> call, Response<ApiResponse<MeetingHistoryResponse>> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    bindUpNext(response.body().getData());
-                    return;
-                }
-                showEmptyUpNext();
-            }
-
-            @Override
-            public void onFailure(Call<ApiResponse<MeetingHistoryResponse>> call, Throwable t) {
-                showEmptyUpNext();
-            }
-        });
-    }
-
-    private void loadRecentActivity() {
-        apiService.getMeetingHistory(1, 10, "ALL", "ALL")
-                .enqueue(new Callback<ApiResponse<PageResponse<MeetingHistoryResponse>>>() {
-                    @Override
-                    public void onResponse(Call<ApiResponse<PageResponse<MeetingHistoryResponse>>> call, Response<ApiResponse<PageResponse<MeetingHistoryResponse>>> response) {
-                        if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                            List<MeetingHistoryResponse> items = response.body().getData().getContent();
-                            recentActivityAdapter.submitList(items);
-                            return;
-                        }
-                        recentActivityAdapter.submitList(null);
-                    }
-
-                    @Override
-                    public void onFailure(Call<ApiResponse<PageResponse<MeetingHistoryResponse>>> call, Throwable t) {
-                        recentActivityAdapter.submitList(null);
-                    }
-                });
+        dialog.show();
     }
 
     private void bindUpNext(MeetingHistoryResponse meeting) {
@@ -249,15 +159,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void showEmptyUpNext() {
         upNextMeetingCode = null;
-        tvUpNextTitle.setText("Chưa có cuộc họp sắp tới");
-        tvUpNextTime.setText("Bạn có thể tạo phòng mới hoặc nhập mã để tham gia.");
+        tvUpNextTitle.setText("No upcoming meetings");
+        tvUpNextTime.setText("Create a room or join one with a meeting code.");
         tvUpNextCode.setText("Meeting code: ---");
         btnJoinNow.setEnabled(false);
-    }
-
-    private void performJoinRequest(String meetingCode, boolean isHostSetup) {
-        String displayName = sessionManager.getUserName();
-        openWaitingRoom(meetingCode, displayName, isHostSetup);
     }
 
     private void openWaitingRoom(String meetingCode, String displayName, boolean isHostSetup) {
@@ -266,5 +171,34 @@ public class MainActivity extends AppCompatActivity {
         intent.putExtra("DISPLAY_NAME", displayName);
         intent.putExtra("IS_HOST_SETUP", isHostSetup);
         startActivity(intent);
+    }
+
+    private void applyState(MainUiState state) {
+        if (state == null) {
+            return;
+        }
+        tvWelcome.setText(state.getWelcomeText());
+        btnNewMeeting.setEnabled(!state.isCreatingMeeting());
+        MeetingHistoryResponse upNextMeeting = state.getUpNextMeeting();
+        if (upNextMeeting != null) {
+            bindUpNext(upNextMeeting);
+        } else {
+            showEmptyUpNext();
+        }
+        List<MeetingHistoryResponse> items = state.getRecentActivity();
+        recentActivityAdapter.submitList(items == null || items.isEmpty() ? null : items);
+    }
+
+    private void handleEvent(MainUiEvent event) {
+        switch (event.getType()) {
+            case MainUiEvent.SHOW_TOAST:
+                Toast.makeText(this, event.getMessage(), Toast.LENGTH_SHORT).show();
+                break;
+            case MainUiEvent.OPEN_WAITING_ROOM:
+                openWaitingRoom(event.getMeetingCode(), event.getDisplayName(), event.isHostSetup());
+                break;
+            default:
+                break;
+        }
     }
 }

@@ -24,36 +24,58 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <androidx.cardview.widget.CardView
-                    android:id="@+id/cardProfileAvatar"
-                    android:layout_width="72dp"
-                    android:layout_height="72dp"
-                    app:cardBackgroundColor="@color/primary"
-                    app:cardCornerRadius="36dp"
-                    app:cardElevation="0dp">
+                <FrameLayout
+                    android:layout_width="106dp"
+                    android:layout_height="106dp">
+
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/cardProfileAvatar"
+                        android:layout_width="92dp"
+                        android:layout_height="92dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/primary"
+                        app:cardCornerRadius="46dp"
+                        app:cardElevation="0dp">
+
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
+
+                            <ImageView
+                                android:id="@+id/ivProfileAvatar"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:scaleType="centerCrop"
+                                android:visibility="gone" />
+
+                            <TextView
+                                android:id="@+id/tvProfileInitial"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:gravity="center"
+                                android:text="U"
+                                android:textColor="@color/white"
+                                android:textSize="28sp"
+                                android:textStyle="bold" />
+                        </FrameLayout>
+                    </androidx.cardview.widget.CardView>
 
                     <FrameLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent">
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:layout_gravity="bottom|end"
+                        android:background="@drawable/bg_primary_button"
+                        android:elevation="4dp">
 
                         <ImageView
-                            android:id="@+id/ivProfileAvatar"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:scaleType="centerCrop"
-                            android:visibility="gone" />
-
-                        <TextView
-                            android:id="@+id/tvProfileInitial"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:gravity="center"
-                            android:text="U"
-                            android:textColor="@color/white"
-                            android:textSize="28sp"
-                            android:textStyle="bold" />
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_edit_badge"
+                            app:tint="@color/white" />
                     </FrameLayout>
-                </androidx.cardview.widget.CardView>
+                </FrameLayout>
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -79,6 +101,7 @@
                         android:text="Loading account..."
                         android:textColor="@color/text_secondary"
                         android:textSize="14sp" />
+
                 </LinearLayout>
             </LinearLayout>
 
@@ -114,66 +137,10 @@
                 android:textColorHint="@color/text_secondary" />
 
             <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:layout_marginTop="16dp"
-                android:text="AVATAR URL"
-                android:textColor="@color/text_secondary"
-                android:textSize="10sp"
-                android:textStyle="bold" />
-
-            <EditText
-                android:id="@+id/etProfileAvatarUrl"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/bg_input_field"
-                android:hint="https://example.com/avatar.png"
-                android:inputType="textUri"
-                android:paddingHorizontal="16dp"
-                android:textColor="@color/white"
-                android:textColorHint="@color/text_secondary" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:orientation="horizontal">
-
-                <androidx.appcompat.widget.AppCompatButton
-                    android:id="@+id/btnChooseAvatar"
-                    android:layout_width="0dp"
-                    android:layout_height="52dp"
-                    android:layout_marginEnd="6dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_white_button"
-                    android:text="Choose photo"
-                    android:textAllCaps="false"
-                    android:textColor="@color/black"
-                    android:textStyle="bold" />
-
-                <androidx.appcompat.widget.AppCompatButton
-                    android:id="@+id/btnUploadAvatar"
-                    android:layout_width="0dp"
-                    android:layout_height="52dp"
-                    android:layout_marginStart="6dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_primary_button"
-                    android:enabled="false"
-                    android:text="Upload"
-                    android:textAllCaps="false"
-                    android:textColor="@color/white"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-
-
-            <TextView
                 android:id="@+id/tvProfileStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="16dp"
                 android:gravity="center"
                 android:textColor="@color/primary"
                 android:textSize="12sp" />
@@ -194,10 +161,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
                 android:layout_marginTop="12dp"
-                android:background="@drawable/bg_white_button"
+                android:background="@drawable/bg_secondary_button"
                 android:text="Sign out"
                 android:textAllCaps="false"
-                android:textColor="@color/black"
+                android:textColor="@color/white"
                 android:textStyle="bold" />
 
         </LinearLayout>
@@ -206,10 +173,14 @@
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:background="@color/surface"
-        app:itemIconTint="@color/primary"
-        app:itemTextColor="@color/text_secondary"
+        android:layout_height="98dp"
+        android:background="@drawable/bg_bottom_nav"
+        android:elevation="18dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="18dp"
+        app:itemIconTint="@color/bottom_nav_item_colors"
+        app:itemTextColor="@color/bottom_nav_item_colors"
+        app:labelVisibilityMode="labeled"
         app:layout_constraintBottom_toBottomOf="parent"
         app:menu="@menu/bottom_nav_menu" />
 

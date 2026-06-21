@@ -16,45 +16,31 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.ptithcm.ptitmeet.R;
-import com.ptithcm.ptitmeet.api.SessionManager;
-import com.ptithcm.ptitmeet.api.dto.common.ApiResponse;
-import com.ptithcm.ptitmeet.api.dto.user.UpdateProfileRequest;
 import com.ptithcm.ptitmeet.api.dto.user.UserResponse;
-import com.ptithcm.ptitmeet.api.services.ApiService;
-import com.ptithcm.ptitmeet.api.services.RetrofitClient;
+import com.ptithcm.ptitmeet.viewmodel.ProfileUiEvent;
+import com.ptithcm.ptitmeet.viewmodel.ProfileUiState;
+import com.ptithcm.ptitmeet.viewmodel.ProfileViewModel;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Locale;
-
-import okhttp3.MediaType;
-import okhttp3.MultipartBody;
-import okhttp3.RequestBody;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 
 public class ProfileActivity extends AppCompatActivity {
 
+    private View cardAvatar;
     private TextView tvInitial;
     private TextView tvName;
     private TextView tvEmail;
     private TextView tvStatus;
     private ImageView ivAvatar;
     private EditText etFullName;
-    private EditText etAvatarUrl;
     private ProgressBar progressBar;
     private AppCompatButton btnSave;
-    private AppCompatButton btnUploadAvatar;
-    private SessionManager sessionManager;
-    private ApiService apiService;
+    private ProfileViewModel viewModel;
     private Uri selectedAvatarUri;
     private final ActivityResultLauncher<String> avatarPickerLauncher = registerForActivityResult(
             new ActivityResultContracts.GetContent(),
@@ -64,8 +50,8 @@ public class ProfileActivity extends AppCompatActivity {
                     ivAvatar.setImageURI(uri);
                     ivAvatar.setVisibility(View.VISIBLE);
                     tvInitial.setVisibility(View.GONE);
-                    btnUploadAvatar.setEnabled(true);
-                    tvStatus.setText("Photo selected. Tap Upload to update your avatar.");
+                    tvStatus.setText("Uploading avatar...");
+                    uploadSelectedAvatar();
                 }
             }
     );
@@ -75,28 +61,35 @@ public class ProfileActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_profile);
 
-        sessionManager = new SessionManager(this);
-        apiService = RetrofitClient.getApiService(this);
+        viewModel = new ViewModelProvider(this).get(ProfileViewModel.class);
 
+        cardAvatar = findViewById(R.id.cardProfileAvatar);
         tvInitial = findViewById(R.id.tvProfileInitial);
         ivAvatar = findViewById(R.id.ivProfileAvatar);
         tvName = findViewById(R.id.tvProfileName);
         tvEmail = findViewById(R.id.tvProfileEmail);
         etFullName = findViewById(R.id.etProfileFullName);
-        etAvatarUrl = findViewById(R.id.etProfileAvatarUrl);
         tvStatus = findViewById(R.id.tvProfileStatus);
         progressBar = findViewById(R.id.progressProfile);
         btnSave = findViewById(R.id.btnSaveProfile);
-        AppCompatButton btnChooseAvatar = findViewById(R.id.btnChooseAvatar);
-        btnUploadAvatar = findViewById(R.id.btnUploadAvatar);
         AppCompatButton btnLogout = findViewById(R.id.btnLogout);
 
         setupBottomNavigation();
         btnSave.setOnClickListener(v -> updateProfile());
-        btnChooseAvatar.setOnClickListener(v -> avatarPickerLauncher.launch("image/*"));
-        btnUploadAvatar.setOnClickListener(v -> uploadSelectedAvatar());
+        cardAvatar.setOnClickListener(v -> avatarPickerLauncher.launch("image/*"));
         btnLogout.setOnClickListener(v -> logout());
-        loadProfile();
+        viewModel.getUiState().observe(this, this::applyState);
+        viewModel.getUiEvent().observe(this, event -> {
+            if (event == null) {
+                return;
+            }
+            ProfileUiEvent uiEvent = event.getContentIfNotHandled();
+            if (uiEvent == null) {
+                return;
+            }
+            handleEvent(uiEvent);
+        });
+        viewModel.loadProfile();
     }
 
     private void setupBottomNavigation() {
@@ -133,29 +126,6 @@ public class ProfileActivity extends AppCompatActivity {
         });
     }
 
-    private void loadProfile() {
-        setLoading(true, "Loading profile...");
-        apiService.getProfile().enqueue(new Callback<ApiResponse<UserResponse>>() {
-            @Override
-            public void onResponse(Call<ApiResponse<UserResponse>> call, Response<ApiResponse<UserResponse>> response) {
-                setLoading(false, "Keep your display name and avatar link up to date.");
-                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    bindProfile(response.body().getData());
-                    return;
-                }
-                String message = response.body() != null
-                        ? response.body().getMessage()
-                        : "Unable to load profile.";
-                tvStatus.setText(message);
-            }
-
-            @Override
-            public void onFailure(Call<ApiResponse<UserResponse>> call, Throwable t) {
-                setLoading(false, "Cannot connect to server. Pull back later and try again.");
-            }
-        });
-    }
-
     private void bindProfile(UserResponse user) {
         String fullName = safe(user.getFullName(), "User");
         String email = safe(user.getEmail(), "-");
@@ -169,13 +139,9 @@ public class ProfileActivity extends AppCompatActivity {
             tvInitial.setText("U");
         }
         etFullName.setText(fullName);
-        if (etAvatarUrl != null) {
-            etAvatarUrl.setText(avatarUrl);
-        }
         if (selectedAvatarUri == null) {
             showRemoteAvatarIfPossible(avatarUrl);
         }
-        sessionManager.updateUserName(fullName);
     }
 
     private void uploadSelectedAvatar() {
@@ -183,100 +149,12 @@ public class ProfileActivity extends AppCompatActivity {
             tvStatus.setText("Choose a photo first.");
             return;
         }
-
-        MultipartBody.Part avatarPart;
-        try {
-            avatarPart = createAvatarPart(selectedAvatarUri);
-        } catch (Exception exception) {
-            tvStatus.setText("Unable to read selected photo.");
-            return;
-        }
-
-        setAvatarUploading(true);
-        apiService.uploadAvatar(avatarPart).enqueue(new Callback<ApiResponse<UserResponse>>() {
-            @Override
-            public void onResponse(Call<ApiResponse<UserResponse>> call, Response<ApiResponse<UserResponse>> response) {
-                setAvatarUploading(false);
-                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    UserResponse user = response.body().getData();
-                    bindProfile(user);
-                    tvStatus.setText("Avatar updated.");
-                    Toast.makeText(ProfileActivity.this, "Avatar updated", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                String message = response.body() != null
-                        ? response.body().getMessage()
-                        : "Unable to upload avatar.";
-                tvStatus.setText(message);
-            }
-
-            @Override
-            public void onFailure(Call<ApiResponse<UserResponse>> call, Throwable t) {
-                setAvatarUploading(false);
-                tvStatus.setText("Cannot connect to server. Check your network and try again.");
-            }
-        });
-    }
-
-    private MultipartBody.Part createAvatarPart(Uri uri) throws Exception {
-        String mimeType = getContentResolver().getType(uri);
-        if (mimeType == null || !mimeType.toLowerCase(Locale.ROOT).startsWith("image/")) {
-            mimeType = "image/jpeg";
-        }
-        String extension = mimeType.endsWith("png") ? ".png" : ".jpg";
-        File file = File.createTempFile("avatar_", extension, getCacheDir());
-
-        try (InputStream inputStream = getContentResolver().openInputStream(uri);
-             OutputStream outputStream = new FileOutputStream(file)) {
-            if (inputStream == null) {
-                throw new IllegalStateException("Selected photo cannot be opened");
-            }
-            byte[] buffer = new byte[8192];
-            int bytesRead;
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, bytesRead);
-            }
-        }
-
-        RequestBody body = RequestBody.create(file, MediaType.parse(mimeType));
-        return MultipartBody.Part.createFormData("file", file.getName(), body);
+        viewModel.uploadAvatar(selectedAvatarUri);
     }
 
     private void updateProfile() {
         String fullName = etFullName.getText().toString().trim();
-        String avatarUrl = etAvatarUrl.getText().toString().trim();
-        if (fullName.length() < 2) {
-            tvStatus.setText("Full name must contain at least 2 characters.");
-            return;
-        }
-        if (avatarUrl.isEmpty()) {
-            avatarUrl = null;
-        }
-
-        setSaving(true);
-        apiService.updateProfile(new UpdateProfileRequest(fullName, avatarUrl))
-                .enqueue(new Callback<ApiResponse<UserResponse>>() {
-                    @Override
-                    public void onResponse(Call<ApiResponse<UserResponse>> call, Response<ApiResponse<UserResponse>> response) {
-                        setSaving(false);
-                        if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                            bindProfile(response.body().getData());
-                            tvStatus.setText("Profile updated.");
-                            Toast.makeText(ProfileActivity.this, "Profile updated", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-                        String message = response.body() != null
-                                ? response.body().getMessage()
-                                : "Unable to update profile.";
-                        tvStatus.setText(message);
-                    }
-
-                    @Override
-                    public void onFailure(Call<ApiResponse<UserResponse>> call, Throwable t) {
-                        setSaving(false);
-                        tvStatus.setText("Cannot connect to server. Check your network and try again.");
-                    }
-                });
+        viewModel.updateProfile(fullName, null);
     }
 
     private void setLoading(boolean loading, String message) {
@@ -297,8 +175,10 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     private void setAvatarUploading(boolean uploading) {
-        btnUploadAvatar.setEnabled(!uploading && selectedAvatarUri != null);
-        btnUploadAvatar.setText(uploading ? "Uploading..." : "Upload");
+        if (cardAvatar != null) {
+            cardAvatar.setEnabled(!uploading);
+            cardAvatar.setAlpha(uploading ? 0.7f : 1f);
+        }
     }
 
     private void showRemoteAvatarIfPossible(String avatarUrl) {
@@ -321,6 +201,7 @@ public class ProfileActivity extends AppCompatActivity {
                             ivAvatar.setImageBitmap(bitmap);
                             ivAvatar.setVisibility(View.VISIBLE);
                             tvInitial.setVisibility(View.GONE);
+                            tvStatus.setText("Avatar preview updated.");
                         });
                     }
                 }
@@ -328,6 +209,7 @@ public class ProfileActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     ivAvatar.setVisibility(View.GONE);
                     tvInitial.setVisibility(View.VISIBLE);
+                    tvStatus.setText("Could not load that image URL.");
                 });
             } finally {
                 if (connection != null) {
@@ -338,14 +220,41 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     private void logout() {
-        sessionManager.logout();
-        Intent intent = new Intent(this, LoginActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        finish();
+        viewModel.logout();
     }
 
     private String safe(String value, String fallback) {
         return value == null || value.trim().isEmpty() ? fallback : value.trim();
+    }
+
+    private void applyState(ProfileUiState state) {
+        if (state == null) {
+            return;
+        }
+        setLoading(state.isLoading(), state.getStatusMessage());
+        setSaving(state.isSaving());
+        setAvatarUploading(state.isAvatarUploading());
+        if (state.getUser() != null) {
+            bindProfile(state.getUser());
+        }
+        if (state.getStatusMessage() != null && !state.getStatusMessage().isEmpty()) {
+            tvStatus.setText(state.getStatusMessage());
+        }
+    }
+
+    private void handleEvent(ProfileUiEvent event) {
+        switch (event.getType()) {
+            case ProfileUiEvent.SHOW_TOAST:
+                Toast.makeText(this, event.getMessage(), Toast.LENGTH_SHORT).show();
+                break;
+            case ProfileUiEvent.OPEN_LOGIN:
+                Intent intent = new Intent(this, LoginActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
+                finish();
+                break;
+            default:
+                break;
+        }
     }
 }

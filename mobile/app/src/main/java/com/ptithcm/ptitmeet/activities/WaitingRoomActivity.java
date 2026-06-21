@@ -5,8 +5,6 @@ import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.TextView;
@@ -20,29 +18,19 @@ import androidx.camera.core.Preview;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.ptithcm.ptitmeet.R;
-import com.ptithcm.ptitmeet.api.SessionManager;
-import com.ptithcm.ptitmeet.api.dto.common.ApiResponse;
-import com.ptithcm.ptitmeet.api.dto.meeting.JoinMeetingRequest;
 import com.ptithcm.ptitmeet.api.dto.meeting.JoinMeetingResponse;
-import com.ptithcm.ptitmeet.api.dto.meeting.MeetingInfoResponse;
-import com.ptithcm.ptitmeet.api.realtime.MeetingRealtimeClient;
-import com.ptithcm.ptitmeet.api.realtime.StompSocketClient;
-import com.ptithcm.ptitmeet.api.services.ApiService;
-import com.ptithcm.ptitmeet.api.services.RetrofitClient;
 import com.ptithcm.ptitmeet.utils.DevicePermissionHelper;
-
-import org.json.JSONObject;
+import com.ptithcm.ptitmeet.viewmodel.WaitingRoomUiEvent;
+import com.ptithcm.ptitmeet.viewmodel.WaitingRoomUiState;
+import com.ptithcm.ptitmeet.viewmodel.WaitingRoomViewModel;
 
 import java.util.Map;
-
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 
 public class WaitingRoomActivity extends AppCompatActivity {
 
@@ -60,18 +48,10 @@ public class WaitingRoomActivity extends AppCompatActivity {
     private TextView tvWaitingMessage;
     private TextView tvPollingStatus;
 
-    private ApiService apiService;
-    private SessionManager sessionManager;
+    private WaitingRoomViewModel viewModel;
     private String meetingCode;
     private String displayName;
     private String waitingMessage;
-    private boolean isWaitingState;
-    private boolean isPollingActive;
-    private boolean isJoinRequestInFlight;
-    private MeetingRealtimeClient meetingRealtimeClient;
-    private String userRealtimeSubscriptionId;
-    private String waitingRoomRealtimeSubscriptionId;
-    private boolean realtimeConnected;
     private String pendingPermissionRequest;
 
     private PreviewView previewView;
@@ -82,37 +62,21 @@ public class WaitingRoomActivity extends AppCompatActivity {
             new ActivityResultContracts.RequestMultiplePermissions(),
             this::handlePermissionResult
     );
-    private final Handler pollingHandler = new Handler(Looper.getMainLooper());
-    private final Runnable pollingRunnable = new Runnable() {
-        @Override
-        public void run() {
-            if (!isPollingActive || !isWaitingState || isFinishing()) {
-                return;
-            }
-            if (!realtimeConnected) {
-                requestJoinMeeting(true);
-            }
-            if (isPollingActive && isWaitingState) {
-                pollingHandler.postDelayed(this, 10000);
-            }
-        }
-    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_waiting_room);
 
-        apiService = RetrofitClient.getApiService(this);
-        sessionManager = new SessionManager(this);
         meetingCode = getIntent().getStringExtra("MEETING_CODE");
         displayName = getIntent().getStringExtra("DISPLAY_NAME");
         waitingMessage = getIntent().getStringExtra("WAITING_MESSAGE");
         isHostSetup = getIntent().getBooleanExtra("IS_HOST_SETUP", false);
-        meetingRealtimeClient = new MeetingRealtimeClient(this, meetingCode);
-        if (displayName == null || displayName.trim().isEmpty()) {
-            displayName = sessionManager.getUserName();
-        }
+        viewModel = new ViewModelProvider(
+                this,
+                new WaitingRoomViewModel.Factory(getApplication(), meetingCode, displayName, waitingMessage, isHostSetup)
+        ).get(WaitingRoomViewModel.class);
+        displayName = viewModel.getDisplayName();
 
         fabToggleMic = findViewById(R.id.fabToggleMic);
         fabToggleVideo = findViewById(R.id.fabToggleVideo);
@@ -130,7 +94,8 @@ public class WaitingRoomActivity extends AppCompatActivity {
         View btnBack = findViewById(R.id.btnBack);
         if (btnBack != null) {
             btnBack.setOnClickListener(v -> {
-                if (isWaitingState) {
+                WaitingRoomUiState state = viewModel.getUiState().getValue();
+                if (state != null && state.isWaitingState()) {
                     cancelWaitingAndExit();
                 } else {
                     finish();
@@ -142,12 +107,6 @@ public class WaitingRoomActivity extends AppCompatActivity {
 
         previewView = new PreviewView(this);
         videoPreviewContainer.addView(previewView);
-
-        if (waitingMessage != null && !waitingMessage.trim().isEmpty()) {
-            showWaitingState(waitingMessage);
-        } else {
-            hideWaitingState();
-        }
 
         fabToggleMic.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -183,6 +142,7 @@ public class WaitingRoomActivity extends AppCompatActivity {
         });
         btnCancelWaiting.setOnClickListener(v -> cancelWaitingAndExit());
 
+        observeViewModel();
         loadMeetingInfo();
         updatePreviewControlsUi();
     }
@@ -191,8 +151,9 @@ public class WaitingRoomActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         connectRealtime();
-        if (isWaitingState) {
-            startPolling();
+        WaitingRoomUiState state = viewModel.getUiState().getValue();
+        if (state != null && state.isWaitingState()) {
+            viewModel.startPolling();
         }
         if (isVideoOn && DevicePermissionHelper.hasCameraPermission(this)) {
             startCameraPreview();
@@ -202,7 +163,7 @@ public class WaitingRoomActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
-        stopPolling();
+        viewModel.stopPolling();
         disconnectRealtime();
         stopCameraPreview();
     }
@@ -213,6 +174,58 @@ public class WaitingRoomActivity extends AppCompatActivity {
         stopCameraPreview();
     }
 
+    private void observeViewModel() {
+        viewModel.getUiState().observe(this, this::applyWaitingRoomState);
+        viewModel.getUiEvent().observe(this, event -> {
+            if (event == null) {
+                return;
+            }
+            WaitingRoomUiEvent uiEvent = event.getContentIfNotHandled();
+            if (uiEvent == null) {
+                return;
+            }
+            handleWaitingRoomEvent(uiEvent);
+        });
+    }
+
+    private void applyWaitingRoomState(WaitingRoomUiState state) {
+        if (state == null) {
+            return;
+        }
+        tvReady.setText(state.getReadyTitle());
+        tvParticipantsCount.setText(state.getMeetingDetails());
+        btnJoin.setEnabled(state.isJoinButtonEnabled());
+        btnJoin.setText(state.getJoinButtonText());
+        if (state.isWaitingState()) {
+            tvWaitingMessage.setVisibility(View.VISIBLE);
+            tvPollingStatus.setVisibility(View.GONE);
+            btnCancelWaiting.setVisibility(View.VISIBLE);
+            tvWaitingMessage.setText(state.getWaitingMessage());
+            viewModel.startPolling();
+        } else {
+            tvWaitingMessage.setVisibility(View.GONE);
+            tvPollingStatus.setVisibility(View.GONE);
+            btnCancelWaiting.setVisibility(View.GONE);
+            viewModel.stopPolling();
+        }
+    }
+
+    private void handleWaitingRoomEvent(WaitingRoomUiEvent event) {
+        switch (event.getType()) {
+            case WaitingRoomUiEvent.SHOW_TOAST:
+                Toast.makeText(this, event.getMessage(), Toast.LENGTH_SHORT).show();
+                break;
+            case WaitingRoomUiEvent.OPEN_MEETING_ROOM:
+                openMeetingRoom(event.getJoinMeetingResponse());
+                break;
+            case WaitingRoomUiEvent.FINISH:
+                finish();
+                break;
+            default:
+                break;
+        }
+    }
+
     private void loadMeetingInfo() {
         if (meetingCode == null || meetingCode.trim().isEmpty()) {
             tvReady.setText("Missing meeting code");
@@ -220,70 +233,11 @@ public class WaitingRoomActivity extends AppCompatActivity {
             btnJoin.setEnabled(false);
             return;
         }
-
-        apiService.getMeetingInfo(meetingCode).enqueue(new Callback<ApiResponse<MeetingInfoResponse>>() {
-            @Override
-            public void onResponse(Call<ApiResponse<MeetingInfoResponse>> call, Response<ApiResponse<MeetingInfoResponse>> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    MeetingInfoResponse info = response.body().getData();
-                    tvReady.setText(isHostSetup ? "Set up before you go live" : "Ready to join?");
-                    tvParticipantsCount.setText("Meeting: " + info.getTitle() + "\nHost: " + info.getHostName());
-                } else {
-                    tvParticipantsCount.setText("Unable to load meeting details.");
-                }
-            }
-
-            @Override
-            public void onFailure(Call<ApiResponse<MeetingInfoResponse>> call, Throwable t) {
-                tvParticipantsCount.setText("Unable to load meeting details.");
-            }
-        });
+        viewModel.loadMeetingInfo();
     }
 
     private void requestJoinMeeting(boolean fromPolling) {
-        if (meetingCode == null || meetingCode.trim().isEmpty() || isJoinRequestInFlight) {
-            return;
-        }
-
-        isJoinRequestInFlight = true;
-        btnJoin.setEnabled(false);
-        btnJoin.setText(isWaitingState ? "Checking..." : (isHostSetup ? "Preparing..." : "Joining..."));
-
-        apiService.joinMeeting(meetingCode, new JoinMeetingRequest(null, displayName))
-                .enqueue(new Callback<ApiResponse<JoinMeetingResponse>>() {
-                    @Override
-                    public void onResponse(Call<ApiResponse<JoinMeetingResponse>> call, Response<ApiResponse<JoinMeetingResponse>> response) {
-                        isJoinRequestInFlight = false;
-                        btnJoin.setEnabled(true);
-
-                        if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                            JoinMeetingResponse joinData = response.body().getData();
-                            if ("PENDING".equalsIgnoreCase(joinData.getStatus())) {
-                                showWaitingState(joinData.getMessage());
-                                return;
-                            }
-                            if ("REJECTED".equalsIgnoreCase(joinData.getStatus())) {
-                                Toast.makeText(WaitingRoomActivity.this, joinData.getMessage(), Toast.LENGTH_SHORT).show();
-                                hideWaitingState();
-                                return;
-                            }
-                            stopPolling();
-                            openMeetingRoom(joinData);
-                            return;
-                        }
-
-                        btnJoin.setText(isWaitingState ? "Check Again" : (isHostSetup ? "Start meeting" : "Join now"));
-                        Toast.makeText(WaitingRoomActivity.this, response.body() != null ? response.body().getMessage() : "Unable to join meeting", Toast.LENGTH_SHORT).show();
-                    }
-
-                    @Override
-                    public void onFailure(Call<ApiResponse<JoinMeetingResponse>> call, Throwable t) {
-                        isJoinRequestInFlight = false;
-                        btnJoin.setEnabled(true);
-                        btnJoin.setText(isWaitingState ? "Check Again" : (isHostSetup ? "Start meeting" : "Join now"));
-                        Toast.makeText(WaitingRoomActivity.this, "Unable to connect to server", Toast.LENGTH_SHORT).show();
-                    }
-                });
+        viewModel.requestJoin();
     }
 
     private void openMeetingRoom(JoinMeetingResponse joinData) {
@@ -315,61 +269,14 @@ public class WaitingRoomActivity extends AppCompatActivity {
         finish();
     }
 
-    private void showWaitingState(String message) {
-        isWaitingState = true;
-        tvWaitingMessage.setVisibility(View.VISIBLE);
-        tvPollingStatus.setVisibility(View.GONE);
-        btnCancelWaiting.setVisibility(View.VISIBLE);
-        tvWaitingMessage.setText(message == null || message.trim().isEmpty()
-                ? "Waiting for host to let you in..."
-                : message);
-        btnJoin.setText("Check Again");
-        startPolling();
-    }
-
-    private void hideWaitingState() {
-        isWaitingState = false;
-        stopPolling();
-        tvWaitingMessage.setVisibility(View.GONE);
-        tvPollingStatus.setVisibility(View.GONE);
-        btnCancelWaiting.setVisibility(View.GONE);
-        btnJoin.setText(isHostSetup ? "Start meeting" : "Join now");
-    }
-
-    private void startPolling() {
-        if (isPollingActive) {
-            return;
-        }
-        isPollingActive = true;
-        pollingHandler.removeCallbacks(pollingRunnable);
-        pollingHandler.postDelayed(pollingRunnable, 10000);
-    }
-
-    private void stopPolling() {
-        isPollingActive = false;
-        pollingHandler.removeCallbacks(pollingRunnable);
-    }
-
     private void cancelWaitingAndExit() {
-        stopPolling();
-        if (meetingCode != null && !meetingCode.trim().isEmpty()) {
-            apiService.leaveMeeting(meetingCode).enqueue(new Callback<ApiResponse<Void>>() {
-                @Override
-                public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
-                }
-
-                @Override
-                public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
-                }
-            });
-        }
-        Toast.makeText(this, "Stopped waiting for approval", Toast.LENGTH_SHORT).show();
-        finish();
+        viewModel.cancelWaiting();
     }
 
     @Override
     public void onBackPressed() {
-        if (isWaitingState) {
+        WaitingRoomUiState state = viewModel.getUiState().getValue();
+        if (state != null && state.isWaitingState()) {
             cancelWaitingAndExit();
         } else {
             super.onBackPressed();
@@ -456,90 +363,10 @@ public class WaitingRoomActivity extends AppCompatActivity {
     }
 
     private void connectRealtime() {
-        if (meetingRealtimeClient == null || meetingRealtimeClient.isConnected()) {
-            return;
-        }
-
-        meetingRealtimeClient.connect(new StompSocketClient.ConnectionListener() {
-            @Override
-            public void onConnected() {
-                realtimeConnected = true;
-                subscribeRealtimeTopics();
-            }
-
-            @Override
-            public void onError(String message) {
-                realtimeConnected = false;
-            }
-
-            @Override
-            public void onDisconnected() {
-                realtimeConnected = false;
-            }
-        });
-    }
-
-    private void subscribeRealtimeTopics() {
-        String userId = sessionManager.getUserId();
-        if (userId != null && userRealtimeSubscriptionId == null) {
-            userRealtimeSubscriptionId = meetingRealtimeClient.subscribeToUserUpdates(userId, (destination, body) -> handleRealtimeUserMessage(body));
-        }
-        if (waitingRoomRealtimeSubscriptionId == null) {
-            waitingRoomRealtimeSubscriptionId = meetingRealtimeClient.subscribeToWaitingRoom((destination, body) -> handleWaitingRoomRealtime(body));
-        }
+        viewModel.connectRealtime();
     }
 
     private void disconnectRealtime() {
-        realtimeConnected = false;
-        userRealtimeSubscriptionId = null;
-        waitingRoomRealtimeSubscriptionId = null;
-        if (meetingRealtimeClient != null) {
-            meetingRealtimeClient.disconnect();
-        }
-    }
-
-    private void handleRealtimeUserMessage(String body) {
-        try {
-            JSONObject jsonObject = new JSONObject(body);
-            String status = jsonObject.optString("status");
-            if ("APPROVED".equalsIgnoreCase(status)) {
-                JoinMeetingResponse joinMeetingResponse = new JoinMeetingResponseParser().parse(jsonObject);
-                stopPolling();
-                openMeetingRoom(joinMeetingResponse);
-                return;
-            }
-            if ("REJECTED".equalsIgnoreCase(status)) {
-                String message = jsonObject.optString("message", "Your request to join was rejected.");
-                Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-                hideWaitingState();
-            }
-        } catch (Exception ignored) {
-        }
-    }
-
-    private void handleWaitingRoomRealtime(String body) {
-        if ("HOST_JOINED".equalsIgnoreCase(body)) {
-            showWaitingState("The host has joined the meeting. Please wait for approval.");
-            requestJoinMeeting(false);
-            return;
-        }
-        if ("SETTINGS_CHANGED".equalsIgnoreCase(body)) {
-            requestJoinMeeting(false);
-        }
-    }
-
-    private static class JoinMeetingResponseParser {
-        private JoinMeetingResponse parse(JSONObject jsonObject) {
-            return new JoinMeetingResponse(
-                    jsonObject.optString("token", null),
-                    jsonObject.optString("serverUrl", null),
-                    jsonObject.optString("status", null),
-                    jsonObject.optString("role", null),
-                    jsonObject.optString("message", null),
-                    jsonObject.optString("settings", null),
-                    jsonObject.optBoolean("isOwner", false),
-                    jsonObject.optString("currentHostId", null)
-            );
-        }
+        viewModel.disconnectRealtime();
     }
 }
