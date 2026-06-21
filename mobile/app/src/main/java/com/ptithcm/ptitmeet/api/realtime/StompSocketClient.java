@@ -95,7 +95,8 @@ public class StompSocketClient {
             return;
         }
         String payload = body == null ? "" : body;
-        sendFrame("SEND\ndestination:" + destination + "\ncontent-type:application/json\n\n" + payload + NULL_CHAR);
+        int contentLength = payload.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        sendFrame("SEND\ndestination:" + destination + "\ncontent-type:application/json\ncontent-length:" + contentLength + "\n\n" + payload + NULL_CHAR);
     }
 
     private void onSocketConnected() {
@@ -158,18 +159,18 @@ public class StompSocketClient {
             return;
         }
 
-        String[] sections = frame.split("\n\n", 2);
+        String[] sections = frame.split("(\\r?\\n){2}", 2);
         String headerBlock = sections[0];
-        String body = sections.length > 1 ? sections[1] : "";
-        String[] headerLines = headerBlock.split("\n");
+        String body = sections.length > 1 ? sections[1].trim() : "";
+        String[] headerLines = headerBlock.split("\\r?\\n");
         String command = headerLines[0].trim();
 
         Map<String, String> headers = new LinkedHashMap<>();
         for (int index = 1; index < headerLines.length; index++) {
-            String line = headerLines[index];
+            String line = headerLines[index].trim();
             int separator = line.indexOf(':');
             if (separator > 0) {
-                headers.put(line.substring(0, separator), line.substring(separator + 1));
+                headers.put(line.substring(0, separator).trim(), line.substring(separator + 1).trim());
             }
         }
 

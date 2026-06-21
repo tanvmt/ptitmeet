@@ -99,6 +99,10 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(new Intent(this, MeetingsActivity.class));
                 return true;
             }
+            if (id == R.id.nav_settings) {
+                startActivity(new Intent(this, SettingsActivity.class));
+                return true;
+            }
             if (id == R.id.nav_recordings) {
                 startActivity(new Intent(this, RecordingsActivity.class));
                 return true;
@@ -114,6 +118,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        BottomNavigationView bottomNav = findViewById(R.id.bottomNav);
+        if (bottomNav != null) {
+            bottomNav.setSelectedItemId(R.id.nav_dashboard);
+        }
         loadDashboardData();
     }
 

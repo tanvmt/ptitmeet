@@ -185,6 +185,26 @@ const WaitingRoomPage = () => {
 
   const goToMeetingRoom = (res) => {
     stopMediaStream(previewStreamRef.current);
+
+    let finalMicOn = mediaPreferenceRef.current.micOn;
+    let finalVideoOn = mediaPreferenceRef.current.videoOn;
+
+    // Apply mute audio/video upon entry settings if not host/owner
+    const isHost = res.role === "HOST" || Boolean(res.isOwner);
+    if (!isHost && res.settings) {
+      try {
+        const settings = typeof res.settings === "string" ? JSON.parse(res.settings) : res.settings;
+        if (settings.muteAudioOnEntry) {
+          finalMicOn = false;
+        }
+        if (settings.muteVideoOnEntry) {
+          finalVideoOn = false;
+        }
+      } catch (e) {
+        console.error("Error parsing settings in goToMeetingRoom", e);
+      }
+    }
+
     navigate(`/meeting/${code}`, {
       state: {
         token: res.token,
@@ -193,8 +213,8 @@ const WaitingRoomPage = () => {
         currentHostId: res.currentHostId,
         serverUrl: res.serverUrl,
         settings: res.settings,
-        micOn: mediaPreferenceRef.current.micOn,
-        camOn: mediaPreferenceRef.current.videoOn,
+        micOn: finalMicOn,
+        camOn: finalVideoOn,
       },
     });
   };

@@ -152,6 +152,11 @@ public class MeetingsActivity extends AppCompatActivity implements MeetingHistor
                 finish();
                 return true;
             }
+            if (id == R.id.nav_settings) {
+                startActivity(new Intent(this, SettingsActivity.class));
+                finish();
+                return true;
+            }
             if (id == R.id.nav_recordings) {
                 startActivity(new Intent(this, RecordingsActivity.class));
                 finish();
@@ -270,6 +275,24 @@ public class MeetingsActivity extends AppCompatActivity implements MeetingHistor
         intent.putExtra("USER_ROLE", joinData.getRole());
         intent.putExtra("MEETING_CODE", meetingCode);
         intent.putExtra("IS_OWNER", joinData.isOwner());
+
+        boolean micOn = true;
+        boolean videoOn = true;
+        boolean isHost = "HOST".equalsIgnoreCase(joinData.getRole()) || joinData.isOwner();
+        if (!isHost && joinData.getSettings() != null) {
+            try {
+                org.json.JSONObject settingsObj = new org.json.JSONObject(joinData.getSettings());
+                if (settingsObj.optBoolean("muteAudioOnEntry", false)) {
+                    micOn = false;
+                }
+                if (settingsObj.optBoolean("muteVideoOnEntry", false)) {
+                    videoOn = false;
+                }
+            } catch (Exception ignored) {}
+        }
+
+        intent.putExtra("MIC_ON", micOn);
+        intent.putExtra("VIDEO_ON", videoOn);
         startActivity(intent);
     }
 
