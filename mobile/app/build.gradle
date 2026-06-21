@@ -14,7 +14,7 @@ if (localPropertiesFile.exists()) {
 def apiBaseUrl = (
         project.findProperty("PTITMEET_API_BASE_URL")
                 ?: localProperties.getProperty("PTITMEET_API_BASE_URL")
-                ?: "http://192.168.1.147:8080/"
+                ?: "http://10.0.2.2:8080/"
 ).toString()
 if (!apiBaseUrl.endsWith("/")) {
     apiBaseUrl += "/"
