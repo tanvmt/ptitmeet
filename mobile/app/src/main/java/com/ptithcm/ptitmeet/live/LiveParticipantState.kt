@@ -7,4 +7,6 @@ data class LiveParticipantState(
     val isMicOn: Boolean,
     val isSpeaking: Boolean,
     val isLocal: Boolean,
+    val isHandRaised: Boolean = false,
+    val isScreenSharing: Boolean = false,
 )

@@ -8,6 +8,8 @@ public class ParticipantData {
     private boolean isMicOn;
     private boolean isSpeaking;
     private boolean isLocal;
+    private boolean isHandRaised;
+    private boolean isScreenSharing;
 
     public ParticipantData(String id, String name, boolean hasVideo, boolean isMicOn, boolean isSpeaking) {
         this.id = id;
@@ -16,6 +18,8 @@ public class ParticipantData {
         this.isMicOn = isMicOn;
         this.isSpeaking = isSpeaking;
         this.identity = id;
+        this.isHandRaised = false;
+        this.isScreenSharing = false;
     }
 
     public ParticipantData(String identity, String id, String name, boolean hasVideo, boolean isMicOn, boolean isSpeaking, boolean isLocal) {
@@ -26,6 +30,20 @@ public class ParticipantData {
         this.isMicOn = isMicOn;
         this.isSpeaking = isSpeaking;
         this.isLocal = isLocal;
+        this.isHandRaised = false;
+        this.isScreenSharing = false;
+    }
+
+    public ParticipantData(String identity, String id, String name, boolean hasVideo, boolean isMicOn, boolean isSpeaking, boolean isLocal, boolean isHandRaised, boolean isScreenSharing) {
+        this.identity = identity;
+        this.id = id;
+        this.name = name;
+        this.hasVideo = hasVideo;
+        this.isMicOn = isMicOn;
+        this.isSpeaking = isSpeaking;
+        this.isLocal = isLocal;
+        this.isHandRaised = isHandRaised;
+        this.isScreenSharing = isScreenSharing;
     }
 
     public String getIdentity() { return identity; }
@@ -35,11 +53,14 @@ public class ParticipantData {
     public boolean isMicOn() { return isMicOn; }
     public boolean isSpeaking() { return isSpeaking; }
     public boolean isLocal() { return isLocal; }
+    public boolean isHandRaised() { return isHandRaised; }
+    public boolean isScreenSharing() { return isScreenSharing; }
 
-    // Setters (nếu cần update dữ liệu real-time)
     public void setIdentity(String identity) { this.identity = identity; }
     public void setHasVideo(boolean hasVideo) { this.hasVideo = hasVideo; }
     public void setMicOn(boolean micOn) { isMicOn = micOn; }
     public void setSpeaking(boolean speaking) { isSpeaking = speaking; }
     public void setLocal(boolean local) { isLocal = local; }
+    public void setHandRaised(boolean handRaised) { isHandRaised = handRaised; }
+    public void setScreenSharing(boolean screenSharing) { isScreenSharing = screenSharing; }
 }
