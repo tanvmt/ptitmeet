@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="#1E293B"
+    android:background="#0F172A"
     android:padding="20dp">
 
     <View
@@ -16,19 +16,64 @@
         android:layout_marginBottom="16dp"/>
 
     <TextView
+        android:id="@+id/tvParticipantsTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Waiting Room"
+        android:text="Participants"
         android:textColor="@color/white"
         android:textSize="20sp"
         android:textStyle="bold"
         android:layout_marginBottom="16dp"/>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvWaitingList"
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"/>
+        android:layout_height="350dp"
+        android:layout_marginBottom="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Waiting Room Header -->
+            <TextView
+                android:id="@+id/tvWaitingHeader"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Waiting Room"
+                android:textColor="#FB923C"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp"
+                android:visibility="gone"/>
+
+            <!-- Waiting Room List -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvWaitingList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone"/>
+
+            <!-- Active Participants Header -->
+            <TextView
+                android:id="@+id/tvActiveHeader"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="In Call"
+                android:textColor="#38BDF8"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp"/>
+
+            <!-- Active Participants List -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvActiveList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnCloseWaitingList"
@@ -36,6 +81,6 @@
         android:layout_height="48dp"
         android:text="Close"
         android:textColor="@color/white"
-        app:backgroundTint="#334155"
+        app:backgroundTint="#1E293B"
         app:cornerRadius="12dp"/>
 </LinearLayout>

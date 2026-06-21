@@ -945,6 +945,18 @@ public class MeetingService {
             messagingTemplate.convertAndSend("/topic/meeting/" + code + "/waiting-room", "SETTINGS_CHANGED");
         }
 
+        // Broadcast settings update to meeting room system topic
+        try {
+            JsonNode settingsNode = objectMapper.readTree(settingsJson);
+            java.util.Map<String, Object> systemPayload = new java.util.HashMap<>();
+            systemPayload.put("type", "SETTINGS_UPDATED");
+            systemPayload.put("settings", settingsNode);
+            String payloadStr = objectMapper.writeValueAsString(systemPayload);
+            messagingTemplate.convertAndSend("/topic/meeting/" + code + "/system", payloadStr);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         return meeting;
     }
 

@@ -138,6 +138,8 @@ public class WaitingRoomActivity extends AppCompatActivity {
             });
         }
 
+
+
         previewView = new PreviewView(this);
         videoPreviewContainer.addView(previewView);
 
@@ -291,8 +293,24 @@ public class WaitingRoomActivity extends AppCompatActivity {
         intent.putExtra("USER_ROLE", joinData.getRole());
         intent.putExtra("MEETING_CODE", meetingCode);
         intent.putExtra("IS_OWNER", joinData.isOwner());
-        intent.putExtra("MIC_ON", isMicOn);
-        intent.putExtra("VIDEO_ON", isVideoOn);
+
+        boolean micOn = isMicOn;
+        boolean videoOn = isVideoOn;
+        boolean isHost = "HOST".equalsIgnoreCase(joinData.getRole()) || joinData.isOwner();
+        if (!isHost && joinData.getSettings() != null) {
+            try {
+                org.json.JSONObject settingsObj = new org.json.JSONObject(joinData.getSettings());
+                if (settingsObj.optBoolean("muteAudioOnEntry", false)) {
+                    micOn = false;
+                }
+                if (settingsObj.optBoolean("muteVideoOnEntry", false)) {
+                    videoOn = false;
+                }
+            } catch (Exception ignored) {}
+        }
+
+        intent.putExtra("MIC_ON", micOn);
+        intent.putExtra("VIDEO_ON", videoOn);
         startActivity(intent);
         finish();
     }

@@ -23,10 +23,12 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
 import com.ptithcm.ptitmeet.adapters.ChatMessageAdapter;
 import com.ptithcm.ptitmeet.adapters.WaitingParticipantAdapter;
 import com.ptithcm.ptitmeet.ParticipantAdapter;
+import com.ptithcm.ptitmeet.ActiveParticipantAdapter;
 import com.ptithcm.ptitmeet.ParticipantData;
 import com.ptithcm.ptitmeet.R;
 import com.ptithcm.ptitmeet.api.SessionManager;
@@ -44,6 +46,7 @@ import com.ptithcm.ptitmeet.live.LiveKitRoomManager;
 import com.ptithcm.ptitmeet.live.LiveParticipantState;
 import com.ptithcm.ptitmeet.utils.DevicePermissionHelper;
 import com.ptithcm.ptitmeet.utils.SystemActionHelper;
+import com.ptithcm.ptitmeet.utils.MeetingSoundPlayer;
 
 import org.json.JSONObject;
 
@@ -69,7 +72,7 @@ public class MeetingActivity extends AppCompatActivity {
     private ImageButton btnVideo;
     private ImageButton btnParticipants;
     private ImageButton btnChat;
-    private ImageButton btnSwitchCamera;
+    private ImageButton btnSettings;
     private ImageButton btnRecord;
     private TextView tvRecordingStatus;
 
@@ -95,6 +98,9 @@ public class MeetingActivity extends AppCompatActivity {
     private boolean localVideoEnabled = true;
     private com.google.android.material.bottomsheet.BottomSheetDialog bottomSheetDialog;
     private com.ptithcm.ptitmeet.adapters.WaitingParticipantAdapter waitingAdapter;
+    private ActiveParticipantAdapter activeParticipantAdapter;
+    private View dialogWaitingHeader;
+    private View dialogWaitingList;
     private View cardJoinRequest;
     private TextView tvAvatarInitial;
     private TextView tvRequestName;
@@ -164,7 +170,7 @@ public class MeetingActivity extends AppCompatActivity {
         btnVideo = findViewById(R.id.btnVideo);
         btnParticipants = findViewById(R.id.btnParticipants);
         btnChat = findViewById(R.id.btnChat);
-        btnSwitchCamera = findViewById(R.id.btnSwitchCamera);
+        btnSettings = findViewById(R.id.btnSettings);
         btnRecord = findViewById(R.id.btnRecord);
         tvRecordingStatus = findViewById(R.id.tvRecordingStatus);
 
@@ -190,19 +196,15 @@ public class MeetingActivity extends AppCompatActivity {
         btnMic.setOnClickListener(v -> toggleLocalMic());
         btnVideo.setOnClickListener(v -> toggleLocalVideo());
         btnParticipants.setOnClickListener(v -> {
-            if (!isHostLikeRole()) {
-                Toast.makeText(this, "Only the host can admit participants from the waiting room", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            openWaitingRoomDialog();
+            openParticipantsDialog();
         });
         btnChat.setOnClickListener(v -> openChatDialog());
         btnRecord.setOnClickListener(v -> toggleRecording());
-        btnSwitchCamera.setOnClickListener(v -> {
+        btnSettings.setOnClickListener(v -> {
             if (isHostLikeRole()) {
-                showHostControlsDialog();
+                showMeetingSettingsBottomSheet();
             } else {
-                showMeetingSettings();
+                showAppAudioSettingsDialog();
             }
         });
         updateLocalControlsUi();
@@ -213,6 +215,7 @@ public class MeetingActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         loadMeetingInfo();
+        loadMeetingSettings();
         if (isHostLikeRole()) {
             loadWaitingParticipants();
         } else {
@@ -220,7 +223,6 @@ public class MeetingActivity extends AppCompatActivity {
         }
         startWaitingRoomPolling();
         connectRealtime();
-        connectLiveKitRoomIfPossible();
     }
 
     @Override
@@ -238,6 +240,7 @@ public class MeetingActivity extends AppCompatActivity {
             liveKitRoomManager.release();
         }
         stopRecordingStatusPolling();
+        MeetingSoundPlayer.release();
     }
 
     private void seedLocalParticipant() {
@@ -273,6 +276,42 @@ public class MeetingActivity extends AppCompatActivity {
         });
     }
 
+    private void loadMeetingSettings() {
+        if (meetingCode == null || meetingCode.trim().isEmpty()) {
+            return;
+        }
+        apiService.getMeetingSettings(meetingCode).enqueue(new Callback<ApiResponse<String>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<String>> call, Response<ApiResponse<String>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    String json = response.body().getData();
+                    currentMeetingSettings = json;
+
+                    // Apply mute on entry if we are not the host
+                    if (!isHostLikeRole()) {
+                        java.util.Map<String, Object> settingsMap = parseSettingsToMap(json);
+                        boolean muteAudio = Boolean.TRUE.equals(settingsMap.get("muteAudioOnEntry"));
+                        boolean muteVideo = Boolean.TRUE.equals(settingsMap.get("muteVideoOnEntry"));
+
+                        if (muteAudio) {
+                            localMicEnabled = false;
+                        }
+                        if (muteVideo) {
+                            localVideoEnabled = false;
+                        }
+                        runOnUiThread(() -> updateLocalControlsUi());
+                    }
+                }
+                connectLiveKitRoomIfPossible();
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<String>> call, Throwable t) {
+                connectLiveKitRoomIfPossible();
+            }
+        });
+    }
+
     private void loadWaitingParticipants() {
         if (meetingCode == null || meetingCode.trim().isEmpty()) {
             updateWaitingBadge(false);
@@ -290,10 +329,16 @@ public class MeetingActivity extends AppCompatActivity {
 
                 runOnUiThread(() -> {
                     if (waitingAdapter != null) {
-                        waitingAdapter.submitList(waitingParticipants);
+                        waitingAdapter.submitList(new ArrayList<>(waitingParticipants));
                     }
-                    if (waitingParticipants.isEmpty() && bottomSheetDialog != null && bottomSheetDialog.isShowing()) {
-                        bottomSheetDialog.dismiss();
+                    if (dialogWaitingHeader != null && dialogWaitingList != null) {
+                        if (isHostLikeRole() && !waitingParticipants.isEmpty()) {
+                            dialogWaitingHeader.setVisibility(View.VISIBLE);
+                            dialogWaitingList.setVisibility(View.VISIBLE);
+                        } else {
+                            dialogWaitingHeader.setVisibility(View.GONE);
+                            dialogWaitingList.setVisibility(View.GONE);
+                        }
                     }
                 });
             }
@@ -364,19 +409,19 @@ public class MeetingActivity extends AppCompatActivity {
         });
     }
 
-    private void openWaitingRoomDialog() {
-        if (waitingParticipants.isEmpty()) {
-            Toast.makeText(this, "The waiting room is currently empty", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
+    private void openParticipantsDialog() {
         if (bottomSheetDialog == null) {
             bottomSheetDialog = new com.google.android.material.bottomsheet.BottomSheetDialog(this);
             View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_waiting_list, null);
             bottomSheetDialog.setContentView(dialogView);
 
             RecyclerView rvWaitingList = dialogView.findViewById(R.id.rvWaitingList);
+            RecyclerView rvActiveList = dialogView.findViewById(R.id.rvActiveList);
+            dialogWaitingHeader = dialogView.findViewById(R.id.tvWaitingHeader);
+            dialogWaitingList = rvWaitingList;
             MaterialButton btnCloseWaitingList = dialogView.findViewById(R.id.btnCloseWaitingList);
+
+            boolean isHost = isHostLikeRole();
 
             waitingAdapter = new WaitingParticipantAdapter(
                     new WaitingParticipantAdapter.OnWaitingActionClickListener() {
@@ -391,14 +436,61 @@ public class MeetingActivity extends AppCompatActivity {
                         }
                     }
             );
-
             rvWaitingList.setLayoutManager(new LinearLayoutManager(this));
             rvWaitingList.setAdapter(waitingAdapter);
 
+            activeParticipantAdapter = new ActiveParticipantAdapter(
+                    new ArrayList<>(participantList),
+                    isHost,
+                    new ActiveParticipantAdapter.OnActiveParticipantActionListener() {
+                        @Override
+                        public void onMute(ParticipantData participant) {
+                            sendSystemAction(SystemActionHelper.createPayload("MUTE_PARTICIPANT", participant.getIdentity(), participant.getName()));
+                        }
+
+                        @Override
+                        public void onStopCam(ParticipantData participant) {
+                            sendSystemAction(SystemActionHelper.createPayload("STOP_CAMERA_PARTICIPANT", participant.getIdentity(), participant.getName()));
+                        }
+
+                        @Override
+                        public void onKick(ParticipantData participant) {
+                            new AlertDialog.Builder(MeetingActivity.this)
+                                    .setTitle("Kick Participant")
+                                    .setMessage("Are you sure you want to kick " + participant.getName() + "?")
+                                    .setPositiveButton("Kick", (d, w) -> {
+                                        sendSystemAction(SystemActionHelper.createPayload("KICK_PARTICIPANT", participant.getIdentity(), participant.getName()));
+                                    })
+                                    .setNegativeButton("Cancel", null)
+                                    .show();
+                        }
+                    }
+            );
+            rvActiveList.setLayoutManager(new LinearLayoutManager(this));
+            rvActiveList.setAdapter(activeParticipantAdapter);
+
             btnCloseWaitingList.setOnClickListener(v -> bottomSheetDialog.dismiss());
+
+            bottomSheetDialog.setOnDismissListener(dialog -> {
+                bottomSheetDialog = null;
+                waitingAdapter = null;
+                activeParticipantAdapter = null;
+                dialogWaitingHeader = null;
+                dialogWaitingList = null;
+            });
         }
 
-        waitingAdapter.submitList(waitingParticipants);
+        boolean isHost = isHostLikeRole();
+        if (isHost && !waitingParticipants.isEmpty()) {
+            dialogWaitingHeader.setVisibility(View.VISIBLE);
+            dialogWaitingList.setVisibility(View.VISIBLE);
+        } else {
+            dialogWaitingHeader.setVisibility(View.GONE);
+            dialogWaitingList.setVisibility(View.GONE);
+        }
+
+        waitingAdapter.submitList(new ArrayList<>(waitingParticipants));
+        activeParticipantAdapter.setParticipantList(new ArrayList<>(participantList));
         bottomSheetDialog.show();
     }
 
@@ -418,27 +510,160 @@ public class MeetingActivity extends AppCompatActivity {
                 });
     }
 
-    private void showMeetingSettings() {
+    private void performUpdateMeetingSettings(Map<String, Object> settings, String successMessage) {
+        apiService.updateMeetingSettings(meetingCode, settings).enqueue(new Callback<ApiResponse<com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse>> call, Response<ApiResponse<com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse>> response) {
+                if (response.isSuccessful()) {
+                    Toast.makeText(MeetingActivity.this, successMessage, Toast.LENGTH_SHORT).show();
+                    loadWaitingParticipants();
+                } else {
+                    Toast.makeText(MeetingActivity.this, "Failed to update settings", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse>> call, Throwable t) {
+                Toast.makeText(MeetingActivity.this, "Network error updating settings", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void showMeetingSettingsBottomSheet() {
+        BottomSheetDialog dialog = new BottomSheetDialog(this);
+        View view = getLayoutInflater().inflate(R.layout.dialog_meeting_settings_bottom_sheet, null);
+        dialog.setContentView(view);
+
+        com.google.android.material.materialswitch.MaterialSwitch switchWaitingRoom = view.findViewById(R.id.switchMeetingWaitingRoom);
+        com.google.android.material.materialswitch.MaterialSwitch switchMuteAudio = view.findViewById(R.id.switchMuteAudioOnEntry);
+        com.google.android.material.materialswitch.MaterialSwitch switchMuteVideo = view.findViewById(R.id.switchMuteVideoOnEntry);
+        com.google.android.material.materialswitch.MaterialSwitch switchAllowChat = view.findViewById(R.id.switchAllowChat);
+        com.google.android.material.materialswitch.MaterialSwitch switchAllowScreenShare = view.findViewById(R.id.switchAllowScreenShare);
+
+        View layoutHostActions = view.findViewById(R.id.layoutHostActions);
+        View btnMuteAll = view.findViewById(R.id.btnMuteAll);
+        View btnStopCameraAll = view.findViewById(R.id.btnStopCameraAll);
+        View btnKickAll = view.findViewById(R.id.btnKickAll);
+        View btnOpenAppSettings = view.findViewById(R.id.btnOpenAppSettings);
+
+        boolean isHost = isHostLikeRole();
+
+        switchWaitingRoom.setEnabled(isHost);
+        switchMuteAudio.setEnabled(isHost);
+        switchMuteVideo.setEnabled(isHost);
+        switchAllowChat.setEnabled(isHost);
+        switchAllowScreenShare.setEnabled(isHost);
+
+        layoutHostActions.setVisibility(isHost ? View.VISIBLE : View.GONE);
+
         apiService.getMeetingSettings(meetingCode).enqueue(new Callback<ApiResponse<String>>() {
             @Override
             public void onResponse(Call<ApiResponse<String>> call, Response<ApiResponse<String>> response) {
-                String settings = response.isSuccessful() && response.body() != null && response.body().getData() != null
-                        ? response.body().getData()
-                        : "No settings available";
-                currentMeetingSettings = settings;
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    String json = response.body().getData();
+                    currentMeetingSettings = json;
+                    Map<String, Object> settingsMap = parseSettingsToMap(json);
 
-                new AlertDialog.Builder(MeetingActivity.this)
-                        .setTitle("Meeting settings")
-                        .setMessage(settings)
-                        .setPositiveButton("Close", null)
-                        .show();
+                    switchWaitingRoom.setOnCheckedChangeListener(null);
+                    switchMuteAudio.setOnCheckedChangeListener(null);
+                    switchMuteVideo.setOnCheckedChangeListener(null);
+                    switchAllowChat.setOnCheckedChangeListener(null);
+                    switchAllowScreenShare.setOnCheckedChangeListener(null);
+
+                    switchWaitingRoom.setChecked(Boolean.TRUE.equals(settingsMap.get("waitingRoom")));
+                    switchMuteAudio.setChecked(Boolean.TRUE.equals(settingsMap.get("muteAudioOnEntry")));
+                    switchMuteVideo.setChecked(Boolean.TRUE.equals(settingsMap.get("muteVideoOnEntry")));
+                    switchAllowChat.setChecked(Boolean.TRUE.equals(settingsMap.get("chatEnabled")));
+                    switchAllowScreenShare.setChecked(Boolean.TRUE.equals(settingsMap.get("screenShareEnabled")));
+
+                    if (isHost) {
+                        switchWaitingRoom.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                            settingsMap.put("waitingRoom", isChecked);
+                            performUpdateMeetingSettings(settingsMap, isChecked ? "Waiting room enabled" : "Waiting room disabled");
+                        });
+                        switchMuteAudio.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                            settingsMap.put("muteAudioOnEntry", isChecked);
+                            performUpdateMeetingSettings(settingsMap, isChecked ? "Mute audio on entry enabled" : "Mute audio on entry disabled");
+                        });
+                        switchMuteVideo.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                            settingsMap.put("muteVideoOnEntry", isChecked);
+                            performUpdateMeetingSettings(settingsMap, isChecked ? "Mute video on entry enabled" : "Mute video on entry disabled");
+                        });
+                        switchAllowChat.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                            settingsMap.put("chatEnabled", isChecked);
+                            performUpdateMeetingSettings(settingsMap, isChecked ? "Chat enabled" : "Chat disabled");
+                        });
+                        switchAllowScreenShare.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                            settingsMap.put("screenShareEnabled", isChecked);
+                            performUpdateMeetingSettings(settingsMap, isChecked ? "Screen sharing enabled" : "Screen sharing disabled");
+                        });
+                    }
+                }
             }
 
             @Override
             public void onFailure(Call<ApiResponse<String>> call, Throwable t) {
-                Toast.makeText(MeetingActivity.this, "Unable to load settings", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MeetingActivity.this, "Failed to load settings", Toast.LENGTH_SHORT).show();
             }
         });
+
+        if (isHost) {
+            btnMuteAll.setOnClickListener(v -> {
+                sendSystemAction(SystemActionHelper.createPayload("MUTE_ALL"));
+                Toast.makeText(this, "Requested mute everyone", Toast.LENGTH_SHORT).show();
+            });
+            btnStopCameraAll.setOnClickListener(v -> {
+                sendSystemAction(SystemActionHelper.createPayload("STOP_CAMERA_ALL"));
+                Toast.makeText(this, "Requested disable everyone's camera", Toast.LENGTH_SHORT).show();
+            });
+            btnKickAll.setOnClickListener(v -> {
+                new AlertDialog.Builder(this)
+                        .setTitle("Kick Everyone")
+                        .setMessage("Are you sure you want to kick all participants?")
+                        .setPositiveButton("Yes", (dialogInterface, i) -> {
+                            sendSystemAction(SystemActionHelper.createPayload("KICK_ALL"));
+                            dialog.dismiss();
+                        })
+                        .setNegativeButton("No", null)
+                        .show();
+            });
+        }
+
+        btnOpenAppSettings.setOnClickListener(v -> {
+            dialog.dismiss();
+            showAppAudioSettingsDialog();
+        });
+
+        dialog.show();
+    }
+
+    private void showAppAudioSettingsDialog() {
+        View view = getLayoutInflater().inflate(R.layout.dialog_app_audio_settings, null);
+        com.google.android.material.materialswitch.MaterialSwitch switchChat = view.findViewById(R.id.switchChatNotif);
+        com.google.android.material.materialswitch.MaterialSwitch switchJoinLeave = view.findViewById(R.id.switchJoinLeaveNotif);
+        com.google.android.material.materialswitch.MaterialSwitch switchRaiseHand = view.findViewById(R.id.switchRaiseHandNotif);
+        com.google.android.material.materialswitch.MaterialSwitch switchReminder = view.findViewById(R.id.switchReminderNotif);
+
+        switchChat.setChecked(com.ptithcm.ptitmeet.utils.SettingsManager.isChatNotifEnabled(this));
+        switchJoinLeave.setChecked(com.ptithcm.ptitmeet.utils.SettingsManager.isJoinLeaveNotifEnabled(this));
+        switchRaiseHand.setChecked(com.ptithcm.ptitmeet.utils.SettingsManager.isRaiseHandNotifEnabled(this));
+        switchReminder.setChecked(com.ptithcm.ptitmeet.utils.SettingsManager.isReminderNotifEnabled(this));
+
+        switchChat.setOnCheckedChangeListener((btn, isChecked) -> com.ptithcm.ptitmeet.utils.SettingsManager.setChatNotifEnabled(this, isChecked));
+        switchJoinLeave.setOnCheckedChangeListener((btn, isChecked) -> com.ptithcm.ptitmeet.utils.SettingsManager.setJoinLeaveNotifEnabled(this, isChecked));
+        switchRaiseHand.setOnCheckedChangeListener((btn, isChecked) -> com.ptithcm.ptitmeet.utils.SettingsManager.setRaiseHandNotifEnabled(this, isChecked));
+        switchReminder.setOnCheckedChangeListener((btn, isChecked) -> com.ptithcm.ptitmeet.utils.SettingsManager.setReminderNotifEnabled(this, isChecked));
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(view)
+                .create();
+
+        view.findViewById(R.id.btnDone).setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().getDecorView().setBackgroundColor(Color.parseColor("#0F172A"));
+        }
     }
 
     private boolean isHostLikeRole() {
@@ -560,32 +785,44 @@ public class MeetingActivity extends AppCompatActivity {
 
     private void handleSystemRealtime(String body) {
         if ("MEETING_ENDED".equalsIgnoreCase(body)) {
-            Toast.makeText(this, "The meeting has ended", Toast.LENGTH_SHORT).show();
-            navigateToSummary("ENDED_BY_HOST");
+            runOnUiThread(() -> {
+                Toast.makeText(this, "The meeting has ended", Toast.LENGTH_SHORT).show();
+                navigateToSummary("ENDED_BY_HOST");
+            });
             return;
         }
 
         try {
             JSONObject jsonObject = new JSONObject(body);
             String type = jsonObject.optString("type");
+            if ("SETTINGS_UPDATED".equalsIgnoreCase(type)) {
+                JSONObject settingsObj = jsonObject.optJSONObject("settings");
+                if (settingsObj != null) {
+                    currentMeetingSettings = settingsObj.toString();
+                    runOnUiThread(() -> applyUpdatedSettingsInMeeting());
+                }
+                return;
+            }
             if ("HOST_TRANSFERRED".equalsIgnoreCase(type)) {
                 String newHostId = jsonObject.optString("newHostId");
                 if (newHostId != null && newHostId.equals(sessionManager.getUserId())) {
                     userRole = "HOST";
-                    loadWaitingParticipants();
-                    subscribeRealtimeTopics();
-                    Toast.makeText(this, "You have been transferred host privileges", Toast.LENGTH_SHORT).show();
+                    runOnUiThread(() -> {
+                        loadWaitingParticipants();
+                        subscribeRealtimeTopics();
+                        Toast.makeText(this, "You have been transferred host privileges", Toast.LENGTH_SHORT).show();
+                    });
                 }
                 return;
             }
             if ("RECORDING_STARTED".equalsIgnoreCase(type)) {
                 recordingActive = true;
-                updateRecordingUi("RECORDING");
+                runOnUiThread(() -> updateRecordingUi("RECORDING"));
                 return;
             }
             if ("RECORDING_STOPPED".equalsIgnoreCase(type)) {
                 recordingActive = false;
-                updateRecordingUi(isMeetingOwner && recordingEgressId != null ? "STOPPING" : "IDLE");
+                runOnUiThread(() -> updateRecordingUi(isMeetingOwner && recordingEgressId != null ? "STOPPING" : "IDLE"));
                 return;
             }
             if ("MUTE_ALL".equalsIgnoreCase(type)) {
@@ -597,8 +834,12 @@ public class MeetingActivity extends AppCompatActivity {
                 return;
             }
             if ("KICK_ALL".equalsIgnoreCase(type)) {
-                Toast.makeText(this, "You have been removed from the meeting", Toast.LENGTH_SHORT).show();
-                navigateToSummary("KICKED");
+                if (!isHostLikeRole()) {
+                    runOnUiThread(() -> {
+                        Toast.makeText(this, "You have been removed from the meeting", Toast.LENGTH_SHORT).show();
+                        navigateToSummary("KICKED");
+                    });
+                }
                 return;
             }
 
@@ -609,8 +850,10 @@ public class MeetingActivity extends AppCompatActivity {
                 } else if ("STOP_CAMERA_PARTICIPANT".equalsIgnoreCase(type)) {
                     applyRemoteCameraOff("The host disabled your camera.");
                 } else if ("KICK_PARTICIPANT".equalsIgnoreCase(type)) {
-                    Toast.makeText(this, "You have been removed from the meeting by the host", Toast.LENGTH_SHORT).show();
-                    navigateToSummary("KICKED");
+                    runOnUiThread(() -> {
+                        Toast.makeText(this, "You have been removed from the meeting by the host", Toast.LENGTH_SHORT).show();
+                        navigateToSummary("KICKED");
+                    });
                 }
             }
         } catch (Exception ignored) {
@@ -620,14 +863,18 @@ public class MeetingActivity extends AppCompatActivity {
     private void handleChatRealtime(String body) {
         try {
             JSONObject jsonObject = new JSONObject(body);
+            String senderId = jsonObject.optString("senderId");
             ChatMessageResponse message = new ChatMessageResponse(
-                    jsonObject.optString("senderId"),
+                    senderId,
                     jsonObject.optString("senderName"),
                     jsonObject.optString("content")
             );
             chatMessages.add(message);
             if (chatMessageAdapter != null) {
                 chatMessageAdapter.addMessage(message);
+            }
+            if (senderId != null && !senderId.equals(sessionManager.getUserId())) {
+                MeetingSoundPlayer.playChatSound(this);
             }
         } catch (Exception ignored) {
         }
@@ -652,11 +899,45 @@ public class MeetingActivity extends AppCompatActivity {
         });
     }
 
+    private boolean isChatEnabled() {
+        if (isHostLikeRole()) {
+            return true;
+        }
+        try {
+            JSONObject jsonObject = new JSONObject(currentMeetingSettings);
+            return jsonObject.optBoolean("chatEnabled", true);
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    private void applyUpdatedSettingsInMeeting() {
+        boolean chatEnabled = isChatEnabled();
+        if (chatDialog != null && chatDialog.isShowing()) {
+            EditText etChatMessage = chatDialog.findViewById(R.id.etChatMessage);
+            View btnSendChat = chatDialog.findViewById(R.id.btnSendChat);
+            if (etChatMessage != null) {
+                etChatMessage.setEnabled(chatEnabled);
+                etChatMessage.setHint(chatEnabled ? "Enter Message" : "Chat has been disabled by the host");
+            }
+            if (btnSendChat != null) {
+                btnSendChat.setEnabled(chatEnabled);
+            }
+        }
+    }
+
     private void openChatDialog() {
         View chatView = LayoutInflater.from(this).inflate(R.layout.dialog_chat, null, false);
         RecyclerView rvChatMessages = chatView.findViewById(R.id.rvChatMessages);
         EditText etChatMessage = chatView.findViewById(R.id.etChatMessage);
         MaterialButton btnSendChat = chatView.findViewById(R.id.btnSendChat);
+
+        boolean chatEnabled = isChatEnabled();
+        etChatMessage.setEnabled(chatEnabled);
+        btnSendChat.setEnabled(chatEnabled);
+        if (!chatEnabled) {
+            etChatMessage.setHint("Chat has been disabled by the host");
+        }
 
         chatMessageAdapter = new ChatMessageAdapter(sessionManager.getUserId());
         rvChatMessages.setLayoutManager(new LinearLayoutManager(this));
@@ -681,6 +962,10 @@ public class MeetingActivity extends AppCompatActivity {
     }
 
     private void sendChatMessage(String content) {
+        if (!isChatEnabled()) {
+            Toast.makeText(this, "Chat has been disabled by the host", Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (meetingRealtimeClient == null || !meetingRealtimeClient.isConnected()) {
             Toast.makeText(this, "Chat is not ready yet", Toast.LENGTH_SHORT).show();
             return;
@@ -695,54 +980,7 @@ public class MeetingActivity extends AppCompatActivity {
         }
     }
 
-    private void showHostControlsDialog() {
-        String[] options = new String[]{
-                "Meeting settings",
-                "Toggle waiting room",
-                "Mute all participants",
-                "Stop camera all",
-                "Kick all participants"
-        };
 
-        new AlertDialog.Builder(this)
-                .setTitle("Host controls")
-                .setItems(options, (dialog, which) -> {
-                    if (which == 0) {
-                        showMeetingSettings();
-                    } else if (which == 1) {
-                        toggleWaitingRoomSetting();
-                    } else if (which == 2) {
-                        sendSystemAction(SystemActionHelper.createPayload("MUTE_ALL"));
-                    } else if (which == 3) {
-                        sendSystemAction(SystemActionHelper.createPayload("STOP_CAMERA_ALL"));
-                    } else if (which == 4) {
-                        sendSystemAction(SystemActionHelper.createPayload("KICK_ALL"));
-                    }
-                })
-                .setNegativeButton("Close", null)
-                .show();
-    }
-
-    private void toggleWaitingRoomSetting() {
-        apiService.getMeetingSettings(meetingCode).enqueue(new Callback<ApiResponse<String>>() {
-            @Override
-            public void onResponse(Call<ApiResponse<String>> call, Response<ApiResponse<String>> response) {
-                String settings = response.isSuccessful() && response.body() != null && response.body().getData() != null
-                        ? response.body().getData()
-                        : "{}";
-                currentMeetingSettings = settings;
-                Map<String, Object> updated = parseSettingsToMap(settings);
-                boolean currentValue = Boolean.TRUE.equals(updated.get("waitingRoom"));
-                updated.put("waitingRoom", !currentValue);
-                updateMeetingSettings(updated, !currentValue);
-            }
-
-            @Override
-            public void onFailure(Call<ApiResponse<String>> call, Throwable t) {
-                Toast.makeText(MeetingActivity.this, "Unable to load current settings", Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
 
     private Map<String, Object> parseSettingsToMap(String settingsJson) {
         Map<String, Object> settingsMap = new LinkedHashMap<>();
@@ -765,22 +1003,7 @@ public class MeetingActivity extends AppCompatActivity {
         return settingsMap;
     }
 
-    private void updateMeetingSettings(Map<String, Object> settings, boolean waitingRoomEnabled) {
-        apiService.updateMeetingSettings(meetingCode, settings).enqueue(new Callback<ApiResponse<com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse>>() {
-            @Override
-            public void onResponse(Call<ApiResponse<com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse>> call, Response<ApiResponse<com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse>> response) {
-                Toast.makeText(MeetingActivity.this,
-                        waitingRoomEnabled ? "Waiting room enabled" : "Waiting room disabled",
-                        Toast.LENGTH_SHORT).show();
-                loadWaitingParticipants();
-            }
 
-            @Override
-            public void onFailure(Call<ApiResponse<com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse>> call, Throwable t) {
-                Toast.makeText(MeetingActivity.this, "Unable to update settings", Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
 
     private void sendSystemAction(String payload) {
         if (meetingRealtimeClient == null || !meetingRealtimeClient.isConnected()) {
@@ -984,15 +1207,31 @@ public class MeetingActivity extends AppCompatActivity {
     }
 
     private void applyRemoteMicMute(String message) {
-        localMicEnabled = false;
-        updateLocalControlsUi();
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        if (isHostLikeRole()) {
+            return;
+        }
+        runOnUiThread(() -> {
+            localMicEnabled = false;
+            if (liveKitRoomManager != null) {
+                liveKitRoomManager.setMicrophoneEnabled(false);
+            }
+            updateLocalControlsUi();
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        });
     }
 
     private void applyRemoteCameraOff(String message) {
-        localVideoEnabled = false;
-        updateLocalControlsUi();
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        if (isHostLikeRole()) {
+            return;
+        }
+        runOnUiThread(() -> {
+            localVideoEnabled = false;
+            if (liveKitRoomManager != null) {
+                liveKitRoomManager.setCameraEnabled(false);
+            }
+            updateLocalControlsUi();
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        });
     }
 
     private void updateLocalControlsUi() {
@@ -1089,7 +1328,15 @@ public class MeetingActivity extends AppCompatActivity {
         }
     }
 
+    private List<String> lastKnownParticipantIds = null;
+
     private void bindParticipants(List<LiveParticipantState> participants) {
+        List<String> currentIds = new java.util.ArrayList<>();
+        boolean isFirstLoad = (lastKnownParticipantIds == null);
+        if (isFirstLoad) {
+            lastKnownParticipantIds = new java.util.ArrayList<>();
+        }
+
         participantList.clear();
         for (LiveParticipantState participant : participants) {
             participantList.add(new ParticipantData(
@@ -1101,7 +1348,36 @@ public class MeetingActivity extends AppCompatActivity {
                     participant.isSpeaking(),
                     participant.isLocal()
             ));
+            currentIds.add(participant.getIdentity());
         }
         participantAdapter.setParticipantList(participantList);
+        if (activeParticipantAdapter != null) {
+            activeParticipantAdapter.setParticipantList(new ArrayList<>(participantList));
+        }
+
+        if (!isFirstLoad) {
+            boolean hasChange = false;
+            // Check if anyone joined (is in currentIds but not in lastKnownParticipantIds)
+            for (String id : currentIds) {
+                if (!lastKnownParticipantIds.contains(id)) {
+                    hasChange = true;
+                    break;
+                }
+            }
+            // Check if anyone left (is in lastKnownParticipantIds but not in currentIds)
+            if (!hasChange) {
+                for (String id : lastKnownParticipantIds) {
+                    if (!currentIds.contains(id)) {
+                        hasChange = true;
+                        break;
+                    }
+                }
+            }
+            if (hasChange) {
+                MeetingSoundPlayer.playJoinLeaveSound(this);
+            }
+        }
+
+        lastKnownParticipantIds = currentIds;
     }
 }

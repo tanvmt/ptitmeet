@@ -75,6 +75,11 @@ public class RecordingsActivity extends AppCompatActivity {
                 finish();
                 return true;
             }
+            if (id == R.id.nav_settings) {
+                startActivity(new Intent(this, SettingsActivity.class));
+                finish();
+                return true;
+            }
             if (id == R.id.nav_profile) {
                 startActivity(new Intent(this, ProfileActivity.class));
                 finish();
