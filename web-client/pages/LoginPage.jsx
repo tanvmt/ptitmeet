@@ -17,6 +17,7 @@ const LoginPage = ({ setUser }) => {
       const response = await authService.loginWithGoogle(credential);
 
       if (response.code === 1000) {
+        localStorage.setItem("accessToken", response.data.accessToken);
         setUser(response.data.user);
         navigate('/');
       }
@@ -33,6 +34,7 @@ const LoginPage = ({ setUser }) => {
       const loginRes = await authService.login(email, password);
 
       if (loginRes.code === 1000) {
+        localStorage.setItem("accessToken", loginRes.data.accessToken);
         setUser(loginRes.data.user);
         navigate('/');
       } else {

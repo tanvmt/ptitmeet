@@ -26,7 +26,7 @@ const MeetingPage = () => {
   const { user } = useAuth();
 
   const joinData = location.state || {};
-  const [isHost, setIsHost] = useState(joinData.role === "HOST");
+  const [isHost, setIsHost] = useState(joinData.role === "HOST" || Boolean(joinData.isOwner));
   const [isOwner] = useState(Boolean(joinData.isOwner));
   const [currentHostId, setCurrentHostId] = useState(
     String(joinData.currentHostId || user?.userId || user?.id || "")
