@@ -50,7 +50,8 @@ const DashboardPage = () => {
     try {
       setIsLoading(true);
       const meeting = await meetingService.createInstantMeeting();
-      navigate(`/waiting-room/${meeting.meetingCode}`, {
+      const code = meeting.meeting_code || meeting.meetingCode;
+      navigate(`/waiting-room/${code}`, {
         state: {
           hostSetup: true,
         },
