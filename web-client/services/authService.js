@@ -23,6 +23,7 @@ export const authService = {
 
     logout: async () => {
         const response = await api.post('/auth/logout');
+        localStorage.clear();
         return response.data;
     },
 

@@ -72,7 +72,9 @@ public class ProfileRepository {
             @Override
             public void onResponse(Call<ApiResponse<UserResponse>> call, Response<ApiResponse<UserResponse>> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    callback.onSuccess(response.body().getData());
+                    UserResponse data = response.body().getData();
+                    sessionManager.updateAvatarUrl(data.getAvatarUrl());
+                    callback.onSuccess(data);
                 } else {
                     callback.onError(response.body() != null ? response.body().getMessage() : "Unable to upload avatar.");
                 }
@@ -91,8 +93,10 @@ public class ProfileRepository {
                     @Override
                     public void onResponse(Call<ApiResponse<UserResponse>> call, Response<ApiResponse<UserResponse>> response) {
                         if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                            sessionManager.updateUserName(response.body().getData().getFullName());
-                            callback.onSuccess(response.body().getData());
+                            UserResponse data = response.body().getData();
+                            sessionManager.updateUserName(data.getFullName());
+                            sessionManager.updateAvatarUrl(data.getAvatarUrl());
+                            callback.onSuccess(data);
                         } else {
                             callback.onError(response.body() != null ? response.body().getMessage() : "Unable to update profile.");
                         }

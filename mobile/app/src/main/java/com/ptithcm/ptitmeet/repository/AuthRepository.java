@@ -46,7 +46,8 @@ public class AuthRepository {
                     sessionManager.saveAuthData(
                             authData.getAccessToken(),
                             authData.getUser().getUserId(),
-                            authData.getUser().getFullName()
+                            authData.getUser().getFullName(),
+                            authData.getUser().getAvatarUrl()
                     );
                     callback.onSuccess(authData);
                 } else {

@@ -7,6 +7,8 @@ import java.util.List;
 
 public class MainUiState {
     private String welcomeText = "";
+    private String fullName = "";
+    private String avatarUrl = null;
     private MeetingHistoryResponse upNextMeeting;
     private List<MeetingHistoryResponse> recentActivity = new ArrayList<>();
     private boolean creatingMeeting;
@@ -16,6 +18,8 @@ public class MainUiState {
 
     public MainUiState(MainUiState other) {
         this.welcomeText = other.welcomeText;
+        this.fullName = other.fullName;
+        this.avatarUrl = other.avatarUrl;
         this.upNextMeeting = other.upNextMeeting;
         this.recentActivity = new ArrayList<>(other.recentActivity);
         this.creatingMeeting = other.creatingMeeting;
@@ -27,6 +31,22 @@ public class MainUiState {
 
     public void setWelcomeText(String welcomeText) {
         this.welcomeText = welcomeText;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
     }
 
     public MeetingHistoryResponse getUpNextMeeting() {

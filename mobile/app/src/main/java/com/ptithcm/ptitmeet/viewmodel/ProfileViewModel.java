@@ -39,6 +39,7 @@ public class ProfileViewModel extends AndroidViewModel {
             @Override
             public void onSuccess(UserResponse data) {
                 repository.updateCachedUserName(data.getFullName());
+                // I should ideally have a method in repository to update all cached data
                 updateState(state -> {
                     state.setLoading(false);
                     state.setUser(data);
@@ -62,6 +63,7 @@ public class ProfileViewModel extends AndroidViewModel {
             @Override
             public void onSuccess(UserResponse data) {
                 repository.updateCachedUserName(data.getFullName());
+                // I should ideally have a method in repository to update all cached data
                 updateState(state -> {
                     state.setAvatarUploading(false);
                     state.setUser(data);

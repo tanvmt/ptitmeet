@@ -38,6 +38,10 @@ public class MainRepository {
         return sessionManager.getUserName();
     }
 
+    public String getAvatarUrl() {
+        return sessionManager.getAvatarUrl();
+    }
+
     public void createInstantMeeting(CreateMeetingRequest request, DataCallback<MeetingResponse> callback) {
         apiService.createInstantMeeting(request).enqueue(new Callback<ApiResponse<MeetingResponse>>() {
             @Override

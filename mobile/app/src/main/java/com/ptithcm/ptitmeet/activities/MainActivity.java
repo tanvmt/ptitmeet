@@ -2,7 +2,9 @@ package com.ptithcm.ptitmeet.activities;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -14,6 +16,8 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.ptithcm.ptitmeet.R;
 import com.ptithcm.ptitmeet.adapters.RecentActivityAdapter;
@@ -31,6 +35,8 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvUpNextTitle;
     private TextView tvUpNextTime;
     private TextView tvUpNextCode;
+    private ImageView ivAvatar;
+    private TextView tvInitial;
     private LinearLayout btnNewMeeting, btnJoinMeeting, btnScheduleMeeting, btnMeetingHistory;
     private EditText etMeetingCode;
     private AppCompatButton btnJoinNow;
@@ -50,6 +56,8 @@ public class MainActivity extends AppCompatActivity {
         tvUpNextTitle = findViewById(R.id.tvUpNextTitle);
         tvUpNextTime = findViewById(R.id.tvUpNextTime);
         tvUpNextCode = findViewById(R.id.tvUpNextCode);
+        ivAvatar = findViewById(R.id.ivMainAvatar);
+        tvInitial = findViewById(R.id.tvMainInitial);
         btnNewMeeting = findViewById(R.id.btnNewMeeting);
         btnJoinMeeting = findViewById(R.id.btnJoinMeeting);
         btnScheduleMeeting = findViewById(R.id.btnScheduleMeeting);
@@ -178,6 +186,39 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         tvWelcome.setText(state.getWelcomeText());
+
+        if (tvInitial != null) {
+            String fullName = state.getFullName();
+            if (fullName != null && !fullName.isEmpty()) {
+                tvInitial.setText(fullName.substring(0, 1).toUpperCase());
+            } else {
+                tvInitial.setText("U");
+            }
+        }
+
+        if (ivAvatar != null) {
+            String avatarUrl = state.getAvatarUrl();
+            if (avatarUrl != null && !avatarUrl.isEmpty() && avatarUrl.startsWith("http")) {
+                ivAvatar.setVisibility(View.VISIBLE);
+                if (tvInitial != null) tvInitial.setVisibility(View.GONE);
+                Glide.with(this)
+                        .load(avatarUrl)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .circleCrop()
+                        .into(ivAvatar);
+            } else {
+                ivAvatar.setVisibility(View.GONE);
+                if (tvInitial != null) tvInitial.setVisibility(View.VISIBLE);
+            }
+        }
+
+        View cardAvatar = findViewById(R.id.cardMainAvatar);
+        if (cardAvatar != null) {
+            cardAvatar.setOnClickListener(v -> {
+                startActivity(new Intent(this, ProfileActivity.class));
+            });
+        }
+
         btnNewMeeting.setEnabled(!state.isCreatingMeeting());
         MeetingHistoryResponse upNextMeeting = state.getUpNextMeeting();
         if (upNextMeeting != null) {

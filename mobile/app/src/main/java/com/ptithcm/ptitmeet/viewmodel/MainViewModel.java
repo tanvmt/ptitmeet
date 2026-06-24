@@ -26,7 +26,11 @@ public class MainViewModel extends AndroidViewModel {
     public MainViewModel(@NonNull Application application) {
         super(application);
         this.repository = new MainRepository(application);
-        updateState(state -> state.setWelcomeText("Welcome back, " + repository.getUserName()));
+        updateState(state -> {
+            state.setFullName(repository.getUserName());
+            state.setAvatarUrl(repository.getAvatarUrl());
+            state.setWelcomeText("Welcome back, " + repository.getUserName());
+        });
     }
 
     public LiveData<MainUiState> getUiState() {

@@ -1,8 +1,6 @@
 package com.ptithcm.ptitmeet.activities;
 
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
@@ -18,6 +16,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.ptithcm.ptitmeet.R;
 import com.ptithcm.ptitmeet.api.dto.user.UserResponse;
@@ -26,8 +26,6 @@ import com.ptithcm.ptitmeet.viewmodel.ProfileUiState;
 import com.ptithcm.ptitmeet.viewmodel.ProfileViewModel;
 
 import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 
 public class ProfileActivity extends AppCompatActivity {
 
@@ -187,36 +185,14 @@ public class ProfileActivity extends AppCompatActivity {
             tvInitial.setVisibility(View.VISIBLE);
             return;
         }
-        new Thread(() -> {
-            HttpURLConnection connection = null;
-            try {
-                URL url = new URL(avatarUrl);
-                connection = (HttpURLConnection) url.openConnection();
-                connection.setConnectTimeout(5000);
-                connection.setReadTimeout(5000);
-                try (InputStream inputStream = connection.getInputStream()) {
-                    Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
-                    if (bitmap != null) {
-                        runOnUiThread(() -> {
-                            ivAvatar.setImageBitmap(bitmap);
-                            ivAvatar.setVisibility(View.VISIBLE);
-                            tvInitial.setVisibility(View.GONE);
-                            tvStatus.setText("Avatar preview updated.");
-                        });
-                    }
-                }
-            } catch (Exception ignored) {
-                runOnUiThread(() -> {
-                    ivAvatar.setVisibility(View.GONE);
-                    tvInitial.setVisibility(View.VISIBLE);
-                    tvStatus.setText("Could not load that image URL.");
-                });
-            } finally {
-                if (connection != null) {
-                    connection.disconnect();
-                }
-            }
-        }).start();
+
+        Glide.with(this)
+                .load(avatarUrl)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .into(ivAvatar);
+
+        ivAvatar.setVisibility(View.VISIBLE);
+        tvInitial.setVisibility(View.GONE);
     }
 
     private void logout() {
