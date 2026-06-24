@@ -11,12 +11,20 @@ export const SYSTEM_ACTION_TYPES = {
     KICK_PARTICIPANT: "KICK_PARTICIPANT",
 };
 
-export const getWebSocketUrl = () => {
+export const getWebSocketUrl = (service = 'chat') => {
     const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
     const url = new URL(apiUrl);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-    url.pathname = url.pathname.replace(/\/api\/?$/, "") + "/ws";
-    url.search = "";
+    url.pathname = url.pathname.replace(/\/api\/?$/, "") + (service === 'meeting' ? "/ws-meeting" : "/ws");
+    try {
+        const userJson = localStorage.getItem("user");
+        if (userJson) {
+            const user = JSON.parse(userJson);
+            if (user && (user.userId || user.id)) {
+                url.search = `?userId=${user.userId || user.id}`;
+            }
+        }
+    } catch (e) {}
     url.hash = "";
     return url.toString();
 };

@@ -26,7 +26,7 @@ const MeetingPage = () => {
   const { user } = useAuth();
 
   const joinData = location.state || {};
-  const [isHost, setIsHost] = useState(joinData.role === "HOST" || Boolean(joinData.isOwner));
+  const [isHost, setIsHost] = useState(joinData.role === "HOST");
   const [isOwner] = useState(Boolean(joinData.isOwner));
   const [currentHostId, setCurrentHostId] = useState(
     String(joinData.currentHostId || user?.userId || user?.id || "")
@@ -66,8 +66,11 @@ const MeetingPage = () => {
 
   const [stompClient, setStompClient] = useState(null);
   const [isStompConnected, setIsStompConnected] = useState(false);
+  const [chatStompClient, setChatStompClient] = useState(null);
+  const [isChatStompConnected, setIsChatStompConnected] = useState(false);
   const adminSubscriptionRef = useRef(null);
   const isHostRef = useRef(isHost);
+  const waitingPanelRevealedRef = useRef(false);
 
   useEffect(() => {
     isHostRef.current = isHost;
@@ -120,7 +123,7 @@ const MeetingPage = () => {
     if (!code) return;
 
     const client = new Client({
-      brokerURL: getWebSocketUrl(),
+      brokerURL: getWebSocketUrl('meeting'),
       reconnectDelay: 5000,
       onConnect: () => {
         setIsStompConnected(true);
@@ -212,6 +215,34 @@ const MeetingPage = () => {
   }, [code, currentUserId, navigate]);
 
   useEffect(() => {
+    if (!code) return;
+
+    const chatClient = new Client({
+      brokerURL: getWebSocketUrl('chat'),
+      reconnectDelay: 5000,
+      onConnect: () => {
+        setIsChatStompConnected(true);
+      },
+      onDisconnect: () => setIsChatStompConnected(false),
+      onStompError: (frame) => {
+        console.error("Chat STOMP error:", frame.headers["message"], frame.body);
+        setIsChatStompConnected(false);
+      },
+      onWebSocketError: (error) => {
+        console.error("Chat WebSocket error:", error);
+        setIsChatStompConnected(false);
+      }
+    });
+
+    chatClient.activate();
+    setChatStompClient(chatClient);
+
+    return () => {
+      if (chatClient.active) chatClient.deactivate();
+    };
+  }, [code]);
+
+  useEffect(() => {
     if (adminSubscriptionRef.current) {
       adminSubscriptionRef.current.unsubscribe();
       adminSubscriptionRef.current = null;
@@ -222,7 +253,7 @@ const MeetingPage = () => {
     }
 
     fetchWaitingList();
-    adminSubscriptionRef.current = stompClient.subscribe(`/topic/meeting/${code}/admin`, (message) => {
+    adminSubscriptionRef.current = stompClient.subscribe(`/topic/meeting/${code}/host`, (message) => {
       fetchWaitingList();
       try {
         const request = JSON.parse(message.body);
@@ -245,11 +276,43 @@ const MeetingPage = () => {
     };
   }, [code, isHost, isStompConnected, stompClient]);
 
+  useEffect(() => {
+    if (!code || !isHost) {
+      return;
+    }
+
+    fetchWaitingList();
+    const intervalId = window.setInterval(fetchWaitingList, 5000);
+    return () => window.clearInterval(intervalId);
+  }, [code, isHost]);
+
   const fetchWaitingList = async () => {
     try {
       setIsLoadingWaiting(true);
       const data = await meetingService.getWaitingList(code);
       setWaitingList(data);
+
+      if (!isHostRef.current) {
+        return;
+      }
+
+      if (!data.length) {
+        waitingPanelRevealedRef.current = false;
+        setInviteToast(null);
+        return;
+      }
+
+      if (!waitingPanelRevealedRef.current) {
+        setSidebarOpen(true);
+        setActiveTab("people");
+        waitingPanelRevealedRef.current = true;
+      }
+
+      setInviteToast((currentToast) => currentToast || {
+        participantId: data[0].participantId,
+        userId: data[0].userId,
+        displayName: data[0].displayName || "Someone",
+      });
     } catch (error) {
       console.error("Unable to load waiting list:", error);
     } finally {
@@ -260,7 +323,22 @@ const MeetingPage = () => {
   const handleApproval = async (participantId, action) => {
     try {
       await meetingService.processApproval(code, participantId, action);
-      setWaitingList((prev) => prev.filter((p) => p.participantId !== participantId));
+      setWaitingList((prev) => {
+        const next = prev.filter((p) => p.participantId !== participantId);
+
+        if (!next.length) {
+          waitingPanelRevealedRef.current = false;
+          setInviteToast(null);
+        } else {
+          setInviteToast({
+            participantId: next[0].participantId,
+            userId: next[0].userId,
+            displayName: next[0].displayName || "Someone",
+          });
+        }
+
+        return next;
+      });
     } catch (error) {
       alert("Unable to process the request: " + (error.response?.data?.message || ""));
     }
@@ -343,6 +421,8 @@ const MeetingPage = () => {
                 fetchWaitingList={fetchWaitingList}
                 stompClient={stompClient}
                 isStompConnected={isStompConnected}
+                chatStompClient={chatStompClient}
+                isChatStompConnected={isChatStompConnected}
                 currentUser={user}
                 meetingCode={code}
                 onIncomingMessage={handleIncomingMessage}

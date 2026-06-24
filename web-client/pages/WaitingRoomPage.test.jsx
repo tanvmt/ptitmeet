@@ -12,9 +12,11 @@ const {
     useAuth,
     clientActivate,
     clientDeactivate,
+    clientSubscribe,
 } = vi.hoisted(() => {
     const activate = vi.fn();
     const deactivate = vi.fn();
+    const subscribe = vi.fn();
     return {
         navigate: vi.fn(),
         meetingJoin: vi.fn(),
@@ -25,6 +27,7 @@ const {
         useAuth: vi.fn(),
         clientActivate: activate,
         clientDeactivate: deactivate,
+        clientSubscribe: subscribe,
     };
 });
 
@@ -62,7 +65,10 @@ vi.mock('../utils/meetingRealtime', () => ({
 vi.mock('@stomp/stompjs', () => ({
     Client: function MockClient(config) {
         this.active = false;
-        this.subscribe = vi.fn();
+        this.subscribe = (destination, callback) => {
+            clientSubscribe(destination, callback);
+            return { unsubscribe: vi.fn() };
+        };
         this.activate = () => {
             this.active = true;
             clientActivate(config);
@@ -88,6 +94,7 @@ describe('WaitingRoomPage', () => {
         useAuth.mockReset();
         clientActivate.mockReset();
         clientDeactivate.mockReset();
+        clientSubscribe.mockReset();
 
         useAuth.mockReturnValue({
             user: {
@@ -132,6 +139,7 @@ describe('WaitingRoomPage', () => {
                 },
             });
         });
+        expect(meetingJoin).toHaveBeenCalledWith('room-123', null, 'Demo User');
     });
 
     it('shows waiting state and opens websocket when join is pending', async () => {
@@ -147,5 +155,50 @@ describe('WaitingRoomPage', () => {
         expect(await screen.findByText('Please wait for the host.')).toBeInTheDocument();
         expect(await screen.findByRole('button', { name: 'Waiting for host...' })).toBeDisabled();
         expect(clientActivate).toHaveBeenCalled();
+    });
+
+    it('enters meeting when host approves through the user approval queue', async () => {
+        meetingJoin.mockResolvedValue({
+            status: 'PENDING',
+            message: 'Please wait for the host.',
+            currentHostId: 'host-1',
+            settings: '{"waitingRoom":true}',
+        });
+
+        render(<WaitingRoomPage />);
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Join now' }));
+
+        await waitFor(() => {
+            expect(clientSubscribe).toHaveBeenCalledWith('/user/queue/approval', expect.any(Function));
+        });
+
+        const approvalCallback = clientSubscribe.mock.calls.find(
+            ([destination]) => destination === '/user/queue/approval'
+        )[1];
+
+        approvalCallback({
+            body: JSON.stringify({
+                action: 'APPROVED',
+                token: 'approved-token',
+                role: 'GUEST',
+                serverUrl: 'wss://livekit.example',
+            }),
+        });
+
+        await waitFor(() => {
+            expect(navigate).toHaveBeenCalledWith('/meeting/room-123', {
+                state: {
+                    token: 'approved-token',
+                    role: 'GUEST',
+                    isOwner: false,
+                    currentHostId: 'host-1',
+                    serverUrl: 'wss://livekit.example',
+                    settings: '{"waitingRoom":true}',
+                    micOn: true,
+                    camOn: true,
+                },
+            });
+        });
     });
 });

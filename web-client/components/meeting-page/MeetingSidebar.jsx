@@ -15,7 +15,7 @@ const buildMessageKey = (msg) => {
 const MeetingSidebar = ({
                             sidebarOpen, activeTab, setActiveTab,
                             isHost, currentHostId, waitingList, isLoadingWaiting, handleApproval, fetchWaitingList,
-                        stompClient, isStompConnected, currentUser, meetingCode, onIncomingMessage, meetingSettings
+                        stompClient, isStompConnected, chatStompClient, isChatStompConnected, currentUser, meetingCode, onIncomingMessage, meetingSettings
                         }) => {
     const chatEndRef = useRef(null);
     const participants = useParticipants();
@@ -70,10 +70,10 @@ const MeetingSidebar = ({
     };
 
     useEffect(() => {
-        if (!stompClient || !isStompConnected || !meetingCode) return;
+        if (!chatStompClient || !isChatStompConnected || !meetingCode) return;
 
-        const chatSubscription = stompClient.subscribe(
-            `/topic/meeting/${meetingCode}/chat`,
+        const chatSubscription = chatStompClient.subscribe(
+            `/topic/chat/${meetingCode}`,
             (message) => {
                 const newMsg = JSON.parse(message.body);
                 upsertMessages(newMsg);
@@ -82,13 +82,13 @@ const MeetingSidebar = ({
         );
 
         return () => chatSubscription.unsubscribe();
-    }, [meetingCode, onIncomingMessage, stompClient, isStompConnected]);
+    }, [meetingCode, onIncomingMessage, chatStompClient, isChatStompConnected]);
 
     useEffect(() => {
-        if (isStompConnected && sidebarOpen && activeTab === "chat") {
+        if (isChatStompConnected && sidebarOpen && activeTab === "chat") {
             fetchHistory();
         }
-    }, [isStompConnected, sidebarOpen, activeTab, meetingCode]);
+    }, [isChatStompConnected, sidebarOpen, activeTab, meetingCode]);
 
     useEffect(() => {
         if (!meetingCode) {
@@ -116,7 +116,7 @@ const MeetingSidebar = ({
 
     const handleSendMessage = (e) => {
         e.preventDefault();
-        if (!inputMessage.trim() || !stompClient || !stompClient.active) return;
+        if (!inputMessage.trim() || !chatStompClient || !chatStompClient.active) return;
 
         const content = inputMessage.trim();
         const chatMessage = {
@@ -125,8 +125,8 @@ const MeetingSidebar = ({
             content
         };
 
-        stompClient.publish({
-            destination: `/app/meeting/${meetingCode}/chat.sendMessage`,
+        chatStompClient.publish({
+            destination: `/app/chat/${meetingCode}`,
             body: JSON.stringify(chatMessage)
         });
 
@@ -256,11 +256,11 @@ const MeetingSidebar = ({
                                     onChange={(e) => setInputMessage(e.target.value)}
                                     placeholder={isHost || meetingSettings?.chatEnabled !== false ? "Send a message..." : "Chat has been disabled by the host"}
                                     className={`w-full bg-surface border border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50 ${(isHost || meetingSettings?.chatEnabled !== false) ? "" : "opacity-50 cursor-not-allowed"}`}
-                                    disabled={!isStompConnected || (!isHost && meetingSettings?.chatEnabled === false)}
+                                    disabled={!isChatStompConnected || (!isHost && meetingSettings?.chatEnabled === false)}
                                 />
                                 <button
                                     type="submit"
-                                    disabled={!inputMessage.trim() || !isStompConnected || (!isHost && meetingSettings?.chatEnabled === false)}
+                                    disabled={!inputMessage.trim() || !isChatStompConnected || (!isHost && meetingSettings?.chatEnabled === false)}
                                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-primary hover:bg-primary/10 disabled:text-gray-600 rounded-lg transition-colors"
                                 >
                                     <span className="material-symbols-outlined">send</span>

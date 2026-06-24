@@ -26,6 +26,17 @@ describe('meetingService', () => {
         expect(result).toEqual(payload.data.data);
     });
 
+    it('includes display name when joining a meeting', async () => {
+        const payload = { data: { data: { status: 'PENDING' } } };
+        api.post.mockResolvedValue(payload);
+
+        const { meetingService } = await import('./meetingService');
+        const result = await meetingService.joinMeeting('room-123', null, 'Demo User');
+
+        expect(api.post).toHaveBeenCalledWith('/meetings/room-123/join', { displayName: 'Demo User' });
+        expect(result).toEqual(payload.data.data);
+    });
+
     it('loads history with the expected query string', async () => {
         const payload = { data: { data: { content: [] } } };
         api.get.mockResolvedValue(payload);

@@ -9,7 +9,7 @@ local.properties
 *.log
 hs_err_pid*
 replay_pid*
-
+backend-ptitmeet-microservice
 # Android Studio generated files and folders
 captures/
 .externalNativeBuild/
