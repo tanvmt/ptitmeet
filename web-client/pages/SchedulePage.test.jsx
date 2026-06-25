@@ -73,7 +73,11 @@ describe('SchedulePage', () => {
             chatEnabled: true,
         });
         expect(alertSpy).toHaveBeenCalledWith('Đã lên lịch thành công! Mã phòng: room-123');
-        expect(navigate).toHaveBeenCalledWith('/');
+        expect(navigate).toHaveBeenCalledWith('/dashboard', {
+            state: {
+                scheduledMeeting: { meetingCode: 'room-123' },
+            },
+        });
     });
 
     it('shows backend error messages when scheduling fails', async () => {

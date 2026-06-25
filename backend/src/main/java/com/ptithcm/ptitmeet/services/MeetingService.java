@@ -1,8 +1,8 @@
 package com.ptithcm.ptitmeet.services;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -31,17 +31,17 @@ import com.ptithcm.ptitmeet.entity.enums.ParticipantApprovalStatus;
 import com.ptithcm.ptitmeet.entity.enums.ParticipantRole;
 import com.ptithcm.ptitmeet.entity.enums.SessionStatus;
 import com.ptithcm.ptitmeet.entity.mysql.Meeting;
-import com.ptithcm.ptitmeet.entity.mysql.MeetingInvitation;
 import com.ptithcm.ptitmeet.entity.mysql.MeetingFeedback;
+import com.ptithcm.ptitmeet.entity.mysql.MeetingInvitation;
 import com.ptithcm.ptitmeet.entity.mysql.Participant;
 import com.ptithcm.ptitmeet.entity.mysql.ParticipantSession;
 import com.ptithcm.ptitmeet.entity.mysql.User;
 import com.ptithcm.ptitmeet.exception.AppException;
 import com.ptithcm.ptitmeet.exception.ErrorCode;
 import com.ptithcm.ptitmeet.repositories.ChatMessageRepository;
+import com.ptithcm.ptitmeet.repositories.MeetingFeedbackRepository;
 import com.ptithcm.ptitmeet.repositories.MeetingInvitationRepository;
 import com.ptithcm.ptitmeet.repositories.MeetingRepository;
-import com.ptithcm.ptitmeet.repositories.MeetingFeedbackRepository;
 import com.ptithcm.ptitmeet.repositories.ParticipantRepository;
 import com.ptithcm.ptitmeet.repositories.ParticipantSessionRepository;
 import com.ptithcm.ptitmeet.repositories.UserRepository;
@@ -552,7 +552,6 @@ public class MeetingService {
             session.setStatus(SessionStatus.ENDED_BY_HOST);
         }
         sessionRepository.saveAll(activeSessions);
-
         messagingTemplate.convertAndSend("/topic/meeting/" + code + "/system", "MEETING_ENDED");
     }
 

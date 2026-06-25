@@ -6,31 +6,31 @@ import com.ptithcm.ptitmeet.utils.MeetingUiFormatter;
 
 public class MeetingHistoryResponse {
 
-    @SerializedName("meetingCode")
+    @SerializedName(value = "meeting_code", alternate = {"meetingCode"})
     private String meetingCode;
 
     @SerializedName("title")
     private String title;
 
-    @SerializedName("startTime")
+    @SerializedName(value = "start_time", alternate = {"startTime"})
     private String startTime;
 
-    @SerializedName("endTime")
+    @SerializedName(value = "end_time", alternate = {"endTime"})
     private String endTime;
 
     @SerializedName("status")
     private String status;
 
-    @SerializedName("host")
+    @SerializedName(value = "is_host", alternate = {"host", "isHost"})
     private boolean host;
 
-    @SerializedName("owner")
+    @SerializedName(value = "is_owner", alternate = {"owner", "isOwner"})
     private boolean owner;
 
-    @SerializedName("canViewChatHistory")
+    @SerializedName(value = "can_view_chat_history", alternate = {"canViewChatHistory"})
     private boolean canViewChatHistory;
 
-    @SerializedName("canViewRecordings")
+    @SerializedName(value = "can_view_recordings", alternate = {"canViewRecordings"})
     private boolean canViewRecordings;
 
     public String getMeetingCode() {

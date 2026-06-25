@@ -123,12 +123,12 @@ const MeetingPage = () => {
     if (!code) return;
 
     const client = new Client({
-      brokerURL: getWebSocketUrl('meeting'),
+      brokerURL: getWebSocketUrl('meeting', currentUserId),
       reconnectDelay: 5000,
       onConnect: () => {
         setIsStompConnected(true);
 
-        client.subscribe(`/topic/meeting/${code}/system`, (message) => {
+        client.subscribe(`/topic/meeting/${code}`, (message) => {
             const action = parseSystemAction(message.body);
             if (!action?.type) return;
 
@@ -218,7 +218,7 @@ const MeetingPage = () => {
     if (!code) return;
 
     const chatClient = new Client({
-      brokerURL: getWebSocketUrl('chat'),
+      brokerURL: getWebSocketUrl('chat', currentUserId),
       reconnectDelay: 5000,
       onConnect: () => {
         setIsChatStompConnected(true);
@@ -240,7 +240,7 @@ const MeetingPage = () => {
     return () => {
       if (chatClient.active) chatClient.deactivate();
     };
-  }, [code]);
+  }, [code, currentUserId]);
 
   useEffect(() => {
     if (adminSubscriptionRef.current) {

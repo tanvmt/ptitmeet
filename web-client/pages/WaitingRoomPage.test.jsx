@@ -154,6 +154,7 @@ describe('WaitingRoomPage', () => {
 
         expect(await screen.findByText('Please wait for the host.')).toBeInTheDocument();
         expect(await screen.findByRole('button', { name: 'Waiting for host...' })).toBeDisabled();
+        expect(getWebSocketUrl).toHaveBeenCalledWith('meeting', 'user-1');
         expect(clientActivate).toHaveBeenCalled();
     });
 

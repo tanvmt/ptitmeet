@@ -2,6 +2,7 @@ package com.ptithcm.ptitmeet.repository;
 
 import android.content.Context;
 
+import com.google.gson.Gson;
 import com.ptithcm.ptitmeet.api.SessionManager;
 import com.ptithcm.ptitmeet.api.dto.chat.ChatMessageResponse;
 import com.ptithcm.ptitmeet.api.dto.common.ApiResponse;
@@ -22,6 +23,7 @@ import org.json.JSONObject;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -69,6 +71,7 @@ public class MeetingRepository {
     private final SessionManager sessionManager;
     private final String meetingCode;
     private final MeetingRealtimeClient meetingRealtimeClient;
+    private final Gson gson = new Gson();
 
     public MeetingRepository(Context context, String meetingCode) {
         Context appContext = context.getApplicationContext();
@@ -201,7 +204,7 @@ public class MeetingRepository {
     }
 
     public void sendChatMessage(String content, DataCallback<Void> callback) {
-        if (!meetingRealtimeClient.isConnected()) {
+        if (!meetingRealtimeClient.isChatConnected()) {
             callback.onError("Chat is not ready yet");
             return;
         }
@@ -218,7 +221,7 @@ public class MeetingRepository {
     }
 
     public void sendSystemAction(String payload, DataCallback<Void> callback) {
-        if (!meetingRealtimeClient.isConnected()) {
+        if (!meetingRealtimeClient.isMeetingConnected()) {
             callback.onError("System socket is not ready yet");
             return;
         }
@@ -281,37 +284,19 @@ public class MeetingRepository {
     }
 
     public void stopRecording(String egressId, DataCallback<MeetingRecordingResponse> callback) {
-        apiService.stopRecording(egressId).enqueue(new Callback<MeetingRecordingResponse>() {
+        apiService.stopRecording(egressId).enqueue(new Callback<ApiResponse<Void>>() {
             @Override
-            public void onResponse(Call<MeetingRecordingResponse> call, Response<MeetingRecordingResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    callback.onSuccess(response.body());
+            public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                if (response.isSuccessful()) {
+                    callback.onSuccess(null);
                 } else {
-                    callback.onError("Cannot stop recording");
+                    callback.onError(response.body() != null ? response.body().getMessage() : "Cannot stop recording");
                 }
             }
 
             @Override
-            public void onFailure(Call<MeetingRecordingResponse> call, Throwable t) {
+            public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
                 callback.onError("Cannot stop recording");
-            }
-        });
-    }
-
-    public void getRecordingStatus(String egressId, DataCallback<MeetingRecordingResponse> callback) {
-        apiService.getRecordingStatus(egressId).enqueue(new Callback<MeetingRecordingResponse>() {
-            @Override
-            public void onResponse(Call<MeetingRecordingResponse> call, Response<MeetingRecordingResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    callback.onSuccess(response.body());
-                } else {
-                    callback.onError("FAILED");
-                }
-            }
-
-            @Override
-            public void onFailure(Call<MeetingRecordingResponse> call, Throwable t) {
-                callback.onError("FAILED");
             }
         });
     }
@@ -348,43 +333,77 @@ public class MeetingRepository {
     }
 
     public void connectMeetingRealtime(boolean hostLikeRole, MeetingRealtimeListener listener) {
-        if (meetingRealtimeClient.isConnected()) {
+        if (meetingRealtimeClient.isMeetingConnected() && meetingRealtimeClient.isChatConnected()) {
             return;
         }
-        meetingRealtimeClient.connect(new StompSocketClient.ConnectionListener() {
-            @Override
-            public void onConnected() {
-                meetingRealtimeClient.subscribeToSystem((destination, body) -> listener.onSystemMessage(body));
-                meetingRealtimeClient.subscribeToChat((destination, body) -> listener.onChatMessage(parseChatMessage(body)));
-                if (hostLikeRole) {
-                    meetingRealtimeClient.subscribeToAdmin((destination, body) -> parseAdminMessage(body, listener));
-                    meetingRealtimeClient.subscribeToWaitingRoom((destination, body) -> listener.onWaitingRoomSignal(body));
-                }
+
+        AtomicBoolean notifiedConnected = new AtomicBoolean(false);
+        Runnable notifyConnectedOnce = () -> {
+            if (notifiedConnected.compareAndSet(false, true)) {
                 listener.onConnected();
             }
+        };
 
-            @Override
-            public void onError(String message) {
-                listener.onError(message);
-            }
+        if (!meetingRealtimeClient.isMeetingConnected()) {
+            meetingRealtimeClient.connectMeeting(new StompSocketClient.ConnectionListener() {
+                @Override
+                public void onConnected() {
+                    meetingRealtimeClient.subscribeToSystem((destination, body) -> listener.onSystemMessage(body));
+                    if (hostLikeRole) {
+                        meetingRealtimeClient.subscribeToAdmin((destination, body) -> parseAdminMessage(body, listener));
+                        meetingRealtimeClient.subscribeToWaitingRoom((destination, body) -> listener.onWaitingRoomSignal(body));
+                    }
+                    notifyConnectedOnce.run();
+                }
 
-            @Override
-            public void onDisconnected() {
-                listener.onDisconnected();
-            }
-        });
+                @Override
+                public void onError(String message) {
+                    listener.onError(message);
+                }
+
+                @Override
+                public void onDisconnected() {
+                    listener.onDisconnected();
+                }
+            });
+        } else {
+            notifyConnectedOnce.run();
+        }
+
+        if (!meetingRealtimeClient.isChatConnected()) {
+            meetingRealtimeClient.connectChat(new StompSocketClient.ConnectionListener() {
+                @Override
+                public void onConnected() {
+                    meetingRealtimeClient.subscribeToChat((destination, body) -> listener.onChatMessage(parseChatMessage(body)));
+                    notifyConnectedOnce.run();
+                }
+
+                @Override
+                public void onError(String message) {
+                    listener.onError(message);
+                }
+
+                @Override
+                public void onDisconnected() {
+                    listener.onDisconnected();
+                }
+            });
+        } else {
+            notifyConnectedOnce.run();
+        }
     }
 
     public void connectWaitingRoomRealtime(WaitingRoomRealtimeListener listener) {
-        if (meetingRealtimeClient.isConnected()) {
+        if (meetingRealtimeClient.isMeetingConnected()) {
             return;
         }
-        meetingRealtimeClient.connect(new StompSocketClient.ConnectionListener() {
+        meetingRealtimeClient.connectMeeting(new StompSocketClient.ConnectionListener() {
             @Override
             public void onConnected() {
                 String userId = sessionManager.getUserId();
                 if (userId != null) {
                     meetingRealtimeClient.subscribeToUserUpdates(userId, (destination, body) -> listener.onUserUpdate(body));
+                    meetingRealtimeClient.subscribeToLegacyUserUpdates(userId, (destination, body) -> listener.onUserUpdate(body));
                 }
                 meetingRealtimeClient.subscribeToWaitingRoom((destination, body) -> listener.onWaitingRoomSignal(body));
                 listener.onConnected();
@@ -408,21 +427,19 @@ public class MeetingRepository {
 
     private ChatMessageResponse parseChatMessage(String body) {
         try {
-            JSONObject jsonObject = new JSONObject(body);
-            return new ChatMessageResponse(
-                    jsonObject.optString("senderId"),
-                    jsonObject.optString("senderName"),
-                    jsonObject.optString("content")
-            );
+            ChatMessageResponse message = gson.fromJson(body, ChatMessageResponse.class);
+            if (message != null) {
+                return message;
+            }
         } catch (Exception e) {
-            return new ChatMessageResponse("", "User", body);
         }
+        return new ChatMessageResponse("", "User", body);
     }
 
     private void parseAdminMessage(String body, MeetingRealtimeListener listener) {
         try {
             JSONObject jsonObject = new JSONObject(body);
-            String status = jsonObject.optString("status");
+            String status = jsonObject.optString("status", jsonObject.optString("action"));
             String participantId = jsonObject.optString("participantId");
             if ("LEFT".equalsIgnoreCase(status)) {
                 listener.onJoinRequestLeft(participantId);

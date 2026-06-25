@@ -407,11 +407,12 @@ public class MeetingViewModel extends AndroidViewModel {
                 updateState(state -> {
                     state.setRecordingRequestInFlight(false);
                     state.setRecordingActive(false);
-                    state.setRecordingStatus(safeRecordingStatus(data.getStatus(), "STOPPING"));
+                    state.setRecordingEgressId(null);
+                    state.setRecordingStatus("IDLE");
                 });
                 publishRecordingAction("RECORDING_STOPPED");
-                startRecordingStatusPolling();
-                uiEvent.postValue(new Event<>(MeetingUiEvent.toast("Stopping recording")));
+                stopRecordingStatusPolling();
+                uiEvent.postValue(new Event<>(MeetingUiEvent.toast("Recording stopped")));
             }
 
             @Override
@@ -435,36 +436,11 @@ public class MeetingViewModel extends AndroidViewModel {
     }
 
     private void pollRecordingStatus() {
-        String egressId = requireState().getRecordingEgressId();
-        if (egressId == null || egressId.trim().isEmpty()) {
-            stopRecordingStatusPolling();
-            return;
-        }
-        repository.getRecordingStatus(egressId, new MeetingRepository.DataCallback<MeetingRecordingResponse>() {
-            @Override
-            public void onSuccess(MeetingRecordingResponse data) {
-                String status = safeRecordingStatus(data.getStatus(), "STOPPING");
-                updateState(state -> state.setRecordingStatus(status));
-                if ("COMPLETED".equalsIgnoreCase(status) || "FAILED".equalsIgnoreCase(status)) {
-                    stopRecordingStatusPolling();
-                    if ("COMPLETED".equalsIgnoreCase(status)) {
-                        uiEvent.postValue(new Event<>(MeetingUiEvent.toast("Recording saved")));
-                    }
-                } else {
-                    recordingStatusHandler.postDelayed(recordingStatusRunnable, 5000);
-                }
-            }
-
-            @Override
-            public void onError(String message) {
-                updateState(state -> state.setRecordingStatus("FAILED"));
-                stopRecordingStatusPolling();
-            }
-        });
+        stopRecordingStatusPolling();
     }
 
     private void handleSystemRealtime(String body) {
-        if ("MEETING_ENDED".equalsIgnoreCase(body)) {
+        if ("MEETING_ENDED".equalsIgnoreCase(body) || "END_MEETING_FOR_ALL".equalsIgnoreCase(body)) {
             uiEvent.postValue(new Event<>(MeetingUiEvent.toast("The meeting has ended")));
             uiEvent.postValue(new Event<>(MeetingUiEvent.navigateToSummary("ENDED_BY_HOST")));
             return;
@@ -472,7 +448,7 @@ public class MeetingViewModel extends AndroidViewModel {
 
         try {
             JSONObject jsonObject = new JSONObject(body);
-            String type = jsonObject.optString("type");
+            String type = jsonObject.optString("type", jsonObject.optString("action"));
             if ("SETTINGS_UPDATED".equalsIgnoreCase(type)) {
                 JSONObject settingsObj = jsonObject.optJSONObject("settings");
                 if (settingsObj != null) {
@@ -503,6 +479,11 @@ public class MeetingViewModel extends AndroidViewModel {
                 });
                 return;
             }
+            if ("MEETING_ENDED".equalsIgnoreCase(type) || "END_MEETING_FOR_ALL".equalsIgnoreCase(type)) {
+                uiEvent.postValue(new Event<>(MeetingUiEvent.toast("The meeting has ended")));
+                uiEvent.postValue(new Event<>(MeetingUiEvent.navigateToSummary("ENDED_BY_HOST")));
+                return;
+            }
             if ("MUTE_ALL".equalsIgnoreCase(type)) {
                 uiEvent.postValue(new Event<>(MeetingUiEvent.applyRemoteMicMute("The host muted everyone's microphone.")));
                 return;
@@ -519,7 +500,7 @@ public class MeetingViewModel extends AndroidViewModel {
                 return;
             }
 
-            String targetParticipantId = jsonObject.optString("targetParticipantId");
+            String targetParticipantId = jsonObject.optString("targetParticipantId", jsonObject.optString("targetUserId"));
             if (targetParticipantId != null && targetParticipantId.equals(repository.getCurrentUserId())) {
                 if ("MUTE_PARTICIPANT".equalsIgnoreCase(type)) {
                     uiEvent.postValue(new Event<>(MeetingUiEvent.applyRemoteMicMute("The host muted your microphone.")));

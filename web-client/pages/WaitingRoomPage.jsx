@@ -257,8 +257,9 @@ const WaitingRoomPage = () => {
   };
 
   const connectWebSocket = () => {
+    const userId = user?.userId || user?.id;
     const client = new Client({
-      brokerURL: getWebSocketUrl('meeting'),
+      brokerURL: getWebSocketUrl('meeting', userId),
       reconnectDelay: 5000,
       onConnect: () => {
         client.subscribe("/user/queue/approval", (message) => {

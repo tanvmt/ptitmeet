@@ -15,8 +15,10 @@ public final class SystemActionHelper {
         try {
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("type", type);
+            jsonObject.put("action", type);
             if (targetParticipantId != null) {
                 jsonObject.put("targetParticipantId", targetParticipantId);
+                jsonObject.put("targetUserId", targetParticipantId);
             }
             if (targetParticipantName != null) {
                 jsonObject.put("targetParticipantName", targetParticipantName);

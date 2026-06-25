@@ -254,10 +254,10 @@ public class WaitingRoomActivity extends AppCompatActivity {
         if (!isHost && joinData.getSettings() != null) {
             try {
                 org.json.JSONObject settingsObj = new org.json.JSONObject(joinData.getSettings());
-                if (settingsObj.optBoolean("muteAudioOnEntry", false)) {
+                if (settingsObj.optBoolean("muteAudioOnEntry", settingsObj.optBoolean("muteOnEntry", false))) {
                     micOn = false;
                 }
-                if (settingsObj.optBoolean("muteVideoOnEntry", false)) {
+                if (settingsObj.optBoolean("muteVideoOnEntry", settingsObj.optBoolean("cameraOffOnEntry", false))) {
                     videoOn = false;
                 }
             } catch (Exception ignored) {}

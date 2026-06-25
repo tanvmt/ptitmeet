@@ -7,15 +7,11 @@ import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
-import com.ptithcm.ptitmeet.api.dto.meeting.CreateMeetingRequest;
 import com.ptithcm.ptitmeet.api.dto.meeting.MeetingHistoryResponse;
 import com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse;
 import com.ptithcm.ptitmeet.repository.MainRepository;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 public class MainViewModel extends AndroidViewModel {
 
@@ -44,16 +40,15 @@ public class MainViewModel extends AndroidViewModel {
 
     public void createNewMeeting() {
         updateState(state -> state.setCreatingMeeting(true));
-        String fullName = repository.getUserName();
-        CreateMeetingRequest request = new CreateMeetingRequest("Phòng họp của " + fullName);
-        String nowPlus1Min = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-                .format(new Date(System.currentTimeMillis() + 60000));
-        request.setStartTime(nowPlus1Min);
 
-        repository.createInstantMeeting(request, new MainRepository.DataCallback<MeetingResponse>() {
+        repository.createInstantMeeting(new MainRepository.DataCallback<MeetingResponse>() {
             @Override
             public void onSuccess(MeetingResponse data) {
                 updateState(state -> state.setCreatingMeeting(false));
+                if (data == null || !data.hasMeetingCode()) {
+                    uiEvent.postValue(new Event<>(MainUiEvent.toast("Server không trả mã phòng họp")));
+                    return;
+                }
                 uiEvent.postValue(new Event<>(MainUiEvent.openWaitingRoom(data.getMeetingCode(), repository.getUserName(), true)));
             }
 

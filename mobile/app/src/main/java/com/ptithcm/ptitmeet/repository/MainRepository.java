@@ -1,11 +1,11 @@
 package com.ptithcm.ptitmeet.repository;
 
 import android.content.Context;
+import android.util.Log;
 
 import com.ptithcm.ptitmeet.api.SessionManager;
 import com.ptithcm.ptitmeet.api.dto.common.ApiResponse;
 import com.ptithcm.ptitmeet.api.dto.common.PageResponse;
-import com.ptithcm.ptitmeet.api.dto.meeting.CreateMeetingRequest;
 import com.ptithcm.ptitmeet.api.dto.meeting.MeetingHistoryResponse;
 import com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse;
 import com.ptithcm.ptitmeet.api.services.ApiService;
@@ -18,6 +18,8 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 public class MainRepository {
+
+    private static final String TAG = "MainRepository";
 
     public interface DataCallback<T> {
         void onSuccess(T data);
@@ -38,20 +40,25 @@ public class MainRepository {
         return sessionManager.getUserName();
     }
 
-    public void createInstantMeeting(CreateMeetingRequest request, DataCallback<MeetingResponse> callback) {
-        apiService.createInstantMeeting(request).enqueue(new Callback<ApiResponse<MeetingResponse>>() {
+    public void createInstantMeeting(DataCallback<MeetingResponse> callback) {
+        apiService.createInstantMeeting().enqueue(new Callback<ApiResponse<MeetingResponse>>() {
             @Override
             public void onResponse(Call<ApiResponse<MeetingResponse>> call, Response<ApiResponse<MeetingResponse>> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
-                    callback.onSuccess(response.body().getData());
+                ApiResponse<MeetingResponse> body = response.body();
+                MeetingResponse meeting = body != null ? body.getData() : null;
+                if (response.isSuccessful() && meeting != null && meeting.hasMeetingCode()) {
+                    callback.onSuccess(meeting);
+                } else if (response.isSuccessful() && meeting != null) {
+                    callback.onError("Server không trả mã phòng họp");
                 } else {
-                    callback.onError(response.body() != null ? response.body().getMessage() : "Không thể tạo phòng");
+                    callback.onError(body != null ? body.getMessage() : "Không thể tạo phòng");
                 }
             }
 
             @Override
             public void onFailure(Call<ApiResponse<MeetingResponse>> call, Throwable t) {
-                callback.onError("Lỗi kết nối máy chủ");
+                Log.e(TAG, "createInstantMeeting failed", t);
+                callback.onError("Không thể kết nối server");
             }
         });
     }

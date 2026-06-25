@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { meetingService } from "../services/meetingService";
 import JoinMeetingModal from "../components/JoinMeetingModal";
@@ -7,6 +7,7 @@ import DashboardLayout from "../components/DashboardLayout";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -17,22 +18,51 @@ const DashboardPage = () => {
   );
 
   const [recentActivities, setRecentActivities] = useState([]);
+
+  const normalizeActivity = (activity) => ({
+    ...activity,
+    meetingCode: activity.meetingCode || activity.meeting_code,
+    startTime: activity.startTime || activity.start_time,
+    endTime: activity.endTime || activity.end_time,
+    host: activity.host ?? activity.isHost ?? activity.is_host,
+  });
+
+  const mergeRecentActivities = (activities, pinnedActivity) => {
+    const normalizedActivities = activities.map(normalizeActivity);
+    if (!pinnedActivity) return normalizedActivities;
+
+    const normalizedPinned = normalizeActivity(pinnedActivity);
+    if (!normalizedPinned.meetingCode) return normalizedActivities;
+
+    return [
+      normalizedPinned,
+      ...normalizedActivities.filter(
+        (activity) => activity.meetingCode !== normalizedPinned.meetingCode
+      ),
+    ].slice(0, 5);
+  };
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setIsFetchingData(true);
 
         const historyData = await meetingService.getHistory(1, 5, "ALL", "ALL");
-        setRecentActivities(historyData.content || []);
+        setRecentActivities(
+          mergeRecentActivities(historyData.content || [], location.state?.scheduledMeeting)
+        );
       } catch (error) {
         console.error("Lỗi tải dữ liệu Dashboard:", error);
+        if (location.state?.scheduledMeeting) {
+          setRecentActivities([normalizeActivity(location.state.scheduledMeeting)]);
+        }
       } finally {
         setIsFetchingData(false);
       }
     };
 
     fetchDashboardData();
-  }, []);
+  }, [location.state]);
 
   useEffect(() => {
     const timer = setInterval(() => {
