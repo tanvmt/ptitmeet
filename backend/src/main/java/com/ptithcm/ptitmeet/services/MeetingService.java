@@ -324,7 +324,8 @@ public class MeetingService {
         }
 
         createNewSession(participant);
-        String token = liveKitService.generateJoinToken(meetingCode, user.getFullName(), userId.toString());
+        String token = liveKitService.generateJoinToken(
+                meeting.getMeetingCode(), user.getFullName(), userId.toString());
 
         return JoinMeetingResponse.builder()
                 .token(token)
@@ -388,7 +389,7 @@ public class MeetingService {
             createNewSession(participant);
 
             User guestUser = participant.getUser();
-            String token = liveKitService.generateJoinToken(meetingCode, guestUser.getFullName(),
+            String token = liveKitService.generateJoinToken(meeting.getMeetingCode(), guestUser.getFullName(),
                     guestUser.getUserId().toString());
 
             JoinMeetingResponse approvalResponse = JoinMeetingResponse.builder()
@@ -926,7 +927,7 @@ public class MeetingService {
                 createNewSession(participant);
 
                 User guestUser = participant.getUser();
-                String token = liveKitService.generateJoinToken(code, guestUser.getFullName(),
+                String token = liveKitService.generateJoinToken(meeting.getMeetingCode(), guestUser.getFullName(),
                         guestUser.getUserId().toString());
 
                 JoinMeetingResponse approvalResponse = JoinMeetingResponse.builder()

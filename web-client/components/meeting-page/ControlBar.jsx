@@ -14,11 +14,23 @@ import {
 import { SYSTEM_ACTION_TYPES, createSystemActionPayload } from "../../utils/meetingRealtime";
 
 const ControlBar = ({
-    sidebarOpen, setSidebarOpen, activeTab, setActiveTab, waitingCount, unreadCount, isHost, isOwner, code, stompClient, meetingSettings
+    sidebarOpen,
+    setSidebarOpen,
+    activeTab,
+    setActiveTab,
+    waitingCount,
+    unreadCount,
+    isHost,
+    isOwner,
+    code,
+    stompClient,
+    meetingSettings,
+    isRecordingActive,
+    onRecordingStateChange,
 }) => {
     const navigate = useNavigate();
     const room = useRoomContext();
-    const [isRecord, setIsRecord] = useState(false)
+    const [isRecord, setIsRecord] = useState(Boolean(isRecordingActive))
     const [egressId, setEgressId] = useState(null)
     const egressIdRef = useRef(null);
     const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
@@ -30,6 +42,33 @@ const ControlBar = ({
     const [isRequestingPermission, setIsRequestingPermission] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
+    const [isRecordingRequestInFlight, setIsRecordingRequestInFlight] = useState(false);
+
+    const currentIsRecord = Boolean(isRecordingActive ?? isRecord);
+
+    React.useEffect(() => {
+        setIsRecord(Boolean(isRecordingActive));
+    }, [isRecordingActive]);
+
+    const setRecordingActive = (isActive) => {
+        setIsRecord(isActive);
+        onRecordingStateChange?.(isActive);
+    };
+
+    const getRecordingPayload = (response) => response?.data?.data || response?.data || response;
+
+    const getRecordingEgressId = (response) => {
+        const payload = getRecordingPayload(response);
+        return payload?.egressId || payload?.egress_id || payload?.egressID || null;
+    };
+
+    const getRecordingErrorMessage = (error) => {
+        const responseData = error.response?.data;
+        if (typeof responseData === "string") {
+            return responseData;
+        }
+        return responseData?.message || error.message || "Unknown recording error";
+    };
 
     React.useEffect(() => {
         const handleSystemAction = async (e) => {
@@ -47,46 +86,55 @@ const ControlBar = ({
     }, [localParticipant, isMicrophoneEnabled, isCameraEnabled]);
 
     const handleRecordMeeting = async () => {
-        if (!isOwner) {
+        if (!isOwner || isRecordingRequestInFlight) {
             return;
         }
+        setIsRecordingRequestInFlight(true);
         try {
-            if (!isRecord) {
+            if (!currentIsRecord) {
                 const recordRes = await meetingService.startRecordMeeting(code);
-                console.log("Start recording response:", JSON.stringify(recordRes.data));
-                const id = recordRes.data?.data?.egressId || recordRes.data?.data?.egress_id;
-                console.log("Extracted egressId:", id);
+                const id = getRecordingEgressId(recordRes);
+                if (!id) {
+                    throw new Error("Backend did not return a recording session id.");
+                }
                 setEgressId(id);
                 egressIdRef.current = id;
+                setRecordingActive(true);
                 if (stompClient?.active && localParticipant) {
                     stompClient.publish({
                         destination: `/app/meeting/${code}/system`,
                         body: createSystemActionPayload(SYSTEM_ACTION_TYPES.RECORDING_STARTED, {
                             actorId: localParticipant.identity,
                             actorName: localParticipant.name || "Meeting owner",
+                            egressId: id,
                         }),
                     });
                 }
             } else {
-                const currentEgressId = egressIdRef.current;
-                console.log("Stopping with egressId:", currentEgressId);
+                const currentEgressId = egressIdRef.current || egressId;
+                if (!currentEgressId) {
+                    throw new Error("Missing recording session id.");
+                }
                 await meetingService.endRecordMeeting(currentEgressId);
                 setEgressId(null);
                 egressIdRef.current = null;
+                setRecordingActive(false);
                 if (stompClient?.active && localParticipant) {
                     stompClient.publish({
                         destination: `/app/meeting/${code}/system`,
                         body: createSystemActionPayload(SYSTEM_ACTION_TYPES.RECORDING_STOPPED, {
                             actorId: localParticipant.identity,
                             actorName: localParticipant.name || "Meeting owner",
+                            egressId: currentEgressId,
                         }),
                     });
                 }
             }
-            setIsRecord(!isRecord);
         } catch (error) {
             console.error("Recording error:", error);
-            alert("Recording error: " + (error.response?.data?.message || error.message));
+            alert("Recording error: " + getRecordingErrorMessage(error));
+        } finally {
+            setIsRecordingRequestInFlight(false);
         }
     };
     
@@ -397,16 +445,16 @@ const ControlBar = ({
                     <div className="w-px h-8 bg-white/10 mx-1"></div>
                     <button
                         onClick={handleRecordMeeting}
-                        disabled={!isOwner}
+                        disabled={!isOwner || isRecordingRequestInFlight}
                         className={`size-12 rounded-full flex items-center justify-center transition-all ${
-                            isRecord
+                            currentIsRecord
                                 ? "bg-red-500 text-white shadow-lg shadow-red-500/20"
                                 : "bg-white/10 text-white"
-                        } ${isOwner ? "hover:bg-white/20" : "cursor-not-allowed opacity-40"}`}
-                        title={isOwner ? "Record meeting" : "Only the meeting owner can record"}
+                        } ${isOwner && !isRecordingRequestInFlight ? "hover:bg-white/20" : "cursor-not-allowed opacity-40"}`}
+                        title={isOwner ? (isRecordingRequestInFlight ? "Recording request is in progress" : "Record meeting") : "Only the meeting owner can record"}
                     >
                         <span className="material-symbols-outlined text-[22px]">
-                            {isRecord ? "screen_record" : "fiber_manual_record"}
+                            {isRecordingRequestInFlight ? "hourglass_empty" : currentIsRecord ? "screen_record" : "fiber_manual_record"}
                         </span>
                     </button>
 

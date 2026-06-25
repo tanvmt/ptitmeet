@@ -47,4 +47,17 @@ describe('meetingService', () => {
         expect(api.get).toHaveBeenCalledWith('/meetings/history?page=2&size=10&role=HOST&status=ACTIVE');
         expect(result).toEqual(payload.data.data);
     });
+
+    it('starts recording with a trimmed meeting code param', async () => {
+        const payload = { data: { data: { egressId: 'egress-1' } } };
+        api.post.mockResolvedValue(payload);
+
+        const { meetingService } = await import('./meetingService');
+        const result = await meetingService.startRecordMeeting('  nv0-nzy3-7eo  ');
+
+        expect(api.post).toHaveBeenCalledWith('/livekit/recordings/start', null, {
+            params: { meetingCode: 'nv0-nzy3-7eo' },
+        });
+        expect(result).toEqual(payload);
+    });
 });

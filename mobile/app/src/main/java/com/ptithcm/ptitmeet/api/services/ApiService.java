@@ -60,7 +60,7 @@ public interface ApiService {
     Call<ApiResponse<Void>> forgotPassword(@Body ForgotPasswordRequest request);
 
     @POST("/api/auth/forgot-password-mobile")
-    Call<ApiResponse<Void>> forgotPasswordMobile(@Body ForgotPasswordRequest request);
+    Call<ApiResponse<Object>> forgotPasswordMobile(@Body ForgotPasswordRequest request);
 
     @POST("/api/auth/verify-reset-otp")
     Call<ApiResponse<VerifyResetOtpResponse>> verifyResetOtp(@Body VerifyResetOtpRequest request);

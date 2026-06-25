@@ -61,6 +61,18 @@ class RecordingControllerTest {
     }
 
     @Test
+    void startRecordingShouldPreserveApplicationErrors() {
+        UUID userId = UUID.randomUUID();
+        setAuthenticatedUser(userId);
+        when(recordingService.startRoomRecording("room-123", userId))
+                .thenThrow(new AppException(ErrorCode.MEETING_NOT_FOUND));
+
+        AppException exception = assertThrows(AppException.class, () -> recordingController.startRecording("room-123"));
+
+        assertEquals(ErrorCode.MEETING_NOT_FOUND, exception.getErrorCode());
+    }
+
+    @Test
     void stopRecordingShouldReturnBadRequestWhenServiceFails() {
         UUID userId = UUID.randomUUID();
         setAuthenticatedUser(userId);

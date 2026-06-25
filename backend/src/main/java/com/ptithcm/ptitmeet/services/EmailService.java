@@ -5,6 +5,10 @@ import java.time.format.DateTimeFormatter;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+
+import com.ptithcm.ptitmeet.exception.AppException;
+import com.ptithcm.ptitmeet.exception.ErrorCode;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -31,7 +35,7 @@ public class EmailService {
     public void sendPasswordResetEmail(String toEmail, String fullName, String resetToken) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            setFromIfConfigured(message);
             message.setTo(toEmail);
             message.setSubject("PTITMEET - Khôi phục mật khẩu");
 
@@ -52,14 +56,15 @@ public class EmailService {
             mailSender.send(message);
 
         } catch (Exception e) {
-            throw new  RuntimeException("Lỗi khi gửi email reset password đến: "+ toEmail);
+            log.error("Failed to send password reset email to {}", toEmail, e);
+            throw new AppException(ErrorCode.EMAIL_DELIVERY_FAILED);
         }
     }
 
     public void sendPasswordResetOtpEmail(String toEmail, String fullName, String otp, int expiresInMinutes) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            setFromIfConfigured(message);
             message.setTo(toEmail);
             message.setSubject("PTITMEET - Mobile password reset OTP");
 
@@ -76,7 +81,14 @@ public class EmailService {
             message.setText(emailBody);
             mailSender.send(message);
         } catch (Exception e) {
-            throw new RuntimeException("Loi khi gui email OTP reset password den: " + toEmail);
+            log.error("Failed to send password reset OTP email to {}", toEmail, e);
+            throw new AppException(ErrorCode.EMAIL_DELIVERY_FAILED);
+        }
+    }
+
+    private void setFromIfConfigured(SimpleMailMessage message) {
+        if (fromEmail != null && !fromEmail.isBlank()) {
+            message.setFrom(fromEmail);
         }
     }
 

@@ -23,6 +23,7 @@ public enum ErrorCode {
     INVALID_TOKEN(2008, "Token is invalid or expired", HttpStatus.UNAUTHORIZED),
     INVALID_RESET_OTP(2009, "Invalid OTP", HttpStatus.BAD_REQUEST),
     EXPIRED_RESET_OTP(2010, "OTP has expired. Please request a new one.", HttpStatus.BAD_REQUEST),
+    EMAIL_DELIVERY_FAILED(2011, "Email delivery failed. Please try again later.", HttpStatus.SERVICE_UNAVAILABLE),
 
     // --- Meeting (3xxx) ---
     MEETING_NOT_FOUND(3001, "Meeting not found", HttpStatus.NOT_FOUND),

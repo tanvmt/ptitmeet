@@ -231,7 +231,12 @@ public class AuthService {
         String resetToken = UUID.randomUUID().toString();
         resetTokenStore.put(resetToken, user.getEmail());
 
-        emailService.sendPasswordResetEmail(user.getEmail(), user.getFullName(), resetToken);
+        try {
+            emailService.sendPasswordResetEmail(user.getEmail(), user.getFullName(), resetToken);
+        } catch (AppException exception) {
+            resetTokenStore.remove(resetToken);
+            throw exception;
+        }
 
     }
 
@@ -246,11 +251,16 @@ public class AuthService {
                 normalizedEmail,
                 new ResetOtpState(otp, LocalDateTime.now().plusMinutes(MOBILE_RESET_OTP_EXPIRATION_MINUTES)));
 
-        emailService.sendPasswordResetOtpEmail(
-                user.getEmail(),
-                user.getFullName(),
-                otp,
-                MOBILE_RESET_OTP_EXPIRATION_MINUTES);
+        try {
+            emailService.sendPasswordResetOtpEmail(
+                    user.getEmail(),
+                    user.getFullName(),
+                    otp,
+                    MOBILE_RESET_OTP_EXPIRATION_MINUTES);
+        } catch (AppException exception) {
+            resetOtpStore.remove(normalizedEmail);
+            throw exception;
+        }
     }
 
     public VerifyResetOtpResponse verifyResetOtp(VerifyResetOtpRequest request) {

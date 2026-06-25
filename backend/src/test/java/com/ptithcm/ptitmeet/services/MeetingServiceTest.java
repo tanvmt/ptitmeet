@@ -113,6 +113,7 @@ class MeetingServiceTest {
     void scheduleMeetingShouldRejectInvalidTimeRange() {
         UUID hostId = UUID.randomUUID();
         CreateMeetingRequest request = new CreateMeetingRequest();
+        request.setTitle("Invalid time range");
         request.setStartTime(LocalDateTime.now().plusHours(2));
         request.setEndTime(LocalDateTime.now().plusHours(1));
 

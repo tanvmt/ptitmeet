@@ -128,7 +128,7 @@ const MeetingPage = () => {
       onConnect: () => {
         setIsStompConnected(true);
 
-        client.subscribe(`/topic/meeting/${code}`, (message) => {
+        client.subscribe(`/topic/meeting/${code}/system`, (message) => {
             const action = parseSystemAction(message.body);
             if (!action?.type) return;
 
@@ -429,7 +429,21 @@ const MeetingPage = () => {
                 meetingSettings={meetingSettings}
             />
           </div>
-          <ControlBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={setActiveTab} waitingCount={waitingList.length} unreadCount={unreadMessages} isHost={isHost} isOwner={isOwner} code={code} stompClient={stompClient} meetingSettings={meetingSettings}/>
+          <ControlBar
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            waitingCount={waitingList.length}
+            unreadCount={unreadMessages}
+            isHost={isHost}
+            isOwner={isOwner}
+            code={code}
+            stompClient={stompClient}
+            meetingSettings={meetingSettings}
+            isRecordingActive={isRecordingActive}
+            onRecordingStateChange={setIsRecordingActive}
+          />
           <RoomAudioRenderer />
           <Reactions /> {/* Add Reactions component here */}
         </div>

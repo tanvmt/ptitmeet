@@ -67,11 +67,15 @@ export const meetingService = {
     },
 
     startRecordMeeting: async (code) => {
-        return await api.post(`/livekit/recordings/start?meetingCode=${code}`);
+        return await api.post('/livekit/recordings/start', null, {
+            params: { meetingCode: String(code || '').trim() },
+        });
     },
 
     endRecordMeeting: async (egressId) => {
-        return await api.post(`/livekit/recordings/stop?egressId=${egressId}`);
+        return await api.post('/livekit/recordings/stop', null, {
+            params: { egressId },
+        });
     },
 
     getMeetingSummary: async (code, actionTaken) => {
