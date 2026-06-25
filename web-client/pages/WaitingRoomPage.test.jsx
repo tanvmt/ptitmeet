@@ -202,4 +202,52 @@ describe('WaitingRoomPage', () => {
             });
         });
     });
+
+    it('enters meeting when host approves through the meeting user topic', async () => {
+        meetingJoin.mockResolvedValue({
+            status: 'PENDING',
+            message: 'Please wait for the host.',
+            currentHostId: 'host-1',
+            settings: '{"waitingRoom":true}',
+        });
+
+        render(<WaitingRoomPage />);
+
+        fireEvent.click(await screen.findByRole('button', { name: 'Join now' }));
+
+        await waitFor(() => {
+            expect(clientSubscribe).toHaveBeenCalledWith(
+                '/topic/meeting/room-123/user/user-1',
+                expect.any(Function)
+            );
+        });
+
+        const approvalCallback = clientSubscribe.mock.calls.find(
+            ([destination]) => destination === '/topic/meeting/room-123/user/user-1'
+        )[1];
+
+        approvalCallback({
+            body: JSON.stringify({
+                status: 'APPROVED',
+                token: 'approved-token',
+                role: 'ATTENDEE',
+                serverUrl: 'wss://livekit.example',
+            }),
+        });
+
+        await waitFor(() => {
+            expect(navigate).toHaveBeenCalledWith('/meeting/room-123', {
+                state: {
+                    token: 'approved-token',
+                    role: 'ATTENDEE',
+                    isOwner: false,
+                    currentHostId: 'host-1',
+                    serverUrl: 'wss://livekit.example',
+                    settings: '{"waitingRoom":true}',
+                    micOn: true,
+                    camOn: true,
+                },
+            });
+        });
+    });
 });

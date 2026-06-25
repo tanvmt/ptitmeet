@@ -3,6 +3,7 @@ package com.ptithcm.ptitmeet.services;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -162,10 +163,14 @@ public class MeetingService {
 
         if (request.getParticipantEmails() != null && !request.getParticipantEmails().isEmpty()) {
 
-            List<String> uniqueEmails = request.getParticipantEmails().stream().distinct().toList();
+            List<String> uniqueEmails = request.getParticipantEmails().stream()
+                    .map(this::normalizeEmail)
+                    .filter(email -> !email.isBlank())
+                    .distinct()
+                    .toList();
 
             for (String email : uniqueEmails) {
-                User invitedUser = userRepository.findByEmail(email).orElse(null);
+                User invitedUser = userRepository.findByEmailIgnoreCase(email).orElse(null);
 
                 MeetingInvitation invitation = MeetingInvitation.builder()
                         .meeting(meeting)
@@ -304,7 +309,7 @@ public class MeetingService {
                     .status("PENDING")
                     .build();
 
-            messagingTemplate.convertAndSend("/topic/meeting/" + meetingCode + "/admin", notiData);
+            notifyHostOfWaitingParticipant(meetingCode, notiData);
 
             String message = (meeting.getStatus() == MeetingStatus.SCHEDULED)
                     ? "The meeting has not started yet. Please wait for the host to join."
@@ -503,7 +508,7 @@ public class MeetingService {
                     .status("LEFT")
                     .build();
 
-            messagingTemplate.convertAndSend("/topic/meeting/" + code + "/admin", notiData);
+            notifyHostOfWaitingParticipant(code, notiData);
 
             participantRepository.delete(participant);
             return;
@@ -681,6 +686,10 @@ public class MeetingService {
     }
 
     private boolean isUserInternal(String guestEmail, String hostEmail, String allowedDomain) {
+        if (guestEmail == null || guestEmail.isBlank()) {
+            return false;
+        }
+
         String domainToCheck = null;
 
         if (allowedDomain != null && !allowedDomain.isBlank()) {
@@ -707,8 +716,18 @@ public class MeetingService {
     }
 
     private boolean isUserInvited(Meeting meeting, User user) {
+        String email = normalizeEmail(user.getEmail());
         return meetingInvitationRepository.existsByMeetingAndUser(meeting, user) ||
-                meetingInvitationRepository.existsByMeetingAndEmail(meeting, user.getEmail());
+                (!email.isBlank() && meetingInvitationRepository.existsByMeetingAndEmailIgnoreCase(meeting, email));
+    }
+
+    private void notifyHostOfWaitingParticipant(String meetingCode, ParticipantResponse participant) {
+        messagingTemplate.convertAndSend("/topic/meeting/" + meetingCode + "/host", participant);
+        messagingTemplate.convertAndSend("/topic/meeting/" + meetingCode + "/admin", participant);
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 
     private String generateUniqueMeetingCode() {

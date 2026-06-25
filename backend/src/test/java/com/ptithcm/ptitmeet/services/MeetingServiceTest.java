@@ -29,6 +29,7 @@ import com.ptithcm.ptitmeet.dto.meeting.ApprovalRequest;
 import com.ptithcm.ptitmeet.dto.meeting.CreateMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingRequest;
 import com.ptithcm.ptitmeet.dto.meeting.JoinMeetingResponse;
+import com.ptithcm.ptitmeet.dto.meeting.ParticipantResponse;
 import com.ptithcm.ptitmeet.entity.enums.MeetingAccessType;
 import com.ptithcm.ptitmeet.entity.enums.MeetingStatus;
 import com.ptithcm.ptitmeet.entity.enums.ParticipantApprovalStatus;
@@ -163,6 +164,93 @@ class MeetingServiceTest {
         assertEquals("PENDING", response.getStatus());
         assertEquals("The meeting has not started yet. Please wait for the host to join.", response.getMessage());
         verify(liveKitService, never()).generateJoinToken(any(String.class), any(String.class), any(String.class));
+    }
+
+    @Test
+    void joinMeetingShouldApproveInvitedParticipantAfterHostStartsScheduledMeeting() {
+        UUID hostId = UUID.randomUUID();
+        UUID attendeeId = UUID.randomUUID();
+        Meeting meeting = Meeting.builder()
+                .meetingId(UUID.randomUUID())
+                .hostId(hostId)
+                .meetingCode("room-123")
+                .status(MeetingStatus.ACTIVE)
+                .accessType(MeetingAccessType.TRUSTED)
+                .settings("{\"waitingRoom\":true}")
+                .build();
+        User attendee = User.builder()
+                .userId(attendeeId)
+                .email("Guest@Example.com")
+                .fullName("Guest User")
+                .build();
+
+        when(meetingRepository.findByMeetingCode("room-123")).thenReturn(Optional.of(meeting));
+        when(userRepository.findByUserId(attendeeId)).thenReturn(Optional.of(attendee));
+        when(participantRepository.findByMeetingAndUser(meeting, attendee)).thenReturn(Optional.empty());
+        when(meetingInvitationRepository.existsByMeetingAndEmailIgnoreCase(meeting, "guest@example.com"))
+                .thenReturn(true);
+        when(participantRepository.save(any(Participant.class))).thenAnswer(invocation -> {
+            Participant participant = invocation.getArgument(0);
+            if (participant.getParticipantId() == null) {
+                participant.setParticipantId(UUID.randomUUID());
+            }
+            return participant;
+        });
+        when(sessionRepository.findByParticipant(any(Participant.class))).thenReturn(List.of());
+        when(sessionRepository.findActiveSessionsByMeetingCode("room-123")).thenReturn(List.of());
+        when(sessionRepository.save(any(ParticipantSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(liveKitService.generateJoinToken("room-123", "Guest User", attendeeId.toString()))
+                .thenReturn("join-token");
+        when(liveKitService.getLivekitUrl()).thenReturn("wss://livekit.example");
+
+        JoinMeetingResponse response = meetingService.joinMeeting(
+                "room-123",
+                JoinMeetingRequest.builder().displayName("Guest").build(),
+                attendeeId);
+
+        assertEquals("APPROVED", response.getStatus());
+        assertEquals("join-token", response.getToken());
+    }
+
+    @Test
+    void joinMeetingShouldNotifyHostTopicWhenParticipantWaitsAfterHostStartsScheduledMeeting() {
+        UUID hostId = UUID.randomUUID();
+        UUID attendeeId = UUID.randomUUID();
+        Meeting meeting = Meeting.builder()
+                .meetingId(UUID.randomUUID())
+                .hostId(hostId)
+                .meetingCode("room-123")
+                .status(MeetingStatus.ACTIVE)
+                .accessType(MeetingAccessType.TRUSTED)
+                .settings("{\"waitingRoom\":true}")
+                .build();
+        User attendee = User.builder()
+                .userId(attendeeId)
+                .email("guest@example.com")
+                .fullName("Guest User")
+                .build();
+
+        when(meetingRepository.findByMeetingCode("room-123")).thenReturn(Optional.of(meeting));
+        when(userRepository.findByUserId(attendeeId)).thenReturn(Optional.of(attendee));
+        when(participantRepository.findByMeetingAndUser(meeting, attendee)).thenReturn(Optional.empty());
+        when(participantRepository.save(any(Participant.class))).thenAnswer(invocation -> {
+            Participant participant = invocation.getArgument(0);
+            if (participant.getParticipantId() == null) {
+                participant.setParticipantId(UUID.randomUUID());
+            }
+            return participant;
+        });
+        when(sessionRepository.findByParticipant(any(Participant.class))).thenReturn(List.of());
+
+        JoinMeetingResponse response = meetingService.joinMeeting(
+                "room-123",
+                JoinMeetingRequest.builder().displayName("Guest").build(),
+                attendeeId);
+
+        assertEquals("PENDING", response.getStatus());
+        verify(messagingTemplate).convertAndSend(
+                org.mockito.ArgumentMatchers.eq("/topic/meeting/room-123/host"),
+                any(ParticipantResponse.class));
     }
 
     @Test

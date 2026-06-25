@@ -68,7 +68,7 @@ public class MeetingRealtimeClient {
     }
 
     public String subscribeToSystem(StompSocketClient.MessageListener listener) {
-        return meetingSocketClient.subscribe("/topic/meeting/" + meetingCode, listener);
+        return meetingSocketClient.subscribe("/topic/meeting/" + meetingCode + "/system", listener);
     }
 
     public String subscribeToChat(StompSocketClient.MessageListener listener) {

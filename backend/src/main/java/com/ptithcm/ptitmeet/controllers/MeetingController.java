@@ -140,7 +140,7 @@ public class MeetingController {
     ) {
         meetingService.processParticipantApproval(code, getCurrentUserId(), request);
         
-        String msg = "APPROVED".equalsIgnoreCase(request.getAction()) ? "Participant approved" : "Participant rejected";
+        String msg = "APPROVED".equalsIgnoreCase(request.getAction()) ? "Đã duyệt thành viên" : "Đã từ chối thành viên";
         return ResponseEntity.ok(ApiResponse.success(null, msg));
     }
 

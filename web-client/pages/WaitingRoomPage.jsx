@@ -258,27 +258,32 @@ const WaitingRoomPage = () => {
 
   const connectWebSocket = () => {
     const userId = user?.userId || user?.id;
+    const handleApprovalMessage = (message) => {
+      const res = JSON.parse(message.body);
+      const action = res.action || res.status;
+      const approvalResult = {
+        ...pendingJoinInfoRef.current,
+        ...res,
+        status: action,
+      };
+
+      if (action === "APPROVED") {
+        goToMeetingRoom(approvalResult);
+      } else if (action === "REJECTED") {
+        setJoinState("IDLE");
+        setErrorMsg("Your request to join the meeting was rejected by the host.");
+        client.deactivate();
+      }
+    };
+
     const client = new Client({
       brokerURL: getWebSocketUrl('meeting', userId),
       reconnectDelay: 5000,
       onConnect: () => {
-        client.subscribe("/user/queue/approval", (message) => {
-          const res = JSON.parse(message.body);
-          const action = res.action || res.status;
-          const approvalResult = {
-            ...pendingJoinInfoRef.current,
-            ...res,
-            status: action,
-          };
-
-          if (action === "APPROVED") {
-            goToMeetingRoom(approvalResult);
-          } else if (action === "REJECTED") {
-            setJoinState("IDLE");
-            setErrorMsg("Your request to join the meeting was rejected by the host.");
-            client.deactivate();
-          }
-        });
+        client.subscribe("/user/queue/approval", handleApprovalMessage);
+        if (userId) {
+          client.subscribe(`/topic/meeting/${code}/user/${userId}`, handleApprovalMessage);
+        }
 
         client.subscribe(`/topic/meeting/${code}/waiting-room`, async (msg) => {
           if (msg.body === "HOST_JOINED" || msg.body === "SETTINGS_CHANGED") {
