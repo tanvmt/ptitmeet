@@ -18,6 +18,8 @@ import java.util.UUID;
 public interface MeetingRepository extends JpaRepository<Meeting, UUID> {
     
     Optional<Meeting> findByMeetingCode(String meetingCode);
+
+    Optional<Meeting> findByMeetingCodeIgnoreCase(String meetingCode);
     
     boolean existsByMeetingCode(String meetingCode);
     

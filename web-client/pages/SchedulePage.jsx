@@ -80,9 +80,14 @@ const SchedulePage = () => {
       };
 
       const newMeeting = await meetingService.scheduleMeeting(payload);
+      const meetingCode = newMeeting.meetingCode || newMeeting.meeting_code;
 
-      alert(`Đã lên lịch thành công! Mã phòng: ${newMeeting.meetingCode}`);
-      navigate("/");
+      alert(`Đã lên lịch thành công! Mã phòng: ${meetingCode}`);
+      navigate("/dashboard", {
+        state: {
+          scheduledMeeting: newMeeting,
+        },
+      });
     } catch (error) {
       setErrorMsg(
         error.response?.data?.message || "Có lỗi xảy ra khi lên lịch."

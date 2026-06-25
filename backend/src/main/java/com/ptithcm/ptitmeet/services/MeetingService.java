@@ -1,8 +1,9 @@
 package com.ptithcm.ptitmeet.services;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -31,17 +32,17 @@ import com.ptithcm.ptitmeet.entity.enums.ParticipantApprovalStatus;
 import com.ptithcm.ptitmeet.entity.enums.ParticipantRole;
 import com.ptithcm.ptitmeet.entity.enums.SessionStatus;
 import com.ptithcm.ptitmeet.entity.mysql.Meeting;
-import com.ptithcm.ptitmeet.entity.mysql.MeetingInvitation;
 import com.ptithcm.ptitmeet.entity.mysql.MeetingFeedback;
+import com.ptithcm.ptitmeet.entity.mysql.MeetingInvitation;
 import com.ptithcm.ptitmeet.entity.mysql.Participant;
 import com.ptithcm.ptitmeet.entity.mysql.ParticipantSession;
 import com.ptithcm.ptitmeet.entity.mysql.User;
 import com.ptithcm.ptitmeet.exception.AppException;
 import com.ptithcm.ptitmeet.exception.ErrorCode;
 import com.ptithcm.ptitmeet.repositories.ChatMessageRepository;
+import com.ptithcm.ptitmeet.repositories.MeetingFeedbackRepository;
 import com.ptithcm.ptitmeet.repositories.MeetingInvitationRepository;
 import com.ptithcm.ptitmeet.repositories.MeetingRepository;
-import com.ptithcm.ptitmeet.repositories.MeetingFeedbackRepository;
 import com.ptithcm.ptitmeet.repositories.ParticipantRepository;
 import com.ptithcm.ptitmeet.repositories.ParticipantSessionRepository;
 import com.ptithcm.ptitmeet.repositories.UserRepository;
@@ -162,10 +163,14 @@ public class MeetingService {
 
         if (request.getParticipantEmails() != null && !request.getParticipantEmails().isEmpty()) {
 
-            List<String> uniqueEmails = request.getParticipantEmails().stream().distinct().toList();
+            List<String> uniqueEmails = request.getParticipantEmails().stream()
+                    .map(this::normalizeEmail)
+                    .filter(email -> !email.isBlank())
+                    .distinct()
+                    .toList();
 
             for (String email : uniqueEmails) {
-                User invitedUser = userRepository.findByEmail(email).orElse(null);
+                User invitedUser = userRepository.findByEmailIgnoreCase(email).orElse(null);
 
                 MeetingInvitation invitation = MeetingInvitation.builder()
                         .meeting(meeting)
@@ -304,7 +309,7 @@ public class MeetingService {
                     .status("PENDING")
                     .build();
 
-            messagingTemplate.convertAndSend("/topic/meeting/" + meetingCode + "/admin", notiData);
+            notifyHostOfWaitingParticipant(meetingCode, notiData);
 
             String message = (meeting.getStatus() == MeetingStatus.SCHEDULED)
                     ? "The meeting has not started yet. Please wait for the host to join."
@@ -324,7 +329,8 @@ public class MeetingService {
         }
 
         createNewSession(participant);
-        String token = liveKitService.generateJoinToken(meetingCode, user.getFullName(), userId.toString());
+        String token = liveKitService.generateJoinToken(
+                meeting.getMeetingCode(), user.getFullName(), userId.toString());
 
         return JoinMeetingResponse.builder()
                 .token(token)
@@ -388,7 +394,7 @@ public class MeetingService {
             createNewSession(participant);
 
             User guestUser = participant.getUser();
-            String token = liveKitService.generateJoinToken(meetingCode, guestUser.getFullName(),
+            String token = liveKitService.generateJoinToken(meeting.getMeetingCode(), guestUser.getFullName(),
                     guestUser.getUserId().toString());
 
             JoinMeetingResponse approvalResponse = JoinMeetingResponse.builder()
@@ -502,7 +508,7 @@ public class MeetingService {
                     .status("LEFT")
                     .build();
 
-            messagingTemplate.convertAndSend("/topic/meeting/" + code + "/admin", notiData);
+            notifyHostOfWaitingParticipant(code, notiData);
 
             participantRepository.delete(participant);
             return;
@@ -552,7 +558,6 @@ public class MeetingService {
             session.setStatus(SessionStatus.ENDED_BY_HOST);
         }
         sessionRepository.saveAll(activeSessions);
-
         messagingTemplate.convertAndSend("/topic/meeting/" + code + "/system", "MEETING_ENDED");
     }
 
@@ -681,6 +686,10 @@ public class MeetingService {
     }
 
     private boolean isUserInternal(String guestEmail, String hostEmail, String allowedDomain) {
+        if (guestEmail == null || guestEmail.isBlank()) {
+            return false;
+        }
+
         String domainToCheck = null;
 
         if (allowedDomain != null && !allowedDomain.isBlank()) {
@@ -707,8 +716,18 @@ public class MeetingService {
     }
 
     private boolean isUserInvited(Meeting meeting, User user) {
+        String email = normalizeEmail(user.getEmail());
         return meetingInvitationRepository.existsByMeetingAndUser(meeting, user) ||
-                meetingInvitationRepository.existsByMeetingAndEmail(meeting, user.getEmail());
+                (!email.isBlank() && meetingInvitationRepository.existsByMeetingAndEmailIgnoreCase(meeting, email));
+    }
+
+    private void notifyHostOfWaitingParticipant(String meetingCode, ParticipantResponse participant) {
+        messagingTemplate.convertAndSend("/topic/meeting/" + meetingCode + "/host", participant);
+        messagingTemplate.convertAndSend("/topic/meeting/" + meetingCode + "/admin", participant);
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 
     private String generateUniqueMeetingCode() {
@@ -927,7 +946,7 @@ public class MeetingService {
                 createNewSession(participant);
 
                 User guestUser = participant.getUser();
-                String token = liveKitService.generateJoinToken(code, guestUser.getFullName(),
+                String token = liveKitService.generateJoinToken(meeting.getMeetingCode(), guestUser.getFullName(),
                         guestUser.getUserId().toString());
 
                 JoinMeetingResponse approvalResponse = JoinMeetingResponse.builder()

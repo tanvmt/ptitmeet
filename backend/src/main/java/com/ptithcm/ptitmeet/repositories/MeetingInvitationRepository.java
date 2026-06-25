@@ -15,6 +15,8 @@ public interface MeetingInvitationRepository extends JpaRepository<MeetingInvita
     
     boolean existsByMeetingAndEmail(Meeting meeting, String email);
 
+    boolean existsByMeetingAndEmailIgnoreCase(Meeting meeting, String email);
+
     boolean existsByMeeting_MeetingIdAndEmail(UUID meetingId, String email);
     List<MeetingInvitation> findByMeeting_MeetingId(UUID meetingId);
 }

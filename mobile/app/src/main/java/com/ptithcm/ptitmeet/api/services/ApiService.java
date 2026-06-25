@@ -19,7 +19,6 @@ import com.ptithcm.ptitmeet.api.dto.meeting.JoinMeetingResponse;
 import com.ptithcm.ptitmeet.api.dto.meeting.MeetingHistoryResponse;
 import com.ptithcm.ptitmeet.api.dto.meeting.MeetingInfoResponse;
 import com.ptithcm.ptitmeet.api.dto.meeting.MeetingResponse;
-import com.ptithcm.ptitmeet.api.dto.meeting.UpdateMeetingRequest;
 import com.ptithcm.ptitmeet.api.dto.meeting.MeetingSummaryResponse;
 import com.ptithcm.ptitmeet.api.dto.meeting.ParticipantResponse;
 import com.ptithcm.ptitmeet.api.dto.recording.MeetingRecordingResponse;
@@ -61,7 +60,7 @@ public interface ApiService {
     Call<ApiResponse<Void>> forgotPassword(@Body ForgotPasswordRequest request);
 
     @POST("/api/auth/forgot-password-mobile")
-    Call<ApiResponse<Void>> forgotPasswordMobile(@Body ForgotPasswordRequest request);
+    Call<ApiResponse<Object>> forgotPasswordMobile(@Body ForgotPasswordRequest request);
 
     @POST("/api/auth/verify-reset-otp")
     Call<ApiResponse<VerifyResetOtpResponse>> verifyResetOtp(@Body VerifyResetOtpRequest request);
@@ -83,7 +82,7 @@ public interface ApiService {
     Call<ApiResponse<UserResponse>> uploadAvatar(@Part MultipartBody.Part file);
 
     @POST("/api/meetings/instant")
-    Call<ApiResponse<MeetingResponse>> createInstantMeeting(@Body CreateMeetingRequest request);
+    Call<ApiResponse<MeetingResponse>> createInstantMeeting();
 
     @POST("/api/meetings/schedule")
     Call<ApiResponse<MeetingResponse>> scheduleMeeting(@Body CreateMeetingRequest request);
@@ -107,12 +106,6 @@ public interface ApiService {
 
     @DELETE("/api/meetings/{meetingCode}")
     Call<ApiResponse<Void>> cancelMeeting(@Path("meetingCode") String meetingCode);
-
-    @PUT("/api/meetings/{meetingCode}")
-    Call<ApiResponse<MeetingResponse>> updateMeeting(
-            @Path("meetingCode") String meetingCode,
-            @Body UpdateMeetingRequest request
-    );
 
     @POST("/api/meetings/{meetingCode}/join")
     Call<ApiResponse<JoinMeetingResponse>> joinMeeting(
@@ -163,10 +156,7 @@ public interface ApiService {
     Call<ApiResponse<MeetingRecordingResponse>> startRecording(@Query("meetingCode") String meetingCode);
 
     @POST("/api/livekit/recordings/stop")
-    Call<MeetingRecordingResponse> stopRecording(@Query("egressId") String egressId);
-
-    @GET("/api/livekit/recordings/status")
-    Call<MeetingRecordingResponse> getRecordingStatus(@Query("egressId") String egressId);
+    Call<ApiResponse<Void>> stopRecording(@Query("egressId") String egressId);
 
     @GET("/api/livekit/recordings/my")
     Call<ApiResponse<List<MeetingRecordingResponse>>> getMyRecordings();

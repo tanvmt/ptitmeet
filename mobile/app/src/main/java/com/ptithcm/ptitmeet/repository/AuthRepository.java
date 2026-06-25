@@ -2,6 +2,7 @@ package com.ptithcm.ptitmeet.repository;
 
 import android.content.Context;
 
+import com.google.gson.Gson;
 import com.ptithcm.ptitmeet.api.SessionManager;
 import com.ptithcm.ptitmeet.api.dto.auth.AuthEnvelope;
 import com.ptithcm.ptitmeet.api.dto.auth.AuthResponse;
@@ -16,6 +17,9 @@ import com.ptithcm.ptitmeet.api.dto.user.UserResponse;
 import com.ptithcm.ptitmeet.api.services.ApiService;
 import com.ptithcm.ptitmeet.api.services.RetrofitClient;
 
+import java.io.IOException;
+
+import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -30,6 +34,7 @@ public class AuthRepository {
 
     private final ApiService apiService;
     private final SessionManager sessionManager;
+    private final Gson gson = new Gson();
 
     public AuthRepository(Context context) {
         Context appContext = context.getApplicationContext();
@@ -81,18 +86,18 @@ public class AuthRepository {
     }
 
     public void forgotPasswordMobile(String email, DataCallback<Void> callback) {
-        apiService.forgotPasswordMobile(new ForgotPasswordRequest(email)).enqueue(new Callback<ApiResponse<Void>>() {
+        apiService.forgotPasswordMobile(new ForgotPasswordRequest(email)).enqueue(new Callback<ApiResponse<Object>>() {
             @Override
-            public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+            public void onResponse(Call<ApiResponse<Object>> call, Response<ApiResponse<Object>> response) {
                 if (response.isSuccessful()) {
                     callback.onSuccess(null);
                 } else {
-                    callback.onError(response.body() != null ? response.body().getMessage() : "Unable to send reset email.");
+                    callback.onError(extractErrorMessage(response, "Unable to send reset email."));
                 }
             }
 
             @Override
-            public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+            public void onFailure(Call<ApiResponse<Object>> call, Throwable t) {
                 callback.onError("Cannot connect to server. Check your network and try again.");
             }
         });
@@ -109,7 +114,7 @@ public class AuthRepository {
                                 && response.body().getData().getResetToken() != null) {
                             callback.onSuccess(response.body().getData());
                         } else {
-                            callback.onError(response.body() != null ? response.body().getMessage() : "Invalid or expired code.");
+                            callback.onError(extractErrorMessage(response, "Invalid or expired code."));
                         }
                     }
 
@@ -127,7 +132,7 @@ public class AuthRepository {
                 if (response.isSuccessful()) {
                     callback.onSuccess(null);
                 } else {
-                    callback.onError(response.body() != null ? response.body().getMessage() : "Unable to update password.");
+                    callback.onError(extractErrorMessage(response, "Unable to update password."));
                 }
             }
 
@@ -136,5 +141,29 @@ public class AuthRepository {
                 callback.onError("Cannot connect to server. Check your network and try again.");
             }
         });
+    }
+
+    private String extractErrorMessage(Response<?> response, String fallback) {
+        if (response.body() instanceof ApiResponse) {
+            String message = ((ApiResponse<?>) response.body()).getMessage();
+            if (message != null && !message.trim().isEmpty()) {
+                return message;
+            }
+        }
+
+        ResponseBody errorBody = response.errorBody();
+        if (errorBody == null) {
+            return fallback;
+        }
+
+        try {
+            ApiResponse<?> apiResponse = gson.fromJson(errorBody.string(), ApiResponse.class);
+            if (apiResponse != null && apiResponse.getMessage() != null && !apiResponse.getMessage().trim().isEmpty()) {
+                return apiResponse.getMessage();
+            }
+        } catch (IOException ignored) {
+        } catch (RuntimeException ignored) {
+        }
+        return fallback;
     }
 }

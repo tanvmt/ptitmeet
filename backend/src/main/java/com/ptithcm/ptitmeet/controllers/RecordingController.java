@@ -35,8 +35,10 @@ public class RecordingController {
             MeetingRecording recording = recordingService.startRoomRecording(meetingCode, getCurrentUserId());
 
             return ResponseEntity.ok(ApiResponse.success(recording, "")); // Returns object containing egressId for React
+        } catch (AppException e) {
+            throw e;
         } catch (Exception e) {
-
+            log.error("Unable to start recording for meetingCode: {}", meetingCode, e);
             throw new AppException(ErrorCode.UN_START_RECORD_MEETING_ROOM);
         }
     }

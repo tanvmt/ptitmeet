@@ -206,7 +206,7 @@ public class WaitingRoomViewModel extends AndroidViewModel {
     private void handleRealtimeUserMessage(String body) {
         try {
             JSONObject jsonObject = new JSONObject(body);
-            String status = jsonObject.optString("status");
+            String status = jsonObject.optString("status", jsonObject.optString("action"));
             if ("APPROVED".equalsIgnoreCase(status)) {
                 stopPolling();
                 uiEvent.postValue(new Event<>(WaitingRoomUiEvent.openMeetingRoom(parseJoinMeetingResponse(jsonObject))));
@@ -233,10 +233,11 @@ public class WaitingRoomViewModel extends AndroidViewModel {
     }
 
     private JoinMeetingResponse parseJoinMeetingResponse(JSONObject jsonObject) {
+        String status = jsonObject.optString("status", jsonObject.optString("action", null));
         return new JoinMeetingResponse(
                 jsonObject.optString("token", null),
                 jsonObject.optString("serverUrl", null),
-                jsonObject.optString("status", null),
+                status,
                 jsonObject.optString("role", null),
                 jsonObject.optString("message", null),
                 jsonObject.optString("settings", null),

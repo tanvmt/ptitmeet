@@ -80,9 +80,11 @@ public class LiveKitService {
     }
 
     @Transactional
-    public MeetingRecording startRoomRecording(String roomName, java.util.UUID userId) {
-        Meeting meeting = meetingRepository.findByMeetingCode(roomName)
+    public MeetingRecording startRoomRecording(String requestedRoomName, java.util.UUID userId) {
+        String normalizedRoomName = normalizeRoomName(requestedRoomName);
+        Meeting meeting = meetingRepository.findByMeetingCodeIgnoreCase(normalizedRoomName)
                 .orElseThrow(() -> new AppException(ErrorCode.MEETING_NOT_FOUND));
+        String roomName = meeting.getMeetingCode();
 
         java.util.UUID ownerId = meeting.getOwnerId() != null ? meeting.getOwnerId() : meeting.getHostId();
         if (!ownerId.equals(userId)) {
@@ -106,8 +108,7 @@ public class LiveKitService {
                 .setS3(s3Upload)
                 .build();
 
-
-                Call<EgressInfo> call = egressClient.startRoomCompositeEgress(roomName, fileOutput);
+        Call<EgressInfo> call = egressClient.startRoomCompositeEgress(roomName, fileOutput);
 
         try {
             Response<EgressInfo> response = call.execute();
@@ -220,6 +221,13 @@ public class LiveKitService {
         token.addGrants(new RoomJoin(true), new RoomName(roomName));
 
         return token.toJwt();
+    }
+
+    private String normalizeRoomName(String roomName) {
+        if (roomName == null || roomName.isBlank()) {
+            throw new AppException(ErrorCode.MEETING_NOT_FOUND);
+        }
+        return roomName.trim();
     }
 
 }

@@ -6,8 +6,12 @@ export const meetingService = {
         return response.data.data;
     },
 
-    joinMeeting: async (meetingCode, password = null) => {
-        const response = await api.post(`/meetings/${meetingCode}/join`, { password });
+    joinMeeting: async (meetingCode, password = null, displayName = null) => {
+        const payload = {};
+        if (password) payload.password = password;
+        if (displayName) payload.displayName = displayName;
+
+        const response = await api.post(`/meetings/${meetingCode}/join`, payload);
         return response.data.data;
     },
 
@@ -63,11 +67,15 @@ export const meetingService = {
     },
 
     startRecordMeeting: async (code) => {
-        return await api.post(`/livekit/recordings/start?meetingCode=${code}`);
+        return await api.post('/livekit/recordings/start', null, {
+            params: { meetingCode: String(code || '').trim() },
+        });
     },
 
     endRecordMeeting: async (egressId) => {
-        return await api.post(`/livekit/recordings/stop?egressId=${egressId}`);
+        return await api.post('/livekit/recordings/stop', null, {
+            params: { egressId },
+        });
     },
 
     getMeetingSummary: async (code, actionTaken) => {

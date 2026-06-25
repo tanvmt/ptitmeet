@@ -680,7 +680,7 @@ public class MeetingActivity extends AppCompatActivity {
         }
         try {
             JSONObject jsonObject = new JSONObject(currentMeetingSettings);
-            return jsonObject.optBoolean("chatEnabled", true);
+            return jsonObject.optBoolean("chatEnabled", jsonObject.optBoolean("allowChat", true));
         } catch (Exception e) {
             return true;
         }
@@ -771,6 +771,18 @@ public class MeetingActivity extends AppCompatActivity {
                 if (jsonObject.has(key)) {
                     settingsMap.put(key, jsonObject.get(key));
                 }
+            }
+            if (!jsonObject.has("muteAudioOnEntry") && jsonObject.has("muteOnEntry")) {
+                settingsMap.put("muteAudioOnEntry", jsonObject.get("muteOnEntry"));
+            }
+            if (!jsonObject.has("muteVideoOnEntry") && jsonObject.has("cameraOffOnEntry")) {
+                settingsMap.put("muteVideoOnEntry", jsonObject.get("cameraOffOnEntry"));
+            }
+            if (!jsonObject.has("chatEnabled") && jsonObject.has("allowChat")) {
+                settingsMap.put("chatEnabled", jsonObject.get("allowChat"));
+            }
+            if (!jsonObject.has("screenShareEnabled") && jsonObject.has("allowScreenShare")) {
+                settingsMap.put("screenShareEnabled", jsonObject.get("allowScreenShare"));
             }
         } catch (Exception ignored) {
         }
@@ -1261,12 +1273,7 @@ public class MeetingActivity extends AppCompatActivity {
     private void toggleScreenSharing() {
         boolean screenShareAllowed = isHostLikeRole();
         if (!screenShareAllowed) {
-            try {
-                JSONObject jsonObject = new JSONObject(currentMeetingSettings);
-                screenShareAllowed = jsonObject.optBoolean("screenShareEnabled", true);
-            } catch (Exception e) {
-                screenShareAllowed = true;
-            }
+            screenShareAllowed = Boolean.TRUE.equals(parseSettingsToMap(currentMeetingSettings).get("screenShareEnabled"));
         }
 
         if (!screenShareAllowed) {
